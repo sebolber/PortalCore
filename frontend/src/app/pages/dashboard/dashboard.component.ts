@@ -98,8 +98,8 @@ import { RouterModule } from '@angular/router';
         </thead>
         <tbody>
           <tr *ngFor="let fall of faelle; let odd = odd"
-              [class.bg-gray-50/50]="odd"
-              class="border-b border-gray-100 last:border-0 hover:bg-blue-50/30 transition-colors">
+              [ngClass]="{'bg-gray-50': odd}"
+              class="border-b border-gray-100 last:border-0 hover:bg-blue-50 transition-colors">
             <td class="px-4 py-3 font-mono text-xs font-medium text-gray-800">{{ fall.fallNr }}</td>
             <td class="px-4 py-3 text-gray-600">{{ fall.patient }}</td>
             <td class="px-4 py-3 text-gray-500">{{ fall.krankenhaus }}</td>
@@ -131,8 +131,8 @@ import { RouterModule } from '@angular/router';
         </thead>
         <tbody>
           <tr *ngFor="let r of rechnungen; let odd = odd"
-              [class.bg-gray-50/50]="odd"
-              class="border-b border-gray-100 last:border-0 hover:bg-blue-50/30 transition-colors">
+              [ngClass]="{'bg-gray-50': odd}"
+              class="border-b border-gray-100 last:border-0 hover:bg-blue-50 transition-colors">
             <td class="px-4 py-3 font-mono text-xs font-medium text-gray-800">{{ r.rechnungsNr }}</td>
             <td class="px-4 py-3 text-gray-600">{{ r.krankenhaus }}</td>
             <td class="px-4 py-3 text-right font-medium text-gray-800">{{ r.betrag | number:'1.2-2' }} &euro;</td>
