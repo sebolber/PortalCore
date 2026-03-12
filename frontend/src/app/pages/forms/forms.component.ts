@@ -41,11 +41,11 @@ interface PortalForm {
         </div>
         <div class="bg-white border border-gray-200 rounded-xl p-4">
           <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Aktiv</p>
-          <p class="text-2xl font-bold text-green-600 mt-1">{{ forms().filter(f => f.status === 'aktiv').length }}</p>
+          <p class="text-2xl font-bold text-green-600 mt-1">{{ activeCount() }}</p>
         </div>
         <div class="bg-white border border-gray-200 rounded-xl p-4">
           <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Entwurf</p>
-          <p class="text-2xl font-bold text-yellow-600 mt-1">{{ forms().filter(f => f.status === 'entwurf').length }}</p>
+          <p class="text-2xl font-bold text-yellow-600 mt-1">{{ draftCount() }}</p>
         </div>
         <div class="bg-white border border-gray-200 rounded-xl p-4">
           <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Einreichungen</p>
@@ -145,6 +145,8 @@ export class FormsComponent {
     { id: 'f-6', name: 'Feedback-Formular (Entwurf)', typ: 'umfrage', felder: 10, einreichungen: 0, version: '0.1', status: 'entwurf' },
   ]);
 
+  readonly activeCount = computed(() => this.forms().filter(f => f.status === 'aktiv').length);
+  readonly draftCount = computed(() => this.forms().filter(f => f.status === 'entwurf').length);
   readonly totalSubmissions = computed(() => this.forms().reduce((sum, f) => sum + f.einreichungen, 0));
 
   readonly filteredForms = computed(() => {

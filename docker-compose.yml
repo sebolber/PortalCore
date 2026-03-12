@@ -18,5 +18,24 @@ services:
       timeout: 5s
       retries: 5
 
+  backend:
+    build: ./backend
+    container_name: portal-backend
+    environment:
+      DB_HOST: postgres
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    container_name: portal-frontend
+    ports:
+      - "4200:80"
+    depends_on:
+      - backend
+
 volumes:
   portal-data:
