@@ -77,4 +77,19 @@ public class MessageService {
     public List<PortalMessage> findUnreadByTenant(String tenantId) {
         return portalMessageRepository.findByTenantIdAndReadFalseOrderByTimestampDesc(tenantId);
     }
+
+    public List<PortalMessage> listMessages(de.portalcore.enums.MessageCategory category, String tenantId) {
+        List<PortalMessage> messages;
+        if (tenantId != null && !tenantId.isBlank()) {
+            messages = findByTenant(tenantId);
+        } else {
+            messages = findAll();
+        }
+        if (category != null) {
+            messages = messages.stream()
+                    .filter(m -> category.equals(m.getCategory()))
+                    .collect(java.util.stream.Collectors.toList());
+        }
+        return messages;
+    }
 }

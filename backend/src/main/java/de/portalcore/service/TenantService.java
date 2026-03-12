@@ -54,4 +54,12 @@ public class TenantService {
         return tenantRepository.findByShortName(shortName)
                 .orElseThrow(() -> new EntityNotFoundException("Tenant not found with shortName: " + shortName));
     }
+
+    public List<Tenant> listTenants() {
+        return findAll();
+    }
+
+    public Tenant getTenantById(String id) {
+        return findById(id);
+    }
 }

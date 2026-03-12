@@ -101,4 +101,17 @@ public class AufgabenService {
         }
         aufgabenGruppeRepository.deleteById(id);
     }
+
+    public List<AufgabenZuweisung> listZuweisungen(String mitarbeiterId, String gruppeId, String produktId) {
+        List<AufgabenZuweisung> all = findAllZuweisungen();
+        return all.stream()
+                .filter(z -> mitarbeiterId == null || mitarbeiterId.isBlank() || mitarbeiterId.equals(z.getMitarbeiterId()))
+                .filter(z -> gruppeId == null || gruppeId.isBlank() || gruppeId.equals(z.getGruppeId()))
+                .filter(z -> produktId == null || produktId.isBlank() || produktId.equals(z.getProduktId()))
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    public List<AufgabenGruppe> listGruppen() {
+        return findAllGruppen();
+    }
 }

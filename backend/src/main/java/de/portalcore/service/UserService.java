@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
@@ -68,5 +69,40 @@ public class UserService {
     public PortalUser findByEmail(String email) {
         return portalUserRepository.findByEmail(email)
                 .orElseThrow(() -> new EntityNotFoundException("PortalUser not found with email: " + email));
+    }
+
+    public List<PortalUser> listUsers(String tenantId, UserStatus status, String search) {
+        List<PortalUser> users;
+        if (tenantId != null && !tenantId.isBlank()) {
+            users = findByTenant(tenantId);
+        } else {
+            users = findAll();
+        }
+        return users.stream()
+                .filter(u -> status == null || u.getStatus() == status)
+                .filter(u -> search == null || search.isBlank()
+                        || (u.getVorname() != null && u.getVorname().toLowerCase().contains(search.toLowerCase()))
+                        || (u.getNachname() != null && u.getNachname().toLowerCase().contains(search.toLowerCase()))
+                        || (u.getEmail() != null && u.getEmail().toLowerCase().contains(search.toLowerCase())))
+                .collect(Collectors.toList());
+    }
+
+    public PortalUser getUserById(String id) {
+        return findById(id);
+    }
+
+    @Transactional
+    public PortalUser createUser(PortalUser user) {
+        return create(user);
+    }
+
+    @Transactional
+    public PortalUser updateUser(String id, PortalUser user) {
+        return update(id, user);
+    }
+
+    @Transactional
+    public void deleteUser(String id) {
+        delete(id);
     }
 }

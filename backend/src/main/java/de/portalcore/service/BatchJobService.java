@@ -105,4 +105,49 @@ public class BatchJobService {
     public List<BatchJob> findByStatus(BatchStatus status) {
         return batchJobRepository.findByStatus(status);
     }
+
+    public List<BatchJob> listJobs(BatchStatus status, String produktId) {
+        List<BatchJob> jobs;
+        if (status != null) {
+            jobs = findByStatus(status);
+        } else {
+            jobs = findAll();
+        }
+        if (produktId != null && !produktId.isBlank()) {
+            jobs = jobs.stream()
+                    .filter(j -> produktId.equals(j.getProduktId()))
+                    .collect(java.util.stream.Collectors.toList());
+        }
+        return jobs;
+    }
+
+    @Transactional
+    public BatchJob startJob(String id) {
+        return start(id);
+    }
+
+    @Transactional
+    public BatchJob pauseJob(String id) {
+        return pause(id);
+    }
+
+    @Transactional
+    public BatchJob stopJob(String id) {
+        return stop(id);
+    }
+
+    @Transactional
+    public BatchJob restartJob(String id) {
+        return restart(id);
+    }
+
+    @Transactional
+    public void removeFromQueue(String id) {
+        BatchJob job = findById(id);
+        if (job.getStatus() == BatchStatus.WARTEND) {
+            batchJobRepository.delete(job);
+        } else {
+            throw new IllegalStateException("Can only remove jobs with WARTEND status from queue. Current status: " + job.getStatus());
+        }
+    }
 }

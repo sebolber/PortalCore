@@ -66,4 +66,13 @@ public class InstalledAppService {
     public boolean isAppInstalled(String tenantId, String appId) {
         return installedAppRepository.existsByTenantIdAndAppId(tenantId, appId);
     }
+
+    public List<InstalledApp> listInstalledApps(String tenantId) {
+        return getInstalledApps(tenantId);
+    }
+
+    @Transactional
+    public InstalledApp installApp(String tenantId, String appId) {
+        return installApp(tenantId, appId, "system");
+    }
 }

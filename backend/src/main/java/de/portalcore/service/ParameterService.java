@@ -105,4 +105,28 @@ public class ParameterService {
                 parameter.getKey(), parameter.getId(),
                 parameter.getLastModified(), parameter.getLastModifiedBy());
     }
+
+    public List<PortalParameter> listParameters(String appId) {
+        if (appId != null && !appId.isBlank()) {
+            return getByApp(appId);
+        }
+        return findAll();
+    }
+
+    @Transactional
+    public PortalParameter updateParameter(String id, PortalParameter parameter) {
+        return update(id, parameter);
+    }
+
+    public java.util.List<java.util.Map<String, Object>> getAuditLog() {
+        List<PortalParameter> all = findAll();
+        return all.stream().map(p -> {
+            java.util.Map<String, Object> entry = new java.util.HashMap<>();
+            entry.put("id", p.getId());
+            entry.put("key", p.getKey());
+            entry.put("lastModified", p.getLastModified());
+            entry.put("lastModifiedBy", p.getLastModifiedBy());
+            return entry;
+        }).collect(java.util.stream.Collectors.toList());
+    }
 }
