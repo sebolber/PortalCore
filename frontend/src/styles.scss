@@ -1,0 +1,86 @@
+/* Fira Sans fonts loaded via index.html <link> tag */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-primary: #006EC7;
+  --color-primary-dark: #004F8F;
+  --color-primary-light: #EBF3FA;
+}
+
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  @apply font-sans bg-gray-100 text-gray-900 m-0;
+}
+
+.dark body {
+  @apply bg-gray-900 text-gray-100;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  @apply font-condensed;
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary text-white px-4 py-2 rounded-lg font-medium transition-colors;
+  }
+  .btn-primary:hover {
+    @apply bg-primary-dark;
+  }
+
+  .btn-secondary {
+    @apply bg-white text-primary border border-primary px-4 py-2 rounded-lg font-medium transition-colors;
+  }
+
+  .card {
+    @apply bg-white rounded-xl p-6 shadow-card;
+  }
+
+  .dark .card {
+    @apply bg-gray-800;
+  }
+
+  .input-field {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-lg text-sm;
+  }
+
+  .badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold;
+  }
+
+  .badge-primary {
+    @apply bg-primary-light text-primary;
+  }
+
+  .badge-success {
+    background-color: rgba(40, 167, 69, 0.1);
+    color: #28A745;
+  }
+
+  .badge-warning {
+    background-color: rgba(255, 193, 7, 0.1);
+    color: #FFC107;
+  }
+
+  .badge-error {
+    background-color: rgba(204, 51, 51, 0.1);
+    color: #CC3333;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  @apply bg-gray-100;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-400 rounded-full;
+}
