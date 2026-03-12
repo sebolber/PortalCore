@@ -1,6 +1,6 @@
 spring:
   application:
-    name: adesso-health-portal
+    name: health-portal
 
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:5432/portal
@@ -33,5 +33,5 @@ server:
 
 logging:
   level:
-    de.adesso.health.portal: DEBUG
+    de.portalcore: DEBUG
     org.springframework.security: DEBUG

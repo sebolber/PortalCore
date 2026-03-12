@@ -201,7 +201,7 @@ export class MessagesComponent {
     {
       id: 'msg-7',
       title: 'SSL-Zertifikat laeuft in 30 Tagen ab',
-      body: 'Das SSL-Zertifikat fuer portal.adesso-health.de laeuft am 11. April 2026 ab. Bitte erneuern Sie das Zertifikat rechtzeitig.',
+      body: 'Das SSL-Zertifikat fuer portal.health-portal.de laeuft am 11. April 2026 ab. Bitte erneuern Sie das Zertifikat rechtzeitig.',
       severity: 'warning',
       category: 'system',
       sender: 'Monitoring',

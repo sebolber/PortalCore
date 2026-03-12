@@ -12,7 +12,7 @@ import { RouterModule } from '@angular/router';
       <div class="flex items-center justify-between">
         <div>
           <h1 class="text-2xl font-bold mb-1">Willkommen zurueck, Sabine!</h1>
-          <p class="text-blue-100 text-sm">{{ today }} &mdash; adesso health Portal</p>
+          <p class="text-blue-100 text-sm">{{ today }} &mdash; Health Portal</p>
         </div>
         <div class="hidden sm:flex items-center gap-2 bg-white/10 rounded-lg px-4 py-2">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">

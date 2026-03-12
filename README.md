@@ -1,4 +1,4 @@
-# adesso health Portal
+# Health Portal
 
 Multi-tenant SPA platform for German healthcare organizations (Kassenaerztliche Vereinigungen, Kostentraeger, Krankenhaeuser).
 
@@ -45,7 +45,7 @@ The app runs at `http://localhost:4200`.
 
 ```
 backend/
-  src/main/java/de/adesso/health/portal/
+  src/main/java/de/portalcore/
     entity/         - JPA Entities
     enums/          - Enumerations
     repository/     - Spring Data Repositories
@@ -91,8 +91,8 @@ frontend/
 
 ## Design System
 
-Based on the adesso corporate styleguide:
-- Primary: adesso-Blau `#006EC7`
-- Neutral: adesso-Grau `#887D75` (warm gray scale)
+Custom design system:
+- Primary: `#006EC7`
+- Neutral: `#887D75` (warm gray scale)
 - Fonts: Fira Sans / Fira Sans Condensed
 - Dark Mode support

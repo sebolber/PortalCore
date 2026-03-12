@@ -1,7 +1,7 @@
 export type AppCategory = 'ABRECHNUNG' | 'FALLMANAGEMENT' | 'VERWALTUNG' | 'KI_AGENTEN' | 'ANALYSE' | 'KOMMUNIKATION' | 'INTEGRATION' | 'FORMULARE';
 export type MarketSegment = 'STEUERUNG_PRUEFSTELLEN' | 'KOSTENTRAEGER' | 'ABRECHNUNGSDIENSTLEISTER' | 'LEISTUNGSERBRINGER' | 'INFRASTRUKTUR_PLATTFORMEN' | 'OEFFENTLICHE_HAND_FORSCHUNG';
 export type AppType = 'anwendung' | 'integration';
-export type AppVendor = 'adesso_health' | 'adesso_se' | 'one_adesso' | 'drittanbieter';
+export type AppVendor = 'health_portal' | 'platform' | 'community' | 'drittanbieter';
 
 export interface PortalApp {
   id: string;
