@@ -1,4 +1,4 @@
--- adesso health Portal - Database Schema
+-- Health Portal - Database Schema
 
 -- Tenants
 CREATE TABLE tenants (

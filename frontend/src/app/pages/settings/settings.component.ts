@@ -62,7 +62,7 @@ import { FormsModule } from '@angular/forms';
             <div>
               <label class="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Organisation</label>
               <div class="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700">
-                adesso health GmbH
+                Health Portal GmbH
               </div>
             </div>
             <div>
@@ -203,7 +203,7 @@ import { FormsModule } from '@angular/forms';
 export class SettingsComponent {
   profile = {
     name: 'Sabine Mueller',
-    email: 'sabine.mueller@adesso-health.de',
+    email: 'sabine.mueller@health-portal.de',
   };
 
   theme = 'light';

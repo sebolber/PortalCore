@@ -104,32 +104,32 @@ export class InstalledAppsComponent {
     {
       id: 'inst-1', appId: 'kv-ai-abrechnung', name: 'KV AI Abrechnung',
       iconColor: '#006EC7', iconInitials: 'KV', version: '3.2.1', status: 'aktiv',
-      installedAt: '2025-08-15', vendorName: 'adesso health',
+      installedAt: '2025-08-15', vendorName: 'Health Portal',
     },
     {
       id: 'inst-2', appId: 'smile-kh', name: 'smile KH',
       iconColor: '#28DCAA', iconInitials: 'SK', version: '4.0.2', status: 'update_verfuegbar',
-      installedAt: '2025-06-01', vendorName: 'adesso health',
+      installedAt: '2025-06-01', vendorName: 'Health Portal',
     },
     {
       id: 'inst-3', appId: 'arztregister', name: 'Arztregister',
       iconColor: '#76C800', iconInitials: 'AR', version: '2.5.0', status: 'aktiv',
-      installedAt: '2025-09-10', vendorName: 'adesso health',
+      installedAt: '2025-09-10', vendorName: 'Health Portal',
     },
     {
       id: 'inst-4', appId: 'wb-foerderung', name: 'WB-Foerderung',
       iconColor: '#FF9868', iconInitials: 'WB', version: '1.8.2', status: 'aktiv',
-      installedAt: '2025-10-22', vendorName: 'adesso health',
+      installedAt: '2025-10-22', vendorName: 'Health Portal',
     },
     {
       id: 'inst-5', appId: 'dmp-manager', name: 'DMP Manager',
       iconColor: '#006EC7', iconInitials: 'DM', version: '2.1.0', status: 'aktiv',
-      installedAt: '2025-07-03', vendorName: 'adesso health',
+      installedAt: '2025-07-03', vendorName: 'Health Portal',
     },
     {
       id: 'inst-6', appId: 'smile-kv', name: 'smile KV',
       iconColor: '#F566BA', iconInitials: 'SV', version: '2.9.0', status: 'update_verfuegbar',
-      installedAt: '2025-05-18', vendorName: 'adesso health',
+      installedAt: '2025-05-18', vendorName: 'Health Portal',
     },
   ];
 
