@@ -644,7 +644,7 @@ export class SettingsComponent implements OnInit {
   readonly customMenuItems = signal<CustomMenuItem[]>([]);
 
   activeTab: 'profil' | 'darstellung' | 'email' | 'menue' = 'profil';
-  tabs: { key: typeof this.activeTab; label: string }[] = [];
+  tabs: { key: 'profil' | 'darstellung' | 'email' | 'menue'; label: string }[] = [];
 
   private buildTabs(): void {
     this.tabs = [
