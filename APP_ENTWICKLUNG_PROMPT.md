@@ -14,6 +14,10 @@
   - 2026-03-13: Parameter-System: Audit-Log, Typ-Validierung, zeitliche Gueltigkeit (gueltig_von/gueltig_bis)
   - 2026-03-13: Parameter-Mandanten: Mandantenspezifische Parameter mit tenant_id, Mandanten-Isolation
   - 2026-03-13: Portal CSS-Variablen: Theme-Integration mit --portal-primary/secondary/font CSS Custom Properties
+  - 2026-03-13: Nachrichtencenter: REST-API fuer Nachrichten, Aufgaben, Unteraufgaben, Anhänge -- Apps koennen Portal-Nachrichtencenter nutzen
+  - 2026-03-13: Dashboard-Widgets: Apps koennen eigene Widgets bereitstellen (ZAHL, LISTE, BALKEN, TORTE, QUICKLINK, TABELLE)
+  - 2026-03-13: Unteraufgaben: Aufgaben koennen in Unteraufgaben unterteilt werden mit eigenem Empfaengerkreis
+  - 2026-03-13: Posteingang-Widget: Dashboard-Widget mit scrollbarer Inbox-Liste
 
 ---
 
@@ -1180,9 +1184,243 @@ DELETE /api/apps/{appId}/use-cases/{id}     -- Use Case entfernen
 
 ---
 
-## 14. Checkliste fuer neue Apps
+## 14. Portal-Dienste: Nachrichtencenter-Integration
 
-### Pflicht -- ohne diese Punkte ist die App nicht installierbar
+Das Portal stellt ein zentrales **Nachrichtencenter** bereit, das Apps nutzen koennen, um Nachrichten und Aufgaben an Benutzer zu senden. Dadurch muessen Apps kein eigenes Messaging-System implementieren.
+
+### 14.1 Konzept
+
+Das Nachrichtencenter ist ein einheitliches System fuer:
+- **Nachrichten (NACHRICHT):** Benutzer-zu-Benutzer Mitteilungen
+- **Aufgaben (AUFGABE):** Zuweisbare Aufgaben mit Frist, Prioritaet und Unteraufgaben
+
+Beide Typen werden in der gleichen Tabelle `nachricht_items` gespeichert und ueber ein `typ`-Feld unterschieden.
+
+### 14.2 Nachrichten/Aufgaben ueber die Portal-API erstellen
+
+Apps koennen Nachrichten und Aufgaben ueber die Portal-REST-API erstellen. Der JWT-Token des Benutzers wird durchgereicht.
+
+```java
+// In der App: Nachricht/Aufgabe ueber Portal-API erstellen
+@Service
+public class PortalNachrichtService {
+
+    @Value("${portal.api.url:http://portal-backend:8080/api}")
+    private String portalApiUrl;
+
+    private final RestTemplate restTemplate;
+
+    public PortalNachrichtService(RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
+    }
+
+    /**
+     * Erstellt eine Aufgabe im Portal-Nachrichtencenter.
+     * Der JWT-Token wird vom Portal-Request durchgereicht.
+     */
+    public void aufgabeErstellen(String token, String betreff, String inhalt,
+                                  List<String> empfaengerIds, String frist) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        Map<String, Object> body = Map.of(
+            "typ", "AUFGABE",
+            "betreff", betreff,
+            "inhalt", inhalt,
+            "empfaengerIds", empfaengerIds,
+            "prioritaet", "NORMAL",
+            "frist", frist,
+            "referenzTyp", "meine-app",       // Optional: Verknuepfung zur App
+            "referenzId", "datensatz-123"      // Optional: Verknuepfung zum Datensatz
+        );
+
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
+        restTemplate.postForEntity(portalApiUrl + "/nachricht", entity, Map.class);
+    }
+}
+```
+
+### 14.3 REST-API Endpunkte
+
+| Methode | Pfad                                | Beschreibung                              |
+|---------|-------------------------------------|-------------------------------------------|
+| POST    | `/nachricht`                        | Nachricht oder Aufgabe erstellen          |
+| GET     | `/nachricht/posteingang`            | Posteingang des Benutzers                 |
+| GET     | `/nachricht/{id}`                   | Detail-Ansicht (markiert als gelesen)     |
+| PUT     | `/nachricht/{id}/erledigt`          | Als erledigt markieren                    |
+| POST    | `/nachricht/{id}/unteraufgaben`     | Unteraufgabe erstellen                    |
+| GET     | `/nachricht/{id}/unteraufgaben`     | Unteraufgaben auflisten                   |
+| POST    | `/nachricht/{id}/anhaenge`          | Dateianhang hochladen                     |
+
+### 14.4 Request-Body: Nachricht/Aufgabe erstellen
+
+```json
+{
+  "typ": "AUFGABE",
+  "betreff": "Quartalspruefung Q1 2026 durchfuehren",
+  "inhalt": "Bitte die Quartalspruefung fuer alle offenen Faelle durchfuehren...",
+  "prioritaet": "HOCH",
+  "frist": "2026-03-31T23:59:00",
+  "erinnerungAm": "2026-03-28T09:00:00",
+  "empfaengerIds": ["user-id-1", "user-id-2"],
+  "referenzTyp": "meine-app-pruefung",
+  "referenzId": "pruefung-q1-2026"
+}
+```
+
+**Felder:**
+
+| Feld           | Typ          | Pflicht | Beschreibung                                    |
+|----------------|--------------|---------|--------------------------------------------------|
+| `typ`          | String       | Nein    | `NACHRICHT` (Standard) oder `AUFGABE`            |
+| `betreff`      | String       | Ja      | Betreffzeile / Aufgabenname                      |
+| `inhalt`       | String       | Nein    | Langtext (Nachrichteninhalt / Aufgabenbeschreibung) |
+| `prioritaet`   | String       | Nein    | `NIEDRIG`, `NORMAL` (Standard), `HOCH`, `DRINGEND` |
+| `frist`        | DateTime     | Nein    | Frist fuer Aufgaben (ISO 8601)                   |
+| `erinnerungAm` | DateTime     | Nein    | Erinnerungszeitpunkt (ISO 8601)                  |
+| `empfaengerIds`| String[]     | Ja      | Liste von Benutzer-IDs als Empfaenger            |
+| `referenzTyp`  | String       | Nein    | App-Kennung fuer Verknuepfung                    |
+| `referenzId`   | String       | Nein    | Datensatz-ID fuer Verknuepfung                   |
+
+### 14.5 Request-Body: Unteraufgabe erstellen
+
+```json
+{
+  "betreff": "Teilpruefung Bereich A",
+  "inhalt": "Pruefung der Faelle 1-50",
+  "prioritaet": "NORMAL",
+  "frist": "2026-03-25T23:59:00",
+  "empfaengerIds": ["user-id-3"]
+}
+```
+
+Unteraufgaben koennen nur fuer Aufgaben (`typ = AUFGABE`) erstellt werden. Jede Unteraufgabe kann einem anderen Benutzerkreis zugewiesen werden.
+
+### 14.6 Response-DTO: NachrichtItem
+
+```json
+{
+  "id": "abc-123",
+  "typ": "AUFGABE",
+  "betreff": "Quartalspruefung Q1 2026",
+  "inhalt": "Bitte die Quartalspruefung...",
+  "erstellerId": "user-id-1",
+  "erstellerName": "Max Mustermann",
+  "erstellerInitialen": "MM",
+  "prioritaet": "HOCH",
+  "status": "OFFEN",
+  "frist": "2026-03-31T23:59:00",
+  "erinnerungAm": "2026-03-28T09:00:00",
+  "erstelltAm": "2026-03-13T10:00:00",
+  "systemGeneriert": false,
+  "referenzTyp": "meine-app-pruefung",
+  "referenzId": "pruefung-q1-2026",
+  "empfaenger": [
+    { "id": "user-id-2", "name": "Erika Musterfrau", "initialen": "EM", "gelesen": false, "archiviert": false, "erledigt": false }
+  ],
+  "anhaenge": [],
+  "gelesen": false,
+  "archiviert": false,
+  "erledigt": false,
+  "parentId": null,
+  "unteraufgabenGesamt": 3,
+  "unteraufgabenErledigt": 1
+}
+```
+
+### 14.7 Enums
+
+| Enum                | Werte                                          |
+|---------------------|-------------------------------------------------|
+| `NachrichtTyp`      | `NACHRICHT`, `AUFGABE`                          |
+| `NachrichtStatus`   | `OFFEN`, `IN_BEARBEITUNG`, `ERLEDIGT`, `ABGEBROCHEN` |
+| `NachrichtPrioritaet` | `NIEDRIG`, `NORMAL`, `HOCH`, `DRINGEND`       |
+
+---
+
+## 15. Portal-Dienste: Dashboard-Widget-Integration
+
+Apps koennen eigene **Dashboard-Widgets** bereitstellen, die auf dem konfigurierbaren Dashboard des Benutzers angezeigt werden.
+
+### 15.1 Konzept
+
+Das Dashboard verwendet ein 4-Spalten-Grid-Layout. Benutzer koennen Widgets hinzufuegen, verschieben, in der Groesse aendern und entfernen. Jede App kann Widget-Definitionen registrieren.
+
+### 15.2 Widget-Typen
+
+| Typ         | Beschreibung                                                |
+|-------------|--------------------------------------------------------------|
+| `ZAHL`      | Einzelner Zahlenwert mit Beschreibung (Counter-Widget)       |
+| `LISTE`     | Scrollbare Liste (z.B. Posteingang, letzte Eintraege)        |
+| `BALKEN`    | Balkendiagramm (pure CSS, kein Chart-Library)                |
+| `TORTE`     | Tortendiagramm (pure CSS mit conic-gradient)                 |
+| `QUICKLINK` | Schnellzugriff auf eine Portal-Seite oder App-Seite          |
+| `TABELLE`   | Tabellarische Daten                                          |
+
+### 15.3 Widget-Definition registrieren
+
+Widget-Definitionen werden in der Tabelle `widget_definitionen` gespeichert. Apps koennen diese per Flyway-Migration oder API registrieren.
+
+```sql
+INSERT INTO widget_definitionen (
+    id, widget_key, titel, beschreibung, kategorie, widget_typ,
+    standard_breite, standard_hoehe, min_breite, min_hoehe, max_breite, max_hoehe,
+    daten_endpunkt, link_ziel, app_id, app_name
+) VALUES (
+    'wd-meine-app-stats', 'meine-app.statistik', 'Meine App Statistik',
+    'Aktuelle Statistiken aus Meine App', 'APP', 'ZAHL',
+    1, 1, 1, 1, 2, 2,
+    '/api/meine-app/widget-data', '/meine-app',
+    'meine-app', 'Meine App'
+);
+```
+
+### 15.4 Widget-Definition Felder
+
+| Feld              | Typ         | Beschreibung                                        |
+|-------------------|-------------|------------------------------------------------------|
+| `id`              | VARCHAR(50) | Eindeutige ID (Prefix `wd-` empfohlen)               |
+| `widget_key`      | VARCHAR(100)| Eindeutiger Schluessel (format: `app-id.widget-name`) |
+| `titel`           | VARCHAR(200)| Anzeigename des Widgets                               |
+| `beschreibung`    | TEXT        | Beschreibung im Widget-Picker                         |
+| `kategorie`       | VARCHAR(50) | `PORTAL`, `APP` oder `QUICKLINK`                      |
+| `widget_typ`      | VARCHAR(50) | Einer der Widget-Typen (siehe 15.2)                   |
+| `standard_breite` | INT         | Standard-Breite in Grid-Spalten (1-4)                 |
+| `standard_hoehe`  | INT         | Standard-Hoehe in Grid-Zeilen                         |
+| `min_breite`      | INT         | Minimale Breite                                       |
+| `min_hoehe`       | INT         | Minimale Hoehe                                        |
+| `max_breite`      | INT         | Maximale Breite (max. 4)                              |
+| `max_hoehe`       | INT         | Maximale Hoehe                                        |
+| `daten_endpunkt`  | VARCHAR(500)| REST-Endpunkt fuer Widget-Daten                       |
+| `link_ziel`       | VARCHAR(500)| Navigation bei Klick auf das Widget                   |
+| `app_id`          | VARCHAR(50) | ID der zugehoerigen App (NULL fuer Portal-Widgets)    |
+| `app_name`        | VARCHAR(100)| Anzeigename der App                                   |
+
+### 15.5 Grid-Konstanten
+
+```
+GRID_COLS  = 4          -- 4 Spalten
+CELL_HEIGHT = 180px     -- Hoehe einer Grid-Zelle
+GAP        = 16px       -- Abstand zwischen Zellen
+```
+
+### 15.6 Bestehende Portal-Widgets
+
+| Widget-Key                     | Typ    | Beschreibung                                |
+|--------------------------------|--------|----------------------------------------------|
+| `portal.willkommen`           | ZAHL   | Willkommens-Banner                           |
+| `portal.offene-aufgaben`      | ZAHL   | Anzahl offener Aufgaben                      |
+| `portal.ungelesene-nachrichten` | ZAHL | Anzahl ungelesener Nachrichten               |
+| `portal.installierte-apps`    | ZAHL   | Anzahl installierter Apps                    |
+| `portal.letzte-apps`          | LISTE  | Zuletzt genutzte Apps                        |
+| `portal.posteingang`          | LISTE  | Scrollbare Inbox mit offenen Aufgaben/Nachrichten |
+
+---
+
+## 16. Checkliste fuer neue Apps
+
+### Pflicht -- ohne diese Punkte ist die App nicht im Portal installierbar
 
 - [ ] `portal-app.yaml` im Repository-Root vorhanden
 - [ ] `portal-app-menu.yaml` im Repository-Root vorhanden
@@ -1216,6 +1454,14 @@ DELETE /api/apps/{appId}/use-cases/{id}     -- Use Case entfernen
 - [ ] Flyway-Migrationen fuer alle Datenbank-Aenderungen
 - [ ] Sinnvolle Kategorisierung der Parameter
 
+### Portal-Dienste Integration (Empfohlen)
+
+- [ ] Nachrichtencenter: App nutzt Portal-API fuer Aufgaben/Nachrichten statt eigenes Messaging
+- [ ] Nachrichtencenter: `referenzTyp` und `referenzId` gesetzt fuer App-Verknuepfung
+- [ ] Dashboard-Widgets: Widget-Definitionen in `widget_definitionen` registriert
+- [ ] Dashboard-Widgets: `daten_endpunkt` liefert Widget-Daten per REST
+- [ ] Dashboard-Widgets: `link_ziel` verweist auf die App-Seite fuer Details
+
 ### Sicherheit
 
 - [ ] Keine Secrets in `portal-app.yaml` (Umgebungsvariablen nutzen)
@@ -1226,7 +1472,7 @@ DELETE /api/apps/{appId}/use-cases/{id}     -- Use Case entfernen
 
 ---
 
-## 15. Beispiel: Minimale App
+## 17. Beispiel: Minimale App
 
 Eine minimale App die alle Kriterien erfuellt:
 
@@ -1317,7 +1563,7 @@ VALUES ('p1', 'app.name', 'App-Name', 'demo-app', 'Demo App', 'Allgemein', 'STRI
 
 ---
 
-## 16. Aenderungsprotokoll
+## 18. Aenderungsprotokoll
 
 > **Regel:** Jedes Mal wenn neue Anforderungen, Schnittstellen oder Kriterien hinzukommen, die eine App erfuellen muss um im Portal installierbar zu sein, MUSS diese Datei aktualisiert werden.
 
@@ -1341,10 +1587,16 @@ VALUES ('p1', 'app.name', 'App-Name', 'demo-app', 'Demo App', 'Allgemein', 'STRI
 | 2026-03-13  | Parameter-Gueltigkeit: Zeitliche Gueltigkeit mit gueltig_von/gueltig_bis |
 | 2026-03-13  | Super-User: Standard-Super-Admin Sebastian Olberding (portal@olberding.net) |
 | 2026-03-13  | Parameter-Mandanten: tenant_id auf Parametern, Mandanten-Isolation im Backend |
+| 2026-03-13  | Nachrichtencenter: REST-API fuer Nachrichten & Aufgaben (CRUD, Empfaenger, Anhänge) |
+| 2026-03-13  | Unteraufgaben: parent_id Selbstreferenz, eigener Empfaengerkreis pro Unteraufgabe |
+| 2026-03-13  | Dashboard-Widgets: Konfigurierbares Widget-Dashboard mit 4-Spalten-Grid, Drag & Drop |
+| 2026-03-13  | Widget-Typen: ZAHL, LISTE, BALKEN, TORTE, QUICKLINK, TABELLE (pure CSS, keine Chart-Libs) |
+| 2026-03-13  | Posteingang-Widget: Scrollbare Inbox-Liste auf dem Dashboard |
+| 2026-03-13  | Portal-Dienste: Apps koennen Nachrichtencenter und Dashboard-Widgets nutzen |
 
 ---
 
-## 17. Haeufige Fehler
+## 19. Haeufige Fehler
 
 | Problem                                     | Loesung                                              |
 |---------------------------------------------|------------------------------------------------------|
@@ -1366,3 +1618,7 @@ VALUES ('p1', 'app.name', 'App-Name', 'demo-app', 'Demo App', 'Allgemein', 'STRI
 | Parameter nicht mehr gueltig               | `gueltig_bis` pruefen, ggf. mit neuem Zeitraum erneut freigeben |
 | Parameter eines anderen Mandanten sichtbar | `tenant_id` pruefen, muss dem eigenen Mandanten zugeordnet oder NULL (global) sein |
 | Mandantenspezifischer Parameter fehlt      | Parameter hat falschen `tenant_id`, Super-Admin kann alle sehen |
+| Nachricht wird nicht zugestellt            | `empfaengerIds` pruefen, Benutzer-IDs muessen existieren |
+| Unteraufgabe kann nicht erstellt werden    | Nur fuer `typ = AUFGABE` moeglich, nicht fuer Nachrichten |
+| Widget erscheint nicht im Picker           | `widget_definitionen` Eintrag pruefen, Kategorie korrekt? |
+| Widget zeigt keine Daten                   | `daten_endpunkt` pruefen, CORS konfiguriert? |

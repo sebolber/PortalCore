@@ -110,14 +110,45 @@ Basis-URL: `http://<host>:8080/api`
 | POST    | `/tenants/{tenantId}/installed-apps`         | App installieren (`{ "appId": "..." }`) |
 | DELETE  | `/tenants/{tenantId}/installed-apps/{appId}` | App deinstallieren               |
 
-### 3.3 Weitere relevante Endpunkte
+### 3.3 Nachrichtencenter (Messages & Tasks)
+
+| Methode | Pfad                                | Beschreibung                              |
+|---------|-------------------------------------|-------------------------------------------|
+| GET     | `/nachricht/posteingang`            | Posteingang des Benutzers (optional: `?typ=NACHRICHT\|AUFGABE`) |
+| GET     | `/nachricht/gesendet`               | Gesendete Nachrichten/Aufgaben            |
+| GET     | `/nachricht/archiv`                 | Archivierte Eintraege                     |
+| GET     | `/nachricht/ungelesen-anzahl`       | Anzahl ungelesener Eintraege              |
+| GET     | `/nachricht/{id}`                   | Nachricht/Aufgabe im Detail (markiert als gelesen) |
+| POST    | `/nachricht`                        | Nachricht oder Aufgabe erstellen          |
+| PUT     | `/nachricht/{id}/gelesen`           | Als gelesen markieren                     |
+| PUT     | `/nachricht/{id}/ungelesen`         | Als ungelesen markieren                   |
+| PUT     | `/nachricht/{id}/archivieren`       | Archivieren                               |
+| PUT     | `/nachricht/{id}/erledigt`          | Als erledigt markieren (auto-archiviert)  |
+| PUT     | `/nachricht/alle-gelesen`           | Alle als gelesen markieren                |
+| POST    | `/nachricht/{id}/unteraufgaben`     | Unteraufgabe zu einer Aufgabe erstellen   |
+| GET     | `/nachricht/{id}/unteraufgaben`     | Unteraufgaben einer Aufgabe auflisten     |
+| POST    | `/nachricht/{id}/anhaenge`          | Dateianhang hochladen (multipart)         |
+| GET     | `/nachricht/anhaenge/{anhangId}`    | Dateianhang herunterladen                 |
+
+### 3.4 Dashboard Widgets
+
+| Methode | Pfad                                     | Beschreibung                          |
+|---------|------------------------------------------|---------------------------------------|
+| GET     | `/dashboard/widget-definitionen`         | Alle verfuegbaren Widget-Definitionen |
+| GET     | `/dashboard/widgets`                     | Widgets des aktuellen Benutzers       |
+| POST    | `/dashboard/widgets`                     | Widget hinzufuegen                    |
+| PUT     | `/dashboard/widgets/layout`              | Layout aller Widgets speichern        |
+| DELETE  | `/dashboard/widgets/{id}`                | Widget entfernen                      |
+| GET     | `/dashboard/seiten`                      | Alle Portal-Seiten (fuer Quicklinks)  |
+
+### 3.5 Weitere relevante Endpunkte
 
 | Methode | Pfad                    | Beschreibung                         |
 |---------|-------------------------|--------------------------------------|
 | GET     | `/dashboard/stats`      | Portal-Statistiken                   |
 | GET     | `/permissions`          | Berechtigungen auflisten             |
 | GET/PUT | `/parameters`           | Systemparameter verwalten            |
-| GET     | `/messages`             | Nachrichten abrufen                  |
+| GET     | `/messages`             | System-Benachrichtigungen abrufen    |
 
 ---
 
@@ -402,10 +433,20 @@ Neue Tabellen und Seed-Daten ueber Flyway-Migrationen anlegen:
 
 ```
 backend/src/main/resources/db/migration/
-  V1__create_schema.sql      -- Bestehende Tabellen
-  V2__seed_data.sql           -- Bestehende Testdaten
-  V3__add_app_urls.sql        -- Bestehende Erweiterung
-  V4__meine_app_schema.sql    -- NEUE Migration fuer die App
+  V1__create_schema.sql                             -- Kern-Schema
+  V2__seed_data.sql                                 -- Testdaten
+  V3__add_app_urls.sql                              -- App-URLs
+  V4__add_deployment_fields.sql                     -- Docker Deployment
+  V5__auth_groups_permissions.sql                   -- Gruppen & Berechtigungen
+  V6__app_permissions_superadmin.sql                -- App Use Cases, Super-Admin
+  V7__superuser_parameter_audit.sql                 -- Parameter & Audit-Log
+  V8__parameter_tenant_support.sql                  -- Mandantenspezifische Parameter
+  V9__portal_theme_and_custom_menu.sql              -- Theme & Menue-Konfiguration
+  V10__email_config_and_auth_toggle.sql             -- E-Mail & Auth-Einstellungen
+  V11__nachrichtencenter.sql                        -- Nachrichtencenter (Messages & Tasks)
+  V12__dashboard_widgets.sql                        -- Dashboard-Widget-System
+  V13__unteraufgaben_und_posteingang_widget.sql     -- Unteraufgaben & Posteingang-Widget
+  V14__meine_app_schema.sql                         -- NEUE Migration fuer die App
 ```
 
 **Namenskonvention:** `V{nummer}__{beschreibung}.sql`
@@ -701,20 +742,36 @@ Nach Installation erscheint die App automatisch in der Sidebar unter **"Installi
 |----------------------------------------------------|-------------------------------------|
 | `docker-compose.yml`                               | Container-Konfiguration             |
 | `portal-app.example.yaml`                          | Beispiel-Manifest fuer App-Deployment |
+| `portal-init.example.yml`                          | Beispiel-Konfiguration fuer Ersteinrichtung |
 | `backend/src/main/resources/application.yml`       | Backend-Konfiguration               |
-| `backend/src/main/resources/db/migration/V1__*.sql`| Datenbank-Schema                    |
-| `backend/src/main/resources/db/migration/V4__*.sql`| Deployment-Felder Migration         |
+| `backend/src/main/resources/db/migration/V1-V13__*.sql` | Datenbank-Migrationen (13 Versionen) |
 | `backend/src/main/java/de/portalcore/entity/PortalApp.java` | App-Entity                 |
 | `backend/src/main/java/de/portalcore/entity/InstalledApp.java` | Installation-Entity      |
+| `backend/src/main/java/de/portalcore/entity/NachrichtItem.java` | Nachricht/Aufgabe Entity (mit Unteraufgaben) |
+| `backend/src/main/java/de/portalcore/entity/NachrichtEmpfaenger.java` | Empfaenger-Zuordnung (gelesen/archiviert/erledigt) |
+| `backend/src/main/java/de/portalcore/entity/NachrichtAnhang.java` | Dateianhang Entity |
+| `backend/src/main/java/de/portalcore/entity/WidgetDefinition.java` | Widget-Katalog Entity |
+| `backend/src/main/java/de/portalcore/entity/DashboardWidget.java` | Benutzer-Dashboard-Widget |
+| `backend/src/main/java/de/portalcore/entity/PortalSeite.java` | Portal-Seiten fuer Quicklinks |
+| `backend/src/main/java/de/portalcore/service/NachrichtService.java` | Nachrichtencenter-Logik |
+| `backend/src/main/java/de/portalcore/service/DashboardService.java` | Dashboard-Widget-Logik |
 | `backend/src/main/java/de/portalcore/service/DeploymentService.java` | Docker-Deployment-Logik |
+| `backend/src/main/java/de/portalcore/controller/NachrichtController.java` | Nachrichtencenter-API |
+| `backend/src/main/java/de/portalcore/controller/DashboardController.java` | Dashboard-API |
 | `backend/src/main/java/de/portalcore/controller/DeploymentController.java` | Deployment-API |
-| `backend/src/main/java/de/portalcore/enums/`       | Alle Enum-Werte                     |
 | `backend/src/main/java/de/portalcore/controller/AppController.java` | App-API             |
-| `frontend/src/app/models/app.model.ts`             | TypeScript-Modelle                  |
+| `backend/src/main/java/de/portalcore/enums/`       | Alle Enum-Werte (17 Enums)          |
+| `frontend/src/app/models/nachricht.model.ts`       | Nachricht-TypeScript-Modelle        |
+| `frontend/src/app/models/dashboard.model.ts`       | Dashboard-TypeScript-Modelle        |
+| `frontend/src/app/models/app.model.ts`             | App-TypeScript-Modelle              |
+| `frontend/src/app/services/nachricht.service.ts`   | Nachrichtencenter-Service           |
+| `frontend/src/app/services/dashboard.service.ts`   | Dashboard-Service                   |
 | `frontend/src/app/services/app.service.ts`         | App-Service                         |
 | `frontend/src/app/services/installed-app.service.ts`| Installations-Service              |
 | `frontend/src/app/services/deployment.service.ts`  | Deployment-Service (Frontend)       |
 | `frontend/src/app/services/portal-state.service.ts`| Globaler State                      |
+| `frontend/src/app/pages/nachrichtencenter/`        | Nachrichtencenter-UI (3-Panel)      |
+| `frontend/src/app/pages/dashboard/`                | Konfigurierbares Widget-Dashboard   |
 | `frontend/src/app/layout/sidebar.component.*`      | Sidebar mit installierten Apps      |
 | `frontend/src/app/app.routes.ts`                   | Routing-Konfiguration               |
 | `frontend/tailwind.config.ts`                      | Tailwind Design-Tokens              |
