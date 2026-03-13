@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/gruppen")
+@RequestMapping("/gruppen")
 public class GruppenController {
 
     private final GruppenService gruppenService;
