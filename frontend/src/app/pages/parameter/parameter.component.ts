@@ -54,29 +54,7 @@ import { AuthService } from '../../services/auth.service';
           @for (stat of paramStats(); track stat.label) {
             <button
               (click)="applyQuickFilter(stat.filterKey)"
-              class="bg-white rounded-lg border-2 p-4 shadow-card text-left transition-all cursor-pointer hover:shadow-md"
-              [class]="activeQuickFilter() === stat.filterKey
-                ? 'border-[' + stat.color + '] ring-2 ring-' + stat.ringClass + ' bg-' + stat.bgClass
-                : 'border-gray-200 hover:border-gray-300'"
-              [class.border-primary]="activeQuickFilter() === stat.filterKey && stat.filterKey === 'total'"
-              [class.ring-2]="activeQuickFilter() === stat.filterKey"
-              [class.ring-primary/20]="activeQuickFilter() === stat.filterKey && stat.filterKey === 'total'"
-              [class.bg-primary/5]="activeQuickFilter() === stat.filterKey && stat.filterKey === 'total'"
-              [class.border-accent-violet]="activeQuickFilter() === stat.filterKey && stat.filterKey === 'apps'"
-              [class.ring-accent-violet/20]="activeQuickFilter() === stat.filterKey && stat.filterKey === 'apps'"
-              [class.bg-accent-violet/5]="activeQuickFilter() === stat.filterKey && stat.filterKey === 'apps'"
-              [class.border-accent-turquoise]="activeQuickFilter() === stat.filterKey && stat.filterKey === 'groups'"
-              [class.ring-accent-turquoise/20]="activeQuickFilter() === stat.filterKey && stat.filterKey === 'groups'"
-              [class.bg-accent-turquoise/5]="activeQuickFilter() === stat.filterKey && stat.filterKey === 'groups'"
-              [class.border-accent-orange]="activeQuickFilter() === stat.filterKey && stat.filterKey === 'changes'"
-              [class.ring-accent-orange/20]="activeQuickFilter() === stat.filterKey && stat.filterKey === 'changes'"
-              [class.bg-accent-orange/5]="activeQuickFilter() === stat.filterKey && stat.filterKey === 'changes'"
-              [class.border-warning]="activeQuickFilter() === stat.filterKey && stat.filterKey === 'hotReload'"
-              [class.ring-warning/20]="activeQuickFilter() === stat.filterKey && stat.filterKey === 'hotReload'"
-              [class.bg-warning/5]="activeQuickFilter() === stat.filterKey && stat.filterKey === 'hotReload'"
-              [class.border-error]="activeQuickFilter() === stat.filterKey && stat.filterKey === 'sensitive'"
-              [class.ring-error/20]="activeQuickFilter() === stat.filterKey && stat.filterKey === 'sensitive'"
-              [class.bg-error/5]="activeQuickFilter() === stat.filterKey && stat.filterKey === 'sensitive'"
+              [class]="quickFilterCardClass(stat.filterKey)"
             >
               <div class="text-2xl font-semibold" [style.color]="stat.color">{{ stat.value }}</div>
               <div class="text-xs mt-1" [class]="activeQuickFilter() === stat.filterKey ? 'text-gray-700 font-medium' : 'text-gray-500'">{{ stat.label }}</div>
@@ -86,14 +64,6 @@ import { AuthService } from '../../services/auth.service';
 
         <!-- Filters -->
         <div class="flex flex-wrap gap-3 mb-4">
-          <input
-            type="text"
-            placeholder="Suche nach Schluessel, Label oder Beschreibung..."
-            [ngModel]="searchFilter()"
-            (ngModelChange)="searchFilter.set($event); activeQuickFilter.set('')"
-            class="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary w-72"
-          />
-
           <select
             [ngModel]="appFilter()"
             (ngModelChange)="appFilter.set($event); activeQuickFilter.set('')"
@@ -117,23 +87,6 @@ import { AuthService } from '../../services/auth.service';
           </select>
 
           <select
-            [ngModel]="typeFilter()"
-            (ngModelChange)="typeFilter.set($event); activeQuickFilter.set('')"
-            class="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-          >
-            <option value="">Alle Typen</option>
-            <option value="STRING">STRING</option>
-            <option value="NUMBER">NUMBER</option>
-            <option value="BOOLEAN">BOOLEAN</option>
-            <option value="EMAIL">EMAIL</option>
-            <option value="URL">URL</option>
-            <option value="SELECT">SELECT</option>
-            <option value="DATE">DATE</option>
-            <option value="PASSWORD">PASSWORD</option>
-            <option value="TEXTAREA">TEXTAREA</option>
-          </select>
-
-          <select
             [ngModel]="scopeFilter()"
             (ngModelChange)="scopeFilter.set($event); activeQuickFilter.set('')"
             class="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
@@ -142,6 +95,14 @@ import { AuthService } from '../../services/auth.service';
             <option value="global">Nur globale Parameter</option>
             <option value="tenant">Nur mandantenspezifische</option>
           </select>
+
+          <input
+            type="text"
+            placeholder="Suche nach Schluessel, Label oder Beschreibung..."
+            [ngModel]="searchFilter()"
+            (ngModelChange)="searchFilter.set($event); activeQuickFilter.set('')"
+            class="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary w-72"
+          />
 
           <select
             [ngModel]="booleanFilter()"
@@ -169,30 +130,45 @@ import { AuthService } from '../../services/auth.service';
           <table class="w-full text-sm min-w-[1100px]">
             <thead>
               <tr class="bg-gray-50 border-b border-gray-200">
-                <th class="text-left px-4 py-3 font-medium text-gray-600">Schluessel / Label</th>
-                <th class="text-left px-4 py-3 font-medium text-gray-600">App</th>
-                <th class="text-left px-4 py-3 font-medium text-gray-600">Gruppe</th>
-                <th class="text-left px-4 py-3 font-medium text-gray-600">Typ</th>
-                <th class="text-left px-4 py-3 font-medium text-gray-600">Wert</th>
-                <th class="text-left px-4 py-3 font-medium text-gray-600">Scope</th>
-                <th class="text-left px-4 py-3 font-medium text-gray-600">Flags</th>
+                <th (click)="toggleSort('appName')" class="text-left px-4 py-3 font-medium text-gray-600 cursor-pointer hover:text-gray-900 select-none">
+                  <span class="inline-flex items-center gap-1">App <span class="text-xs">{{ sortIndicator('appName') }}</span></span>
+                </th>
+                <th (click)="toggleSort('group')" class="text-left px-4 py-3 font-medium text-gray-600 cursor-pointer hover:text-gray-900 select-none">
+                  <span class="inline-flex items-center gap-1">Gruppe <span class="text-xs">{{ sortIndicator('group') }}</span></span>
+                </th>
+                <th (click)="toggleSort('scope')" class="text-left px-4 py-3 font-medium text-gray-600 cursor-pointer hover:text-gray-900 select-none">
+                  <span class="inline-flex items-center gap-1">Scope <span class="text-xs">{{ sortIndicator('scope') }}</span></span>
+                </th>
+                <th (click)="toggleSort('key')" class="text-left px-4 py-3 font-medium text-gray-600 cursor-pointer hover:text-gray-900 select-none">
+                  <span class="inline-flex items-center gap-1">Schluessel / Label <span class="text-xs">{{ sortIndicator('key') }}</span></span>
+                </th>
+                <th (click)="toggleSort('value')" class="text-left px-4 py-3 font-medium text-gray-600 cursor-pointer hover:text-gray-900 select-none">
+                  <span class="inline-flex items-center gap-1">Wert <span class="text-xs">{{ sortIndicator('value') }}</span></span>
+                </th>
+                <th (click)="toggleSort('flags')" class="text-left px-4 py-3 font-medium text-gray-600 cursor-pointer hover:text-gray-900 select-none">
+                  <span class="inline-flex items-center gap-1">Flags <span class="text-xs">{{ sortIndicator('flags') }}</span></span>
+                </th>
                 <th class="text-left px-4 py-3 font-medium text-gray-600 w-24"></th>
               </tr>
             </thead>
             <tbody>
               @for (param of filteredParameters(); track param.id) {
                 <tr class="border-b border-gray-100 hover:bg-gray-50 align-top">
+                  <td class="px-4 py-3 text-xs text-gray-600">{{ param.appName }}</td>
+                  <td class="px-4 py-3 text-xs text-gray-600">{{ param.group }}</td>
+                  <td class="px-4 py-3">
+                    @if (param.tenantId) {
+                      <span class="text-xs px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 font-medium" title="Mandantenspezifisch">Mandant: {{ param.tenantId }}</span>
+                    } @else {
+                      <span class="text-xs px-1.5 py-0.5 rounded bg-blue-50 text-blue-500 font-medium" title="Gilt fuer alle Mandanten">Global</span>
+                    }
+                  </td>
                   <td class="px-4 py-3">
                     <code class="text-xs font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{{ param.key }}</code>
                     <div class="text-sm font-medium text-gray-900 mt-0.5">{{ param.label }}</div>
                     @if (param.description) {
                       <div class="text-xs text-gray-400 mt-0.5">{{ param.description }}</div>
                     }
-                  </td>
-                  <td class="px-4 py-3 text-xs text-gray-600">{{ param.appName }}</td>
-                  <td class="px-4 py-3 text-xs text-gray-600">{{ param.group }}</td>
-                  <td class="px-4 py-3">
-                    <span class="text-xs px-1.5 py-0.5 rounded font-medium" [class]="typeClass(param.type)">{{ param.type }}</span>
                   </td>
                   <td class="px-4 py-3">
                     @if (editingParam() === param.id) {
@@ -269,13 +245,6 @@ import { AuthService } from '../../services/auth.service';
                     }
                   </td>
                   <td class="px-4 py-3">
-                    @if (param.tenantId) {
-                      <span class="text-xs px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 font-medium" title="Mandantenspezifisch">Mandant: {{ param.tenantId }}</span>
-                    } @else {
-                      <span class="text-xs px-1.5 py-0.5 rounded bg-blue-50 text-blue-500 font-medium" title="Gilt fuer alle Mandanten">Global</span>
-                    }
-                  </td>
-                  <td class="px-4 py-3">
                     <div class="flex flex-wrap gap-1">
                       @if (param.hotReload) {
                         <span class="text-xs px-1.5 py-0.5 rounded bg-warning/10 text-warning font-medium">Hot</span>
@@ -299,10 +268,10 @@ import { AuthService } from '../../services/auth.service';
                 </tr>
               }
               @if (filteredParameters().length === 0 && !loading()) {
-                <tr><td colspan="8" class="px-4 py-12 text-center text-gray-400">Keine Parameter gefunden.</td></tr>
+                <tr><td colspan="7" class="px-4 py-12 text-center text-gray-400">Keine Parameter gefunden.</td></tr>
               }
               @if (loading()) {
-                <tr><td colspan="8" class="px-4 py-12 text-center text-gray-400">Lade Parameter...</td></tr>
+                <tr><td colspan="7" class="px-4 py-12 text-center text-gray-400">Lade Parameter...</td></tr>
               }
             </tbody>
           </table>
@@ -377,12 +346,13 @@ export class ParameterComponent implements OnInit {
   readonly activeTab = signal<'parameter' | 'changelog'>('parameter');
   readonly appFilter = signal('');
   readonly searchFilter = signal('');
-  readonly typeFilter = signal('');
   readonly scopeFilter = signal('');
   readonly auditAppFilter = signal('');
   readonly groupFilter = signal('');
   readonly booleanFilter = signal('');
   readonly activeQuickFilter = signal<string>('');
+  readonly sortColumn = signal<string>('appName');
+  readonly sortDirection = signal<'asc' | 'desc'>('asc');
   readonly editingParam = signal<string | null>(null);
   readonly editValue = signal('');
   readonly editGrund = signal('');
@@ -437,13 +407,11 @@ export class ParameterComponent implements OnInit {
     const appF = this.appFilter();
     const groupF = this.groupFilter();
     const search = this.searchFilter().toLowerCase();
-    const typeF = this.typeFilter();
     const scopeF = this.scopeFilter();
     const boolF = this.booleanFilter();
 
     if (appF) params = params.filter(p => p.appName === appF);
     if (groupF) params = params.filter(p => p.group === groupF);
-    if (typeF) params = params.filter(p => p.type === typeF);
     if (scopeF === 'global') params = params.filter(p => !p.tenantId);
     if (scopeF === 'tenant') params = params.filter(p => !!p.tenantId);
     if (boolF === 'hotReload') params = params.filter(p => p.hotReload);
@@ -461,8 +429,65 @@ export class ParameterComponent implements OnInit {
       );
     }
 
+    // Sortierung
+    const col = this.sortColumn();
+    const dir = this.sortDirection() === 'asc' ? 1 : -1;
+    params = [...params].sort((a, b) => {
+      const valA = this.getSortValue(a, col);
+      const valB = this.getSortValue(b, col);
+      return valA.localeCompare(valB) * dir;
+    });
+
     return params;
   });
+
+  quickFilterCardClass(filterKey: string): string {
+    const base = 'bg-white rounded-lg border-2 p-4 shadow-card text-left transition-all cursor-pointer hover:shadow-md';
+    if (this.activeQuickFilter() !== filterKey) {
+      return base + ' border-gray-200 hover:border-gray-300';
+    }
+    const activeMap: Record<string, string> = {
+      total: 'border-primary ring-2 ring-primary/20 bg-primary/5',
+      apps: 'border-accent-violet ring-2 ring-accent-violet/20 bg-accent-violet/5',
+      groups: 'border-accent-turquoise ring-2 ring-accent-turquoise/20 bg-accent-turquoise/5',
+      changes: 'border-accent-orange ring-2 ring-accent-orange/20 bg-accent-orange/5',
+      hotReload: 'border-warning ring-2 ring-warning/20 bg-warning/5',
+      sensitive: 'border-error ring-2 ring-error/20 bg-error/5',
+    };
+    return base + ' ' + (activeMap[filterKey] || 'border-gray-200');
+  }
+
+  toggleSort(column: string): void {
+    if (this.sortColumn() === column) {
+      this.sortDirection.set(this.sortDirection() === 'asc' ? 'desc' : 'asc');
+    } else {
+      this.sortColumn.set(column);
+      this.sortDirection.set('asc');
+    }
+  }
+
+  sortIndicator(column: string): string {
+    if (this.sortColumn() !== column) return '';
+    return this.sortDirection() === 'asc' ? '\u25B2' : '\u25BC';
+  }
+
+  private getSortValue(param: PortalParameter, column: string): string {
+    switch (column) {
+      case 'appName': return param.appName || '';
+      case 'group': return param.group || '';
+      case 'scope': return param.tenantId ? `1:${param.tenantId}` : '0:global';
+      case 'key': return param.key || '';
+      case 'value': return param.value || '';
+      case 'flags':
+        return [
+          param.hotReload ? 'hot' : '',
+          param.required ? 'pflicht' : '',
+          param.sensitive ? 'sensibel' : '',
+          param.adminOnly ? 'admin' : '',
+        ].filter(Boolean).join(',') || 'zzz';
+      default: return '';
+    }
+  }
 
   applyQuickFilter(filterKey: string): void {
     // Toggle: erneuter Klick auf gleiche Kachel hebt Filter auf
@@ -500,7 +525,6 @@ export class ParameterComponent implements OnInit {
   private clearAllFilters(): void {
     this.appFilter.set('');
     this.groupFilter.set('');
-    this.typeFilter.set('');
     this.scopeFilter.set('');
     this.booleanFilter.set('');
     this.searchFilter.set('');
@@ -605,18 +629,4 @@ export class ParameterComponent implements OnInit {
     return options.split(',').map(o => o.trim());
   }
 
-  typeClass(type: string): string {
-    switch (type) {
-      case 'STRING': return 'bg-primary/10 text-primary';
-      case 'NUMBER': return 'bg-accent-turquoise/10 text-accent-turquoise';
-      case 'BOOLEAN': return 'bg-warning/10 text-warning';
-      case 'EMAIL': return 'bg-info/10 text-info';
-      case 'URL': return 'bg-accent-violet/10 text-accent-violet';
-      case 'SELECT': return 'bg-accent-orange/10 text-accent-orange';
-      case 'PASSWORD': return 'bg-error/10 text-error';
-      case 'DATE': return 'bg-accent-green/10 text-accent-green';
-      case 'TEXTAREA': return 'bg-gray-100 text-gray-600';
-      default: return 'bg-gray-100 text-gray-500';
-    }
-  }
 }
