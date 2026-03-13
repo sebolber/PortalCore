@@ -68,7 +68,7 @@ import { RouterModule } from '@angular/router';
     <h2 class="text-lg font-semibold text-gray-800 mb-4">smile KH - Fallstatus</h2>
 
     <!-- Ampel Summary -->
-    <div class="flex gap-3 mb-4">
+    <div class="flex flex-wrap gap-2 sm:gap-3 mb-4">
       <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-green-50 text-green-700">
         <span class="w-2.5 h-2.5 rounded-full bg-green-500"></span>
         Gruen: {{ ampelCounts.gruen }}
@@ -84,8 +84,8 @@ import { RouterModule } from '@angular/router';
     </div>
 
     <!-- Fallstatus Table -->
-    <div class="card !p-0 overflow-hidden mb-8">
-      <table class="w-full text-sm">
+    <div class="card !p-0 overflow-hidden mb-8 overflow-x-auto">
+      <table class="w-full text-sm min-w-[640px]">
         <thead class="bg-gray-100/50 border-b">
           <tr>
             <th class="px-4 py-3 text-left font-semibold text-gray-600">Fall-Nr.</th>
@@ -118,8 +118,8 @@ import { RouterModule } from '@angular/router';
 
     <!-- smile KH - Offene Rechnungen -->
     <h2 class="text-lg font-semibold text-gray-800 mb-4">smile KH - Offene Rechnungen</h2>
-    <div class="card !p-0 overflow-hidden">
-      <table class="w-full text-sm">
+    <div class="card !p-0 overflow-hidden overflow-x-auto">
+      <table class="w-full text-sm min-w-[640px]">
         <thead class="bg-gray-100/50 border-b">
           <tr>
             <th class="px-4 py-3 text-left font-semibold text-gray-600">Rechnungs-Nr.</th>

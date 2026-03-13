@@ -7,28 +7,41 @@ import { PortalStateService } from '../services/portal-state.service';
   standalone: true,
   imports: [CommonModule],
   template: `
-    <header class="fixed top-0 right-0 h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 z-10 transition-all duration-300"
-            [style.left]="portalState.sidebarCollapsed() ? '64px' : '256px'">
+    <header class="fixed top-0 right-0 h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 md:px-6 z-10 transition-all duration-300 left-0 md:left-[var(--sidebar-width)]"
+            [style.--sidebar-width]="portalState.sidebarCollapsed() ? '64px' : '256px'">
 
-      <!-- Left: Search -->
-      <div class="relative">
-        <svg class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-          <circle cx="11" cy="11" r="8" stroke-linecap="round" stroke-linejoin="round"/>
-          <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35"/>
-        </svg>
-        <input
-          type="text"
-          placeholder="Suchen..."
-          class="pl-10 pr-4 py-2 w-72 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#006EC7] focus:border-transparent transition-colors"
-          style="font-family: 'Fira Sans', sans-serif"
-        />
+      <!-- Left: Hamburger (mobile) + Search -->
+      <div class="flex items-center gap-3 flex-1 min-w-0">
+        <!-- Mobile hamburger -->
+        <button
+          (click)="portalState.toggleMobileSidebar()"
+          class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-colors md:hidden shrink-0"
+        >
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+        </button>
+
+        <!-- Search -->
+        <div class="relative flex-1 max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg">
+          <svg class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+            <circle cx="11" cy="11" r="8" stroke-linecap="round" stroke-linejoin="round"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35"/>
+          </svg>
+          <input
+            type="text"
+            placeholder="Suchen..."
+            class="pl-10 pr-4 py-2 w-full bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#006EC7] focus:border-transparent transition-colors"
+            style="font-family: 'Fira Sans', sans-serif"
+          />
+        </div>
       </div>
 
       <!-- Right: Actions -->
-      <div class="flex items-center gap-4">
+      <div class="flex items-center gap-2 sm:gap-4 shrink-0 ml-2">
 
         <!-- Tenant Badge -->
-        <div class="px-3 py-1.5 bg-blue-50 text-[#006EC7] text-xs font-semibold rounded-full whitespace-nowrap">
+        <div class="hidden sm:block px-3 py-1.5 bg-blue-50 text-[#006EC7] text-xs font-semibold rounded-full whitespace-nowrap">
           {{ portalState.currentTenant().shortName }}
         </div>
 
@@ -46,7 +59,7 @@ import { PortalStateService } from '../services/portal-state.service';
         <!-- Theme Toggle -->
         <button
           (click)="portalState.toggleTheme()"
-          class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
+          class="hidden sm:block p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
           [title]="portalState.isDarkTheme() ? 'Light Mode' : 'Dark Mode'"
         >
           <!-- Sun icon (shown in dark mode) -->
@@ -61,22 +74,22 @@ import { PortalStateService } from '../services/portal-state.service';
         </button>
 
         <!-- Divider -->
-        <div class="w-px h-8 bg-gray-200"></div>
+        <div class="hidden sm:block w-px h-8 bg-gray-200"></div>
 
         <!-- User Menu -->
         <div class="relative">
           <button
             (click)="userMenuOpen.set(!userMenuOpen())"
-            class="flex items-center gap-3 hover:bg-gray-50 rounded-lg px-2 py-1.5 transition-colors"
+            class="flex items-center gap-2 sm:gap-3 hover:bg-gray-50 rounded-lg px-1.5 sm:px-2 py-1.5 transition-colors"
           >
-            <div class="w-8 h-8 rounded-full bg-[#006EC7] flex items-center justify-center text-white text-xs font-bold">
+            <div class="w-8 h-8 rounded-full bg-[#006EC7] flex items-center justify-center text-white text-xs font-bold shrink-0">
               SM
             </div>
-            <div *ngIf="true" class="text-left hidden sm:block">
+            <div class="text-left hidden md:block">
               <p class="text-sm font-medium text-gray-800 leading-tight" style="font-family: 'Fira Sans', sans-serif">Sabine Mueller</p>
               <p class="text-xs text-gray-400 leading-tight">Administratorin</p>
             </div>
-            <svg class="w-4 h-4 text-gray-400 hidden sm:block" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+            <svg class="w-4 h-4 text-gray-400 hidden md:block" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
             </svg>
           </button>

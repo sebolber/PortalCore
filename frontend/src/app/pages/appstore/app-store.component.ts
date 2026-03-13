@@ -20,25 +20,24 @@ interface MarketSegmentInfo {
   imports: [CommonModule, RouterModule, FormsModule],
   template: `
     <!-- Hero Banner -->
-    <div class="card bg-gradient-to-r from-[#006EC7] to-[#004A87] text-white !border-0 mb-6">
-      <div class="flex items-center justify-between">
+    <div class="card bg-gradient-to-r from-[#006EC7] to-[#004A87] text-white !border-0 mb-4 sm:mb-6">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h1 class="text-2xl font-bold mb-2">App-Marktplatz</h1>
-          <p class="text-blue-100 text-sm max-w-2xl">
+          <h1 class="text-xl sm:text-2xl font-bold mb-1 sm:mb-2">App-Marktplatz</h1>
+          <p class="text-blue-100 text-xs sm:text-sm max-w-2xl">
             Entdecken Sie Anwendungen und Integrationen fuer Ihr Gesundheitsportal.
-            Installieren Sie Apps passend zu Ihrem Marktsegment und erweitern Sie Ihre Plattform.
           </p>
         </div>
         <button (click)="showCreateForm = true"
-                class="px-4 py-2 bg-white text-[#006EC7] text-sm font-medium rounded-lg hover:bg-blue-50 transition-colors shrink-0">
+                class="px-4 py-2 bg-white text-[#006EC7] text-sm font-medium rounded-lg hover:bg-blue-50 transition-colors shrink-0 w-full sm:w-auto text-center">
           + Neue App anlegen
         </button>
       </div>
     </div>
 
     <!-- Create App Form Modal -->
-    <div *ngIf="showCreateForm" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
+    <div *ngIf="showCreateForm" class="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 sm:p-4">
+      <div class="bg-white rounded-t-xl sm:rounded-xl shadow-xl w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
         <div class="flex items-center justify-between mb-6">
           <h2 class="text-xl font-bold text-gray-800">Neue App anlegen</h2>
           <button (click)="showCreateForm = false" class="text-gray-400 hover:text-gray-600">
@@ -49,7 +48,7 @@ interface MarketSegmentInfo {
         </div>
 
         <div class="space-y-4">
-          <div class="grid grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Name *</label>
               <input [(ngModel)]="newApp.name" type="text" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#006EC7] focus:border-transparent"/>
@@ -70,7 +69,7 @@ interface MarketSegmentInfo {
             <textarea [(ngModel)]="newApp.longDescription" rows="3" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#006EC7] focus:border-transparent"></textarea>
           </div>
 
-          <div class="grid grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Kategorie *</label>
               <select [(ngModel)]="newApp.category" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#006EC7] focus:border-transparent">
@@ -85,7 +84,7 @@ interface MarketSegmentInfo {
             </div>
           </div>
 
-          <div class="grid grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">App-Typ *</label>
               <select [(ngModel)]="newApp.appType" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#006EC7] focus:border-transparent">
@@ -104,7 +103,7 @@ interface MarketSegmentInfo {
             </div>
           </div>
 
-          <div class="grid grid-cols-3 gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Version</label>
               <input [(ngModel)]="newApp.version" type="text" placeholder="1.0.0" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#006EC7] focus:border-transparent"/>
@@ -119,7 +118,7 @@ interface MarketSegmentInfo {
             </div>
           </div>
 
-          <div class="grid grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Repository-URL</label>
               <input [(ngModel)]="newApp.repositoryUrl" type="url" placeholder="https://github.com/..." class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#006EC7] focus:border-transparent"/>
@@ -154,8 +153,8 @@ interface MarketSegmentInfo {
     </div>
 
     <!-- Market Segments -->
-    <h2 class="text-lg font-semibold text-gray-800 mb-4">Marktsegmente</h2>
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+    <h2 class="text-base sm:text-lg font-semibold text-gray-800 mb-3 sm:mb-4">Marktsegmente</h2>
+    <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
       <button *ngFor="let seg of segments"
               (click)="toggleSegmentFilter(seg.key)"
               class="card text-left hover:shadow-md transition-shadow"
@@ -234,7 +233,7 @@ interface MarketSegmentInfo {
     </div>
 
     <!-- App Cards Grid -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
       <a *ngFor="let app of filteredApps"
          [routerLink]="'/appstore/' + app.id"
          class="card hover:shadow-md transition-shadow cursor-pointer relative">

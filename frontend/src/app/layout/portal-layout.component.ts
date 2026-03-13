@@ -11,10 +11,10 @@ import { PortalStateService } from '../services/portal-state.service';
   template: `
     <div class="flex h-screen bg-gray-50" style="font-family: 'Fira Sans', sans-serif">
       <app-sidebar></app-sidebar>
-      <div class="flex-1 flex flex-col transition-all duration-300"
-           [style.margin-left]="portalState.sidebarCollapsed() ? '64px' : '256px'">
+      <div class="flex-1 flex flex-col transition-all duration-300 ml-0 md:ml-[var(--sidebar-width)]"
+           [style.--sidebar-width]="portalState.sidebarCollapsed() ? '64px' : '256px'">
         <app-header></app-header>
-        <main class="flex-1 overflow-auto p-6 mt-16">
+        <main class="flex-1 overflow-auto p-4 md:p-6 mt-16">
           <router-outlet></router-outlet>
         </main>
       </div>

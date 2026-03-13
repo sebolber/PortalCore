@@ -1,8 +1,9 @@
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { Router, NavigationEnd, RouterModule } from '@angular/router';
 import { PortalStateService } from '../services/portal-state.service';
 import { InstalledAppService } from '../services/installed-app.service';
+import { filter } from 'rxjs/operators';
 
 @Component({
   selector: 'app-sidebar',
@@ -13,8 +14,10 @@ import { InstalledAppService } from '../services/installed-app.service';
 export class SidebarComponent implements OnInit {
   private readonly portalState = inject(PortalStateService);
   private readonly installedAppService = inject(InstalledAppService);
+  private readonly router = inject(Router);
 
   readonly collapsed = this.portalState.sidebarCollapsed;
+  readonly mobileSidebarOpen = this.portalState.mobileSidebarOpen;
   readonly isAdmin = computed(() => this.portalState.userRole() === 'admin');
   readonly installedApps = signal<{ id: string; name: string; shortName: string; color: string; route: string }[]>([]);
 
@@ -23,6 +26,13 @@ export class SidebarComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadInstalledApps();
+
+    // Close mobile sidebar on navigation
+    this.router.events.pipe(
+      filter(e => e instanceof NavigationEnd)
+    ).subscribe(() => {
+      this.portalState.closeMobileSidebar();
+    });
   }
 
   loadInstalledApps(): void {
@@ -48,6 +58,10 @@ export class SidebarComponent implements OnInit {
 
   toggle(): void {
     this.portalState.toggleSidebar();
+  }
+
+  closeMobile(): void {
+    this.portalState.closeMobileSidebar();
   }
 
   togglePlattform(): void {

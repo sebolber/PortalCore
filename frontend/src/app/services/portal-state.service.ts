@@ -112,11 +112,20 @@ export class PortalStateService {
 
   readonly installedApps = signal<LegacyInstalledApp[]>([]);
 
+  readonly mobileSidebarOpen = signal(false);
   readonly isDarkTheme = computed(() => this.theme() === 'dark');
 
   toggleSidebar(): void {
     this.sidebarCollapsed.update(v => !v);
     this.sidebarCollapsed$.next(this.sidebarCollapsed());
+  }
+
+  toggleMobileSidebar(): void {
+    this.mobileSidebarOpen.update(v => !v);
+  }
+
+  closeMobileSidebar(): void {
+    this.mobileSidebarOpen.set(false);
   }
 
   toggleTheme(): void {

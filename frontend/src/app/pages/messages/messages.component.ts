@@ -11,21 +11,21 @@ import { PortalMessage } from '../../models/message.model';
     <div class="space-y-6" style="font-family: 'Fira Sans', sans-serif">
 
       <!-- Header -->
-      <div class="flex items-center justify-between">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 class="text-2xl font-bold text-gray-900">Nachrichten</h1>
+          <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Nachrichten</h1>
           <p class="text-sm text-gray-500 mt-1">
             {{ unreadCount() }} ungelesene Nachricht{{ unreadCount() !== 1 ? 'en' : '' }}
           </p>
         </div>
         <button (click)="markAllRead()"
-                class="px-4 py-2 text-sm font-medium text-[#006EC7] bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
+                class="px-4 py-2 text-sm font-medium text-[#006EC7] bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors shrink-0">
           Alle als gelesen markieren
         </button>
       </div>
 
       <!-- Category Tabs -->
-      <div class="flex gap-1 bg-white border border-gray-200 rounded-xl p-1">
+      <div class="flex gap-1 bg-white border border-gray-200 rounded-xl p-1 overflow-x-auto">
         <button *ngFor="let tab of tabs"
                 (click)="activeTab = tab.value"
                 class="px-4 py-2 text-sm font-medium rounded-lg transition-colors"

@@ -11,13 +11,13 @@ import { PortalStateService } from '../../services/portal-state.service';
   imports: [CommonModule, RouterModule],
   template: `
     <!-- Header -->
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
       <div>
-        <h1 class="text-2xl font-bold text-gray-800">Installierte Apps</h1>
+        <h1 class="text-xl sm:text-2xl font-bold text-gray-800">Installierte Apps</h1>
         <p class="text-sm text-gray-500 mt-1">{{ apps.length }} Apps installiert</p>
       </div>
       <a routerLink="/appstore"
-         class="px-4 py-2 bg-[#006EC7] text-white text-sm font-medium rounded-lg hover:bg-[#005BA3] transition-colors">
+         class="px-4 py-2 bg-[#006EC7] text-white text-sm font-medium rounded-lg hover:bg-[#005BA3] transition-colors text-center sm:text-left shrink-0">
         Weitere Apps entdecken
       </a>
     </div>

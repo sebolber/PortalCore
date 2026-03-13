@@ -17,7 +17,7 @@ interface AuditEntry {
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <div class="p-6 max-w-[1400px] mx-auto">
+    <div class="max-w-[1400px] mx-auto">
       <!-- Header -->
       <div class="mb-6">
         <h1 class="text-2xl font-condensed font-semibold text-gray-900">Benutzerverwaltung</h1>
@@ -25,7 +25,7 @@ interface AuditEntry {
       </div>
 
       <!-- Tabs -->
-      <div class="flex gap-1 mb-6 border-b border-gray-200">
+      <div class="flex gap-1 mb-6 border-b border-gray-200 overflow-x-auto">
         @for (tab of tabs; track tab.key) {
           <button
             (click)="activeTab.set(tab.key)"
@@ -62,7 +62,7 @@ interface AuditEntry {
             placeholder="Benutzer suchen..."
             [ngModel]="searchTerm()"
             (ngModelChange)="searchTerm.set($event)"
-            class="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary w-64"
+            class="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary w-full sm:w-64"
           />
           <select
             [ngModel]="statusFilter()"
@@ -87,8 +87,8 @@ interface AuditEntry {
         </div>
 
         <!-- Users Table -->
-        <div class="bg-white rounded-lg border border-gray-200 shadow-card overflow-hidden">
-          <table class="w-full text-sm">
+        <div class="bg-white rounded-lg border border-gray-200 shadow-card overflow-hidden overflow-x-auto">
+          <table class="w-full text-sm min-w-[800px]">
             <thead>
               <tr class="bg-gray-50 border-b border-gray-200">
                 <th class="text-left px-4 py-3 font-medium text-gray-600">Name</th>
@@ -301,8 +301,8 @@ interface AuditEntry {
 
       <!-- Tab 4: Audit-Trail -->
       @if (activeTab() === 'audit') {
-        <div class="bg-white rounded-lg border border-gray-200 shadow-card overflow-hidden">
-          <table class="w-full text-sm">
+        <div class="bg-white rounded-lg border border-gray-200 shadow-card overflow-hidden overflow-x-auto">
+          <table class="w-full text-sm min-w-[700px]">
             <thead>
               <tr class="bg-gray-50 border-b border-gray-200">
                 <th class="text-left px-4 py-3 font-medium text-gray-600">Zeitpunkt</th>

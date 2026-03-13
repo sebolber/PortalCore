@@ -19,10 +19,10 @@ interface ParameterChange {
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <div class="p-6 max-w-[1400px] mx-auto">
+    <div class="max-w-[1400px] mx-auto">
       <!-- Header -->
       <div class="mb-6">
-        <h1 class="text-2xl font-condensed font-semibold text-gray-900">Parameterverwaltung</h1>
+        <h1 class="text-xl sm:text-2xl font-condensed font-semibold text-gray-900">Parameterverwaltung</h1>
         <p class="text-sm text-gray-500 mt-1">Systemparameter und Konfigurationen verwalten</p>
       </div>
 
@@ -204,8 +204,8 @@ interface ParameterChange {
 
       <!-- Tab 2: Aenderungsprotokoll -->
       @if (activeTab() === 'changelog') {
-        <div class="bg-white rounded-lg border border-gray-200 shadow-card overflow-hidden">
-          <table class="w-full text-sm">
+        <div class="bg-white rounded-lg border border-gray-200 shadow-card overflow-hidden overflow-x-auto">
+          <table class="w-full text-sm min-w-[700px]">
             <thead>
               <tr class="bg-gray-50 border-b border-gray-200">
                 <th class="text-left px-4 py-3 font-medium text-gray-600">Zeitpunkt</th>

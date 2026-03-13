@@ -23,9 +23,9 @@ import { PortalStateService } from '../../services/portal-state.service';
     <div *ngIf="app">
       <!-- App Header -->
       <div class="card mb-6">
-        <div class="flex flex-col sm:flex-row items-start gap-6">
+        <div class="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
           <!-- Icon -->
-          <div class="w-20 h-20 rounded-2xl flex items-center justify-center text-white text-2xl font-bold shrink-0"
+          <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center text-white text-xl sm:text-2xl font-bold shrink-0"
                [style.background-color]="app.iconColor">
             {{ app.iconInitials }}
           </div>
@@ -63,7 +63,7 @@ import { PortalStateService } from '../../services/portal-state.service';
             </div>
 
             <!-- Action Buttons -->
-            <div class="flex items-center gap-3">
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
               <button *ngIf="!isInstalled"
                       (click)="install()"
                       [disabled]="installing"
