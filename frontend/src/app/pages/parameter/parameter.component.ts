@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PortalParameter, ParameterAuditLog } from '../../models/parameter.model';
 import { ParameterService } from '../../services/parameter.service';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-parameter',
@@ -95,6 +96,16 @@ import { ParameterService } from '../../services/parameter.service';
             <option value="PASSWORD">PASSWORD</option>
             <option value="TEXTAREA">TEXTAREA</option>
           </select>
+
+          <select
+            [ngModel]="scopeFilter()"
+            (ngModelChange)="scopeFilter.set($event)"
+            class="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+          >
+            <option value="">Alle (Global + Mandant)</option>
+            <option value="global">Nur globale Parameter</option>
+            <option value="tenant">Nur mandantenspezifische</option>
+          </select>
         </div>
 
         <!-- Error Message -->
@@ -145,6 +156,11 @@ import { ParameterService } from '../../services/parameter.service';
                               }
                               @if (param.sensitive) {
                                 <span class="text-xs px-1.5 py-0.5 rounded bg-error/10 text-error font-medium">Sensibel</span>
+                              }
+                              @if (param.tenantId) {
+                                <span class="text-xs px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 font-medium" title="Mandantenspezifisch">Mandant: {{ param.tenantId }}</span>
+                              } @else {
+                                <span class="text-xs px-1.5 py-0.5 rounded bg-blue-50 text-blue-500 font-medium" title="Gilt fuer alle Mandanten">Global</span>
                               }
                             </div>
                             <div class="text-sm font-medium text-gray-900">{{ param.label }}</div>
@@ -331,6 +347,7 @@ export class ParameterComponent implements OnInit {
   readonly appFilter = signal('');
   readonly searchFilter = signal('');
   readonly typeFilter = signal('');
+  readonly scopeFilter = signal('');
   readonly auditAppFilter = signal('');
   readonly expandedGroups = signal<Set<string>>(new Set());
   readonly editingParam = signal<string | null>(null);
@@ -344,7 +361,10 @@ export class ParameterComponent implements OnInit {
   readonly saving = signal(false);
   readonly errorMsg = signal('');
 
-  constructor(private parameterService: ParameterService) {}
+  constructor(
+    private parameterService: ParameterService,
+    public authService: AuthService
+  ) {}
 
   ngOnInit(): void {
     this.loadParameters();
@@ -376,9 +396,12 @@ export class ParameterComponent implements OnInit {
     const appF = this.appFilter();
     const search = this.searchFilter().toLowerCase();
     const typeF = this.typeFilter();
+    const scopeF = this.scopeFilter();
 
     if (appF) params = params.filter(p => p.appName === appF);
     if (typeF) params = params.filter(p => p.type === typeF);
+    if (scopeF === 'global') params = params.filter(p => !p.tenantId);
+    if (scopeF === 'tenant') params = params.filter(p => !!p.tenantId);
     if (search) {
       params = params.filter(p =>
         p.key.toLowerCase().includes(search) ||

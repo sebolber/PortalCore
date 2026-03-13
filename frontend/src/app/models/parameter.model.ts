@@ -20,6 +20,7 @@ export interface PortalParameter {
   createdAt: string;
   gueltigVon?: string;
   gueltigBis?: string;
+  tenantId?: string;
 }
 
 export interface ParameterAuditLog {
@@ -33,4 +34,5 @@ export interface ParameterAuditLog {
   geaendertVon: string;
   geaendertAm: string;
   grund: string;
+  tenantId?: string;
 }

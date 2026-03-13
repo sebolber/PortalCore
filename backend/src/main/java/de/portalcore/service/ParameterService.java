@@ -69,6 +69,7 @@ public class ParameterService {
         existing.setHotReload(updatedParameter.isHotReload());
         existing.setGueltigVon(updatedParameter.getGueltigVon());
         existing.setGueltigBis(updatedParameter.getGueltigBis());
+        existing.setTenantId(updatedParameter.getTenantId());
         existing.setLastModified(LocalDateTime.now());
         existing.setLastModifiedBy(updatedParameter.getLastModifiedBy());
         return portalParameterRepository.save(existing);
@@ -106,6 +107,7 @@ public class ParameterService {
                 .geaendertVon(modifiedBy)
                 .geaendertAm(LocalDateTime.now())
                 .grund(grund)
+                .tenantId(parameter.getTenantId())
                 .build();
         auditLogRepository.save(auditEntry);
 
@@ -189,6 +191,31 @@ public class ParameterService {
         return portalParameterRepository.findByAppIdAndGroup(appId, group);
     }
 
+    // ===== Mandantenspezifische Methoden =====
+
+    /**
+     * Listet Parameter fuer einen Mandanten (eigene + globale).
+     * Super-Admins sehen alle Parameter.
+     */
+    public List<PortalParameter> listParameters(String appId, String tenantId, boolean isSuperAdmin) {
+        if (isSuperAdmin) {
+            // Super-Admin sieht alle Parameter
+            if (appId != null && !appId.isBlank()) {
+                return portalParameterRepository.findByAppId(appId);
+            }
+            return portalParameterRepository.findAll();
+        }
+
+        // Normaler Benutzer: nur eigener Mandant + globale Parameter
+        if (appId != null && !appId.isBlank()) {
+            return portalParameterRepository.findByTenantIdOrGlobalAndAppId(tenantId, appId);
+        }
+        return portalParameterRepository.findByTenantIdOrGlobal(tenantId);
+    }
+
+    /**
+     * @deprecated Verwende listParameters(appId, tenantId, isSuperAdmin) stattdessen
+     */
     public List<PortalParameter> listParameters(String appId) {
         if (appId != null && !appId.isBlank()) {
             return getByApp(appId);
@@ -199,6 +226,17 @@ public class ParameterService {
     @Transactional
     public PortalParameter updateParameter(String id, PortalParameter parameter) {
         return update(id, parameter);
+    }
+
+    /**
+     * Prueft ob der Benutzer Zugriff auf den Parameter hat.
+     * Super-Admins haben immer Zugriff.
+     * Normale Benutzer nur auf globale Parameter oder Parameter ihres Mandanten.
+     */
+    public boolean hasAccess(PortalParameter parameter, String tenantId, boolean isSuperAdmin) {
+        if (isSuperAdmin) return true;
+        // Globaler Parameter (kein Mandant) oder Parameter des eigenen Mandanten
+        return parameter.getTenantId() == null || parameter.getTenantId().equals(tenantId);
     }
 
     // Audit-Log abrufen
@@ -212,5 +250,23 @@ public class ParameterService {
 
     public List<ParameterAuditLog> getAuditLogByParameter(String parameterId) {
         return auditLogRepository.findByParameterIdOrderByGeaendertAmDesc(parameterId);
+    }
+
+    // Mandantenspezifische Audit-Log Methoden
+    public List<ParameterAuditLog> getAuditLog(String appId, String parameterId, String tenantId, boolean isSuperAdmin) {
+        if (isSuperAdmin) {
+            if (parameterId != null) return getAuditLogByParameter(parameterId);
+            if (appId != null) return getAuditLogByApp(appId);
+            return getFullAuditLog();
+        }
+
+        // Mandantenspezifisch
+        if (parameterId != null) {
+            return auditLogRepository.findByTenantIdOrGlobalAndParameterIdOrderByGeaendertAmDesc(tenantId, parameterId);
+        }
+        if (appId != null) {
+            return auditLogRepository.findByTenantIdOrGlobalAndAppIdOrderByGeaendertAmDesc(tenantId, appId);
+        }
+        return auditLogRepository.findByTenantIdOrGlobalOrderByGeaendertAmDesc(tenantId);
     }
 }

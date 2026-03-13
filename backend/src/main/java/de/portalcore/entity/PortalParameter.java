@@ -69,6 +69,9 @@ public class PortalParameter {
     @Column(name = "gueltig_bis")
     private LocalDateTime gueltigBis;
 
+    @Column(name = "tenant_id")
+    private String tenantId;
+
     @PrePersist
     void prePersist() {
         if (createdAt == null) createdAt = LocalDateTime.now();

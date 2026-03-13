@@ -3,7 +3,10 @@ package de.portalcore.controller;
 import de.portalcore.config.JwtAuthenticationFilter.AuthDetails;
 import de.portalcore.entity.ParameterAuditLog;
 import de.portalcore.entity.PortalParameter;
+import de.portalcore.entity.PortalUser;
+import de.portalcore.repository.PortalUserRepository;
 import de.portalcore.service.ParameterService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -18,21 +21,31 @@ import java.util.Map;
 public class ParameterController {
 
     private final ParameterService parameterService;
+    private final PortalUserRepository portalUserRepository;
 
-    public ParameterController(ParameterService parameterService) {
+    public ParameterController(ParameterService parameterService,
+                               PortalUserRepository portalUserRepository) {
         this.parameterService = parameterService;
+        this.portalUserRepository = portalUserRepository;
     }
 
     @GetMapping
     public ResponseEntity<List<PortalParameter>> listParameters(
             @RequestParam(required = false) String appId) {
-        List<PortalParameter> parameters = parameterService.listParameters(appId);
+        String tenantId = getCurrentTenantId();
+        boolean superAdmin = isCurrentUserSuperAdmin();
+        List<PortalParameter> parameters = parameterService.listParameters(appId, tenantId, superAdmin);
         return ResponseEntity.ok(parameters);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<PortalParameter> getById(@PathVariable String id) {
-        return ResponseEntity.ok(parameterService.findById(id));
+    public ResponseEntity<?> getById(@PathVariable String id) {
+        PortalParameter parameter = parameterService.findById(id);
+        if (!parameterService.hasAccess(parameter, getCurrentTenantId(), isCurrentUserSuperAdmin())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Kein Zugriff auf diesen Parameter."));
+        }
+        return ResponseEntity.ok(parameter);
     }
 
     @PostMapping
@@ -41,9 +54,14 @@ public class ParameterController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<PortalParameter> updateParameter(
+    public ResponseEntity<?> updateParameter(
             @PathVariable String id,
             @RequestBody PortalParameter parameter) {
+        PortalParameter existing = parameterService.findById(id);
+        if (!parameterService.hasAccess(existing, getCurrentTenantId(), isCurrentUserSuperAdmin())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Kein Zugriff auf diesen Parameter."));
+        }
         PortalParameter updated = parameterService.updateParameter(id, parameter);
         return ResponseEntity.ok(updated);
     }
@@ -52,6 +70,11 @@ public class ParameterController {
     public ResponseEntity<?> updateValue(
             @PathVariable String id,
             @RequestBody Map<String, String> body) {
+        PortalParameter existing = parameterService.findById(id);
+        if (!parameterService.hasAccess(existing, getCurrentTenantId(), isCurrentUserSuperAdmin())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Kein Zugriff auf diesen Parameter."));
+        }
         String value = body.get("value");
         String grund = body.getOrDefault("grund", "");
         String modifiedBy = getCurrentUserName();
@@ -64,8 +87,12 @@ public class ParameterController {
     }
 
     @PatchMapping("/{id}/reset")
-    public ResponseEntity<PortalParameter> resetToDefault(@PathVariable String id) {
+    public ResponseEntity<?> resetToDefault(@PathVariable String id) {
         PortalParameter parameter = parameterService.findById(id);
+        if (!parameterService.hasAccess(parameter, getCurrentTenantId(), isCurrentUserSuperAdmin())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Kein Zugriff auf diesen Parameter."));
+        }
         String modifiedBy = getCurrentUserName();
         PortalParameter updated = parameterService.updateValue(
                 id, parameter.getDefaultValue(), modifiedBy, "Auf Standardwert zurueckgesetzt");
@@ -73,7 +100,12 @@ public class ParameterController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable String id) {
+    public ResponseEntity<?> delete(@PathVariable String id) {
+        PortalParameter parameter = parameterService.findById(id);
+        if (!parameterService.hasAccess(parameter, getCurrentTenantId(), isCurrentUserSuperAdmin())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Kein Zugriff auf diesen Parameter."));
+        }
         parameterService.delete(id);
         return ResponseEntity.noContent().build();
     }
@@ -82,13 +114,10 @@ public class ParameterController {
     public ResponseEntity<List<ParameterAuditLog>> getAuditLog(
             @RequestParam(required = false) String appId,
             @RequestParam(required = false) String parameterId) {
-        if (parameterId != null) {
-            return ResponseEntity.ok(parameterService.getAuditLogByParameter(parameterId));
-        }
-        if (appId != null) {
-            return ResponseEntity.ok(parameterService.getAuditLogByApp(appId));
-        }
-        return ResponseEntity.ok(parameterService.getFullAuditLog());
+        String tenantId = getCurrentTenantId();
+        boolean superAdmin = isCurrentUserSuperAdmin();
+        List<ParameterAuditLog> log = parameterService.getAuditLog(appId, parameterId, tenantId, superAdmin);
+        return ResponseEntity.ok(log);
     }
 
     private String getCurrentUserName() {
@@ -97,5 +126,23 @@ public class ParameterController {
             return details.email() != null ? details.email() : details.userId();
         }
         return auth != null ? String.valueOf(auth.getPrincipal()) : "system";
+    }
+
+    private String getCurrentTenantId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getDetails() instanceof AuthDetails details) {
+            return details.tenantId();
+        }
+        return null;
+    }
+
+    private boolean isCurrentUserSuperAdmin() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getDetails() instanceof AuthDetails details) {
+            return portalUserRepository.findById(details.userId())
+                    .map(PortalUser::isSuperAdmin)
+                    .orElse(false);
+        }
+        return false;
     }
 }

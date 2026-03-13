@@ -39,6 +39,9 @@ public class ParameterAuditLog {
     @Column(columnDefinition = "TEXT")
     private String grund;
 
+    @Column(name = "tenant_id")
+    private String tenantId;
+
     @PrePersist
     void prePersist() {
         if (geaendertAm == null) geaendertAm = LocalDateTime.now();

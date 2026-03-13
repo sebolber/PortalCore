@@ -12,6 +12,7 @@
   - 2026-03-13: Erstversion mit Menue-Konfiguration, AppParameter-Schema, Deployment-Manifest, und vollstaendiger Projektstruktur
   - 2026-03-13: App-uebergreifende Berechtigungen: Use Cases in portal-app.yaml, automatische Synchronisation bei Installation
   - 2026-03-13: Parameter-System: Audit-Log, Typ-Validierung, zeitliche Gueltigkeit (gueltig_von/gueltig_bis)
+  - 2026-03-13: Parameter-Mandanten: Mandantenspezifische Parameter mit tenant_id, Mandanten-Isolation
 
 ---
 
@@ -369,8 +370,13 @@ CREATE TABLE app_parameter (
     last_modified_by VARCHAR(100),                 -- Wer hat zuletzt geaendert?
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     gueltig_von     TIMESTAMP DEFAULT '1970-01-01 00:00:00',  -- Zeitliche Gueltigkeit: Beginn
-    gueltig_bis     TIMESTAMP DEFAULT '9999-12-31 23:59:59'   -- Zeitliche Gueltigkeit: Ende
+    gueltig_bis     TIMESTAMP DEFAULT '9999-12-31 23:59:59', -- Zeitliche Gueltigkeit: Ende
+    tenant_id       VARCHAR(50),                   -- Mandanten-ID (NULL = globaler Parameter fuer alle Mandanten)
+    CONSTRAINT fk_param_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id)
 );
+
+-- Index fuer schnelle Mandanten-Abfragen
+CREATE INDEX idx_app_parameter_tenant ON app_parameter(tenant_id);
 
 -- Audit-Log fuer Parameteraenderungen (PFLICHT)
 CREATE TABLE parameter_audit_log (
@@ -383,7 +389,8 @@ CREATE TABLE parameter_audit_log (
     neuer_wert      TEXT,                          -- Neuer Wert (bei sensiblen Parametern: "***")
     geaendert_von   VARCHAR(100) NOT NULL,         -- E-Mail oder Name des Benutzers
     geaendert_am    TIMESTAMP NOT NULL DEFAULT NOW(),
-    grund           TEXT                           -- Optionaler Aenderungsgrund
+    grund           TEXT,                          -- Optionaler Aenderungsgrund
+    tenant_id       VARCHAR(50)                    -- Mandanten-ID (NULL = globaler Parameter)
 );
 
 -- Beispiel-Daten
@@ -482,6 +489,9 @@ public class AppParameter {
 
     @Column(name = "gueltig_bis")
     private LocalDateTime gueltigBis;
+
+    @Column(name = "tenant_id")
+    private String tenantId;  // NULL = globaler Parameter fuer alle Mandanten
 
     @PrePersist
     void prePersist() {
@@ -633,6 +643,33 @@ Jede Wertaenderung eines Parameters MUSS protokolliert werden:
 3. **Was** wurde geaendert (alter Wert -> neuer Wert)
 4. **Warum** wurde geaendert (optionaler Grund)
 5. Bei **sensiblen Parametern** werden alter und neuer Wert als `"***"` gespeichert
+
+### 7.8 Mandantenspezifische Parameter
+
+Parameter koennen mandantenspezifisch oder global sein:
+
+- **`tenant_id = NULL`**: Globaler Parameter, gilt fuer alle Mandanten
+- **`tenant_id = 't-aok-nw'`**: Parameter gilt nur fuer den Mandanten "AOK Nordwest"
+
+**Sichtbarkeitsregeln:**
+
+| Benutzertyp | Sichtbare Parameter |
+|-------------|---------------------|
+| Normaler Benutzer | Globale Parameter + Parameter des eigenen Mandanten |
+| Mandanten-Admin | Globale Parameter + Parameter des eigenen Mandanten |
+| Super-Admin | Alle Parameter aller Mandanten |
+
+**Zugriffsschutz:**
+- Ein Mandant kann **niemals** die mandantenspezifischen Parameter eines anderen Mandanten sehen oder bearbeiten
+- Globale Parameter sind fuer alle sichtbar, aber nur von Administratoren editierbar
+- Der Super-Admin (`super_admin = true`) sieht alle Parameter uebergreifend
+
+**Repository-Abfragen:**
+```java
+// Parameter fuer einen Mandanten: eigene + globale
+@Query("SELECT p FROM AppParameter p WHERE p.tenantId = :tenantId OR p.tenantId IS NULL")
+List<AppParameter> findByTenantIdOrGlobal(@Param("tenantId") String tenantId);
+```
 
 ---
 
@@ -1181,7 +1218,8 @@ CREATE TABLE app_parameter (
     last_modified_by VARCHAR(100),
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     gueltig_von     TIMESTAMP DEFAULT '1970-01-01 00:00:00',
-    gueltig_bis     TIMESTAMP DEFAULT '9999-12-31 23:59:59'
+    gueltig_bis     TIMESTAMP DEFAULT '9999-12-31 23:59:59',
+    tenant_id       VARCHAR(50)
 );
 
 CREATE TABLE parameter_audit_log (
@@ -1194,9 +1232,11 @@ CREATE TABLE parameter_audit_log (
     neuer_wert      TEXT,
     geaendert_von   VARCHAR(100) NOT NULL,
     geaendert_am    TIMESTAMP NOT NULL DEFAULT NOW(),
-    grund           TEXT
+    grund           TEXT,
+    tenant_id       VARCHAR(50)
 );
 
+-- Globaler Parameter (tenant_id = NULL, gilt fuer alle Mandanten)
 INSERT INTO app_parameter (id, param_key, label, app_id, app_name, param_group, param_type, param_value, default_value)
 VALUES ('p1', 'app.name', 'App-Name', 'demo-app', 'Demo App', 'Allgemein', 'STRING', 'Demo App', 'Demo App');
 ```
@@ -1226,6 +1266,7 @@ VALUES ('p1', 'app.name', 'App-Name', 'demo-app', 'Demo App', 'Allgemein', 'STRI
 | 2026-03-13  | Parameter-Audit-Log: Jede Aenderung wird protokolliert (wer, wann, was, warum) |
 | 2026-03-13  | Parameter-Gueltigkeit: Zeitliche Gueltigkeit mit gueltig_von/gueltig_bis |
 | 2026-03-13  | Super-User: Standard-Super-Admin Sebastian Olberding (portal@olberding.net) |
+| 2026-03-13  | Parameter-Mandanten: tenant_id auf Parametern, Mandanten-Isolation im Backend |
 
 ---
 
@@ -1249,3 +1290,5 @@ VALUES ('p1', 'app.name', 'App-Name', 'demo-app', 'Demo App', 'Allgemein', 'STRI
 | Parameter-Wert wird abgelehnt              | Typ-Validierung pruefen: NUMBER muss Zahl sein, BOOLEAN nur true/false, etc. |
 | Audit-Log ist leer                          | `parameter_audit_log` Tabelle angelegt? `PATCH /value` statt `PUT` verwenden |
 | Parameter nicht mehr gueltig               | `gueltig_bis` pruefen, ggf. mit neuem Zeitraum erneut freigeben |
+| Parameter eines anderen Mandanten sichtbar | `tenant_id` pruefen, muss dem eigenen Mandanten zugeordnet oder NULL (global) sein |
+| Mandantenspezifischer Parameter fehlt      | Parameter hat falschen `tenant_id`, Super-Admin kann alle sehen |
