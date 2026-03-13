@@ -11,6 +11,7 @@
 - **Aenderungshistorie:**
   - 2026-03-13: Erstversion mit Menue-Konfiguration, AppParameter-Schema, Deployment-Manifest, und vollstaendiger Projektstruktur
   - 2026-03-13: App-uebergreifende Berechtigungen: Use Cases in portal-app.yaml, automatische Synchronisation bei Installation
+  - 2026-03-13: Parameter-System: Audit-Log, Typ-Validierung, zeitliche Gueltigkeit (gueltig_von/gueltig_bis)
 
 ---
 
@@ -349,46 +350,68 @@ Jede App muss fachliche Konfigurationsparameter in einer standardisierten Tabell
 -- V2__create_app_parameter.sql (Flyway-Migration)
 CREATE TABLE app_parameter (
     id              VARCHAR(100) PRIMARY KEY,
-    category        VARCHAR(100) NOT NULL,         -- Gruppierung (z.B. "Allgemein", "Abrechnung")
-    name            VARCHAR(200) NOT NULL,         -- Anzeigename
+    param_key       VARCHAR(200) NOT NULL UNIQUE,  -- Technischer Schluessel (z.B. "abrechnung.mwst.satz")
+    label           VARCHAR(200) NOT NULL,         -- Anzeigename
     description     TEXT,                          -- Beschreibung / Hilfetext
-    parameter_key   VARCHAR(200) NOT NULL UNIQUE,  -- Technischer Schluessel (z.B. "abrechnung.mwst.satz")
-    parameter_value TEXT,                          -- Aktueller Wert
+    app_id          VARCHAR(50) NOT NULL,          -- ID der App (z.B. "meine-app")
+    app_name        VARCHAR(100) NOT NULL,         -- Anzeigename der App
+    param_group     VARCHAR(100) NOT NULL,         -- Gruppierung (z.B. "Allgemein", "Abrechnung")
+    param_type      VARCHAR(50) NOT NULL,          -- Datentyp (siehe 7.2)
+    param_value     TEXT,                          -- Aktueller Wert
     default_value   TEXT,                          -- Standard-Wert
-    parameter_type  VARCHAR(50) NOT NULL,          -- Datentyp (siehe 7.2)
-    validation_rule VARCHAR(500),                  -- Validierungsregel (Regex oder JSON-Schema)
     required        BOOLEAN DEFAULT false,         -- Pflichtfeld?
-    editable        BOOLEAN DEFAULT true,          -- Vom Benutzer aenderbar?
-    sort_order      INT DEFAULT 0,                 -- Sortierung innerhalb der Kategorie
+    validation_rules VARCHAR(500),                 -- Validierungsregel (Regex oder JSON-Schema)
+    options         TEXT,                           -- Komma-separierte Optionen fuer SELECT-Typ
+    unit            VARCHAR(50),                   -- Einheit (z.B. "min", "Tage", "%", "EUR")
+    sensitive       BOOLEAN DEFAULT false,         -- Sensible Daten (werden maskiert angezeigt)
+    hot_reload      BOOLEAN DEFAULT false,         -- Kann zur Laufzeit geaendert werden?
+    last_modified   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_modified_by VARCHAR(100),                 -- Wer hat zuletzt geaendert?
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    gueltig_von     TIMESTAMP DEFAULT '1970-01-01 00:00:00',  -- Zeitliche Gueltigkeit: Beginn
+    gueltig_bis     TIMESTAMP DEFAULT '9999-12-31 23:59:59'   -- Zeitliche Gueltigkeit: Ende
+);
+
+-- Audit-Log fuer Parameteraenderungen (PFLICHT)
+CREATE TABLE parameter_audit_log (
+    id              VARCHAR(50) PRIMARY KEY,
+    parameter_id    VARCHAR(100) NOT NULL,
+    param_key       VARCHAR(200) NOT NULL,
+    app_id          VARCHAR(50),
+    app_name        VARCHAR(100),
+    alter_wert      TEXT,                          -- Vorheriger Wert (bei sensiblen Parametern: "***")
+    neuer_wert      TEXT,                          -- Neuer Wert (bei sensiblen Parametern: "***")
+    geaendert_von   VARCHAR(100) NOT NULL,         -- E-Mail oder Name des Benutzers
+    geaendert_am    TIMESTAMP NOT NULL DEFAULT NOW(),
+    grund           TEXT                           -- Optionaler Aenderungsgrund
 );
 
 -- Beispiel-Daten
-INSERT INTO app_parameter (id, category, name, description, parameter_key, parameter_value, default_value, parameter_type, required, editable, sort_order) VALUES
-('param-001', 'Allgemein', 'Anwendungsname', 'Name der Anwendung', 'app.name', 'Meine App', 'Meine App', 'STRING', true, false, 1),
-('param-002', 'Allgemein', 'Max. Ergebnisse pro Seite', 'Maximale Anzahl Ergebnisse in Listenansichten', 'app.pagination.pageSize', '25', '25', 'INTEGER', false, true, 2),
-('param-003', 'Abrechnung', 'MwSt-Satz (%)', 'Standard Mehrwertsteuersatz', 'abrechnung.mwst.satz', '19.0', '19.0', 'DECIMAL', true, true, 1),
-('param-004', 'Abrechnung', 'Waehrung', 'Standard-Waehrung', 'abrechnung.waehrung', 'EUR', 'EUR', 'SELECT', true, true, 2),
-('param-005', 'Benachrichtigungen', 'E-Mail Benachrichtigungen', 'E-Mail Benachrichtigungen aktivieren', 'notification.email.enabled', 'true', 'true', 'BOOLEAN', false, true, 1);
+INSERT INTO app_parameter (id, param_key, label, description, app_id, app_name, param_group, param_type, param_value, default_value, required, sensitive, hot_reload) VALUES
+('param-001', 'app.name', 'Anwendungsname', 'Name der Anwendung', 'meine-app', 'Meine App', 'Allgemein', 'STRING', 'Meine App', 'Meine App', true, false, false),
+('param-002', 'app.pagination.pageSize', 'Max. Ergebnisse pro Seite', 'Maximale Anzahl Ergebnisse in Listenansichten', 'meine-app', 'Meine App', 'Allgemein', 'NUMBER', '25', '25', false, false, true),
+('param-003', 'abrechnung.mwst.satz', 'MwSt-Satz', 'Standard Mehrwertsteuersatz', 'meine-app', 'Meine App', 'Abrechnung', 'NUMBER', '19.0', '19.0', true, false, false),
+('param-004', 'abrechnung.waehrung', 'Waehrung', 'Standard-Waehrung', 'meine-app', 'Meine App', 'Abrechnung', 'SELECT', 'EUR', 'EUR', true, false, false),
+('param-005', 'notification.email.enabled', 'E-Mail Benachrichtigungen', 'E-Mail Benachrichtigungen aktivieren', 'meine-app', 'Meine App', 'Benachrichtigungen', 'BOOLEAN', 'true', 'true', false, false, true);
 ```
 
 ### 7.2 Parameter-Typen
 
-| Typ         | Beschreibung                        | Beispielwert           |
-|-------------|-------------------------------------|------------------------|
-| `STRING`    | Freitext                            | `"Mein Wert"`          |
-| `INTEGER`   | Ganzzahl                            | `"42"`                 |
-| `DECIMAL`   | Dezimalzahl                         | `"19.5"`               |
-| `BOOLEAN`   | Wahrheitswert                       | `"true"` / `"false"`   |
-| `DATE`      | Datum (ISO 8601)                    | `"2026-01-15"`         |
-| `DATETIME`  | Datum mit Uhrzeit                   | `"2026-01-15T10:30:00"`|
-| `SELECT`    | Auswahl (Optionen in validation)    | `"EUR"`                |
-| `MULTISELECT` | Mehrfachauswahl                   | `"DE,AT,CH"`           |
-| `JSON`      | Strukturierte Daten                 | `'{"key":"value"}'`    |
-| `PASSWORD`  | Verschluesselter Wert               | `"***"`                |
-| `URL`       | URL                                 | `"https://example.com"`|
-| `EMAIL`     | E-Mail-Adresse                      | `"test@example.com"`   |
+Das Portal validiert Werte automatisch anhand des Typs. Die App muss denselben Typ verwenden.
+
+| Typ         | Beschreibung                        | Beispielwert           | Validierung                          |
+|-------------|-------------------------------------|------------------------|--------------------------------------|
+| `STRING`    | Freitext                            | `"Mein Wert"`          | Keine                                |
+| `NUMBER`    | Zahl (Ganz- oder Dezimalzahl)       | `"42"` oder `"19.5"`   | Muss als Double parsebar sein        |
+| `BOOLEAN`   | Wahrheitswert                       | `"true"` / `"false"`   | Nur `"true"` oder `"false"`          |
+| `DATE`      | Datum (ISO 8601)                    | `"2026-01-15"`         | Format: `YYYY-MM-DD`                |
+| `SELECT`    | Auswahl aus Optionsliste            | `"EUR"`                | Wert muss in `options` enthalten sein |
+| `PASSWORD`  | Sensibles Passwort                  | `"***"`                | Keine (wird maskiert angezeigt)      |
+| `EMAIL`     | E-Mail-Adresse                      | `"test@example.com"`   | Regex-Validierung E-Mail-Format      |
+| `URL`       | URL                                 | `"https://example.com"`| Muss mit `http://` oder `https://` beginnen |
+| `TEXTAREA`  | Mehrzeiliger Freitext               | `"Zeile 1\nZeile 2"`  | Keine                                |
+
+> **Wichtig:** Die Typen `INTEGER`, `DECIMAL`, `DATETIME`, `MULTISELECT` und `JSON` aus frueheren Versionen wurden durch die obigen Typen ersetzt. `NUMBER` ersetzt `INTEGER` und `DECIMAL`.
 
 ### 7.3 Parameter-Entity (Spring Boot)
 
@@ -401,70 +424,142 @@ public class AppParameter {
     @Id
     private String id;
 
-    @Column(nullable = false)
-    private String category;
+    @Column(name = "param_key", nullable = false, unique = true)
+    private String key;
 
     @Column(nullable = false)
-    private String name;
+    private String label;
 
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    @Column(name = "parameter_key", nullable = false, unique = true)
-    private String parameterKey;
+    @Column(name = "app_id", nullable = false)
+    private String appId;
 
-    @Column(name = "parameter_value", columnDefinition = "TEXT")
-    private String parameterValue;
+    @Column(name = "app_name", nullable = false)
+    private String appName;
+
+    @Column(name = "param_group", nullable = false)
+    private String group;
+
+    @Column(name = "param_type", nullable = false)
+    @Enumerated(EnumType.STRING)
+    private ParameterType type;  // STRING, NUMBER, BOOLEAN, EMAIL, URL, SELECT, DATE, PASSWORD, TEXTAREA
+
+    @Column(name = "param_value", columnDefinition = "TEXT")
+    private String value;
 
     @Column(name = "default_value", columnDefinition = "TEXT")
     private String defaultValue;
 
-    @Column(name = "parameter_type", nullable = false)
-    private String parameterType;
-
-    @Column(name = "validation_rule")
-    private String validationRule;
-
     @Column(nullable = false)
     private boolean required;
 
-    @Column(nullable = false)
-    private boolean editable;
+    @Column(name = "validation_rules")
+    private String validationRules;
 
-    @Column(name = "sort_order")
-    private int sortOrder;
+    private String options;  // Komma-separierte Optionen fuer SELECT
+
+    private String unit;
+
+    @Column(nullable = false)
+    private boolean sensitive;
+
+    @Column(name = "hot_reload", nullable = false)
+    private boolean hotReload;
+
+    @Column(name = "last_modified")
+    private LocalDateTime lastModified;
+
+    @Column(name = "last_modified_by")
+    private String lastModifiedBy;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
+    @Column(name = "gueltig_von")
+    private LocalDateTime gueltigVon;
+
+    @Column(name = "gueltig_bis")
+    private LocalDateTime gueltigBis;
 
     @PrePersist
     void prePersist() {
         createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    void preUpdate() {
-        updatedAt = LocalDateTime.now();
+        lastModified = LocalDateTime.now();
+        if (gueltigVon == null) gueltigVon = LocalDateTime.of(1970, 1, 1, 0, 0);
+        if (gueltigBis == null) gueltigBis = LocalDateTime.of(9999, 12, 31, 23, 59, 59);
     }
 }
 ```
 
-### 7.4 Parameter-REST-API (Pflicht)
+### 7.4 Audit-Log Entity
+
+Jede Parameteraenderung muss in einem Audit-Log protokolliert werden:
+
+```java
+@Entity
+@Table(name = "parameter_audit_log")
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+public class ParameterAuditLog {
+
+    @Id
+    private String id;
+
+    @Column(name = "parameter_id", nullable = false)
+    private String parameterId;
+
+    @Column(name = "param_key", nullable = false)
+    private String paramKey;
+
+    @Column(name = "app_id")
+    private String appId;
+
+    @Column(name = "app_name")
+    private String appName;
+
+    @Column(name = "alter_wert", columnDefinition = "TEXT")
+    private String alterWert;   // Bei sensiblen Parametern: "***"
+
+    @Column(name = "neuer_wert", columnDefinition = "TEXT")
+    private String neuerWert;   // Bei sensiblen Parametern: "***"
+
+    @Column(name = "geaendert_von", nullable = false)
+    private String geaendertVon;
+
+    @Column(name = "geaendert_am", nullable = false)
+    private LocalDateTime geaendertAm;
+
+    @Column(columnDefinition = "TEXT")
+    private String grund;
+}
+```
+
+### 7.5 Parameter-REST-API (Pflicht)
 
 Die App muss folgende Endpunkte bereitstellen:
 
 ```
-GET    /api/parameters                    -- Alle Parameter auflisten
-GET    /api/parameters/{key}              -- Einzelnen Parameter abrufen
-PUT    /api/parameters/{key}              -- Parameterwert aendern
-GET    /api/parameters/categories         -- Alle Kategorien auflisten
-GET    /api/parameters?category={name}    -- Parameter nach Kategorie filtern
-POST   /api/parameters/reset/{key}        -- Parameter auf Standardwert zuruecksetzen
+GET    /api/parameters                    -- Alle Parameter auflisten (optional: ?appId=xxx)
+GET    /api/parameters/{id}               -- Einzelnen Parameter abrufen
+POST   /api/parameters                    -- Neuen Parameter erstellen
+PUT    /api/parameters/{id}               -- Parameter vollstaendig aktualisieren
+PATCH  /api/parameters/{id}/value         -- Nur den Wert aendern (mit Audit-Log)
+PATCH  /api/parameters/{id}/reset         -- Parameter auf Standardwert zuruecksetzen
+DELETE /api/parameters/{id}               -- Parameter loeschen
+GET    /api/parameters/audit-log          -- Audit-Log abrufen (optional: ?appId=xxx&parameterId=xxx)
 ```
+
+**PATCH /value Request-Body:**
+
+```json
+{
+  "value": "neuer_wert",
+  "grund": "Begruendung fuer die Aenderung"
+}
+```
+
+Das Portal validiert den Wert automatisch anhand des Parameter-Typs und schreibt bei jeder Aenderung einen Eintrag in den Audit-Log.
 
 **Controller-Beispiel:**
 
@@ -480,34 +575,64 @@ public class ParameterController {
     }
 
     @GetMapping
-    public List<AppParameter> getAll(@RequestParam(required = false) String category) {
-        if (category != null) {
-            return parameterService.findByCategory(category);
+    public List<AppParameter> getAll(@RequestParam(required = false) String appId) {
+        if (appId != null) {
+            return parameterService.findByAppId(appId);
         }
         return parameterService.findAll();
     }
 
-    @GetMapping("/{key}")
-    public AppParameter getByKey(@PathVariable String key) {
-        return parameterService.findByKey(key);
+    @GetMapping("/{id}")
+    public AppParameter getById(@PathVariable String id) {
+        return parameterService.findById(id);
     }
 
-    @PutMapping("/{key}")
-    public AppParameter update(@PathVariable String key, @RequestBody Map<String, String> body) {
-        return parameterService.updateValue(key, body.get("value"));
+    @PatchMapping("/{id}/value")
+    public ResponseEntity<?> updateValue(@PathVariable String id, @RequestBody Map<String, String> body) {
+        String value = body.get("value");
+        String grund = body.getOrDefault("grund", "");
+        String modifiedBy = getCurrentUserEmail(); // Aus JWT-Token
+        try {
+            AppParameter updated = parameterService.updateValue(id, value, modifiedBy, grund);
+            return ResponseEntity.ok(updated);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
-    @GetMapping("/categories")
-    public List<String> getCategories() {
-        return parameterService.findAllCategories();
+    @PatchMapping("/{id}/reset")
+    public AppParameter resetToDefault(@PathVariable String id) {
+        return parameterService.resetToDefault(id);
     }
 
-    @PostMapping("/reset/{key}")
-    public AppParameter reset(@PathVariable String key) {
-        return parameterService.resetToDefault(key);
+    @GetMapping("/audit-log")
+    public List<ParameterAuditLog> getAuditLog(
+            @RequestParam(required = false) String appId,
+            @RequestParam(required = false) String parameterId) {
+        // Gibt Audit-Log zurueck, sortiert nach geaendert_am absteigend
+        return parameterService.getAuditLog(appId, parameterId);
     }
 }
 ```
+
+### 7.6 Zeitliche Gueltigkeit
+
+Parameter haben eine optionale zeitliche Gueltigkeit (`gueltig_von` / `gueltig_bis`):
+
+- **Standard:** Parameter sind "immer gueltig" (von 1970-01-01 bis 9999-12-31)
+- **Zeitlich begrenzt:** Administratoren koennen Start- und Enddatum setzen
+- **Abgelaufene Parameter** werden im Portal mit einem Hinweis angezeigt
+- **Noch nicht gueltige Parameter** werden ebenfalls markiert
+
+### 7.7 Audit-Log Anforderungen
+
+Jede Wertaenderung eines Parameters MUSS protokolliert werden:
+
+1. **Wer** hat geaendert (E-Mail oder Name des Benutzers)
+2. **Wann** wurde geaendert (Zeitstempel)
+3. **Was** wurde geaendert (alter Wert -> neuer Wert)
+4. **Warum** wurde geaendert (optionaler Grund)
+5. Bei **sensiblen Parametern** werden alter und neuer Wert als `"***"` gespeichert
 
 ---
 
@@ -951,8 +1076,11 @@ DELETE /api/apps/{appId}/use-cases/{id}     -- Use Case entfernen
 - [ ] `portal-app.yaml` im Repository-Root vorhanden
 - [ ] `portal-app-menu.yaml` im Repository-Root vorhanden
 - [ ] `Dockerfile` im Repository-Root (Multi-Stage Build)
-- [ ] `app_parameter` Tabelle per Flyway-Migration angelegt
+- [ ] `app_parameter` Tabelle per Flyway-Migration angelegt (inkl. gueltig_von/gueltig_bis)
+- [ ] `parameter_audit_log` Tabelle per Flyway-Migration angelegt
 - [ ] `GET /api/parameters` Endpunkt liefert alle Parameter
+- [ ] `PATCH /api/parameters/{id}/value` schreibt Audit-Log und validiert nach Typ
+- [ ] `GET /api/parameters/audit-log` liefert Aenderungsprotokoll
 - [ ] `GET /api/menu` Endpunkt liefert die Menue-Struktur
 - [ ] `GET /api/actuator/health` oder eigener Health-Check antwortet mit 200
 - [ ] `port` in `portal-app.yaml` stimmt mit dem exponierten Container-Port ueberein
@@ -1034,23 +1162,43 @@ menu:
 ```sql
 CREATE TABLE app_parameter (
     id              VARCHAR(100) PRIMARY KEY,
-    category        VARCHAR(100) NOT NULL,
-    name            VARCHAR(200) NOT NULL,
+    param_key       VARCHAR(200) NOT NULL UNIQUE,
+    label           VARCHAR(200) NOT NULL,
     description     TEXT,
-    parameter_key   VARCHAR(200) NOT NULL UNIQUE,
-    parameter_value TEXT,
+    app_id          VARCHAR(50) NOT NULL,
+    app_name        VARCHAR(100) NOT NULL,
+    param_group     VARCHAR(100) NOT NULL,
+    param_type      VARCHAR(50) NOT NULL,
+    param_value     TEXT,
     default_value   TEXT,
-    parameter_type  VARCHAR(50) NOT NULL,
-    validation_rule VARCHAR(500),
     required        BOOLEAN DEFAULT false,
-    editable        BOOLEAN DEFAULT true,
-    sort_order      INT DEFAULT 0,
+    validation_rules VARCHAR(500),
+    options         TEXT,
+    unit            VARCHAR(50),
+    sensitive       BOOLEAN DEFAULT false,
+    hot_reload      BOOLEAN DEFAULT false,
+    last_modified   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_modified_by VARCHAR(100),
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    gueltig_von     TIMESTAMP DEFAULT '1970-01-01 00:00:00',
+    gueltig_bis     TIMESTAMP DEFAULT '9999-12-31 23:59:59'
 );
 
-INSERT INTO app_parameter (id, category, name, parameter_key, parameter_value, default_value, parameter_type, sort_order)
-VALUES ('p1', 'Allgemein', 'App-Name', 'app.name', 'Demo App', 'Demo App', 'STRING', 1);
+CREATE TABLE parameter_audit_log (
+    id              VARCHAR(50) PRIMARY KEY,
+    parameter_id    VARCHAR(100) NOT NULL,
+    param_key       VARCHAR(200) NOT NULL,
+    app_id          VARCHAR(50),
+    app_name        VARCHAR(100),
+    alter_wert      TEXT,
+    neuer_wert      TEXT,
+    geaendert_von   VARCHAR(100) NOT NULL,
+    geaendert_am    TIMESTAMP NOT NULL DEFAULT NOW(),
+    grund           TEXT
+);
+
+INSERT INTO app_parameter (id, param_key, label, app_id, app_name, param_group, param_type, param_value, default_value)
+VALUES ('p1', 'app.name', 'App-Name', 'demo-app', 'Demo App', 'Allgemein', 'STRING', 'Demo App', 'Demo App');
 ```
 
 ---
@@ -1072,6 +1220,12 @@ VALUES ('p1', 'Allgemein', 'App-Name', 'app.name', 'Demo App', 'Demo App', 'STRI
 | 2026-03-13  | Super-Admin: Mandantenuebergreifender Administrator                 |
 | 2026-03-13  | App-Installation: Nur noch fuer Administratoren (appstore-admin)    |
 | 2026-03-13  | Use-Case-API: REST-Endpunkt zur Laufzeit-Registrierung von Use Cases|
+| 2026-03-13  | Parameter-Schema: Neues Schema mit app_id, app_name, param_group, unit, sensitive, hot_reload |
+| 2026-03-13  | Parameter-Typen: Vereinfacht auf STRING, NUMBER, BOOLEAN, EMAIL, URL, SELECT, DATE, PASSWORD, TEXTAREA |
+| 2026-03-13  | Parameter-Validierung: Automatische Typ-basierte Validierung bei Wertaenderungen |
+| 2026-03-13  | Parameter-Audit-Log: Jede Aenderung wird protokolliert (wer, wann, was, warum) |
+| 2026-03-13  | Parameter-Gueltigkeit: Zeitliche Gueltigkeit mit gueltig_von/gueltig_bis |
+| 2026-03-13  | Super-User: Standard-Super-Admin Sebastian Olberding (portal@olberding.net) |
 
 ---
 
@@ -1092,3 +1246,6 @@ VALUES ('p1', 'Allgemein', 'App-Name', 'app.name', 'Demo App', 'Demo App', 'STRI
 | App-Berechtigungen fehlen nach Installation | `useCases` in `portal-app.yaml` pruefen, werden beim Deployment gelesen |
 | Installieren-Button nicht sichtbar          | Nur Benutzer mit `appstore-admin` Berechtigung (Schreiben) koennen installieren |
 | App-Use-Cases nicht in Gruppenverwaltung    | App muss installiert UND deployed sein, Use Cases muessen im Manifest stehen |
+| Parameter-Wert wird abgelehnt              | Typ-Validierung pruefen: NUMBER muss Zahl sein, BOOLEAN nur true/false, etc. |
+| Audit-Log ist leer                          | `parameter_audit_log` Tabelle angelegt? `PATCH /value` statt `PUT` verwenden |
+| Parameter nicht mehr gueltig               | `gueltig_bis` pruefen, ggf. mit neuem Zeitraum erneut freigeben |

@@ -7,7 +7,6 @@ import de.portalcore.repository.TenantRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashMap;
 import java.util.Map;
 
 @Service
@@ -30,11 +29,11 @@ public class DashboardService {
     }
 
     public Map<String, Object> getStats() {
-        Map<String, Object> stats = new HashMap<>();
-        stats.put("appCount", portalAppRepository.count());
-        stats.put("userCount", portalUserRepository.count());
-        stats.put("tenantCount", tenantRepository.count());
-        stats.put("installedAppCount", installedAppRepository.count());
-        return stats;
+        return Map.of(
+                "appCount", portalAppRepository.count(),
+                "userCount", portalUserRepository.count(),
+                "tenantCount", tenantRepository.count(),
+                "installedAppCount", installedAppRepository.count()
+        );
     }
 }
