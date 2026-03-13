@@ -90,4 +90,7 @@ public class PortalUser {
 
     @Column(name = "geburtsdatum")
     private LocalDate geburtsdatum;
+
+    @Column(name = "super_admin")
+    private boolean superAdmin;
 }

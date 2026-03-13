@@ -144,6 +144,7 @@ public class AuthController {
         result.put("abteilung", user.getAbteilung());
         result.put("positionTitel", user.getPositionTitel());
         result.put("status", user.getStatus().name());
+        result.put("superAdmin", user.isSuperAdmin());
         result.put("tenantId", details.tenantId());
         result.put("tenants", tenants);
         result.put("berechtigungen", berechtigungen);

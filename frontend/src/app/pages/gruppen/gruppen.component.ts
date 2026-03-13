@@ -79,7 +79,13 @@ import { Gruppe, GruppenBerechtigung } from '../../models/user.model';
                   <tr *ngFor="let b of gruppe.berechtigungen" class="hover:bg-gray-50">
                     <td class="px-4 py-3">
                       <div class="font-medium text-gray-900">{{ b.useCaseLabel }}</div>
-                      <div class="text-xs text-gray-400">{{ b.useCase }}</div>
+                      <div class="text-xs text-gray-400">
+                        {{ b.useCase }}
+                        <span *ngIf="b.appId && b.appId !== 'portal'"
+                              class="ml-1 px-1.5 py-0.5 bg-purple-50 text-purple-600 rounded text-[10px] font-medium">
+                          App: {{ b.appId }}
+                        </span>
+                      </div>
                     </td>
                     <td class="px-4 py-3 text-center">
                       <input type="checkbox" [checked]="b.anzeigen"

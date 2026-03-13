@@ -6,6 +6,7 @@ import { PortalApp, MarketSegment, AppType, AppCategory, AppVendor } from '../..
 import { AppService } from '../../services/app.service';
 import { InstalledAppService } from '../../services/installed-app.service';
 import { PortalStateService } from '../../services/portal-state.service';
+import { AuthService } from '../../services/auth.service';
 
 interface MarketSegmentInfo {
   key: MarketSegment;
@@ -28,7 +29,8 @@ interface MarketSegmentInfo {
             Entdecken Sie Anwendungen und Integrationen fuer Ihr Gesundheitsportal.
           </p>
         </div>
-        <button (click)="showCreateForm = true"
+        <button *ngIf="authService.darfAppInstallieren()"
+                (click)="showCreateForm = true"
                 class="px-4 py-2 bg-white text-[#006EC7] text-sm font-medium rounded-lg hover:bg-blue-50 transition-colors shrink-0 w-full sm:w-auto text-center">
           + Neue App anlegen
         </button>
@@ -300,6 +302,7 @@ export class AppStoreComponent implements OnInit {
   private readonly appService = inject(AppService);
   private readonly installedAppService = inject(InstalledAppService);
   private readonly portalState = inject(PortalStateService);
+  readonly authService = inject(AuthService);
 
   searchQuery = '';
   selectedSegment: MarketSegment | null = null;

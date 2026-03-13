@@ -2,8 +2,10 @@ package de.portalcore.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import de.portalcore.entity.AppUseCase;
 import de.portalcore.entity.InstalledApp;
 import de.portalcore.entity.PortalApp;
+import de.portalcore.repository.AppUseCaseRepository;
 import de.portalcore.repository.InstalledAppRepository;
 import de.portalcore.repository.PortalAppRepository;
 import org.slf4j.Logger;
@@ -16,7 +18,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -29,11 +33,14 @@ public class DeploymentService {
 
     private final InstalledAppRepository installedAppRepository;
     private final PortalAppRepository portalAppRepository;
+    private final AppUseCaseRepository appUseCaseRepository;
 
     public DeploymentService(InstalledAppRepository installedAppRepository,
-                             PortalAppRepository portalAppRepository) {
+                             PortalAppRepository portalAppRepository,
+                             AppUseCaseRepository appUseCaseRepository) {
         this.installedAppRepository = installedAppRepository;
         this.portalAppRepository = portalAppRepository;
+        this.appUseCaseRepository = appUseCaseRepository;
     }
 
     /**
@@ -250,6 +257,33 @@ public class DeploymentService {
         }
         if (manifest.containsKey("version")) {
             app.setVersion((String) manifest.get("version"));
+        }
+
+        // Use Cases aus Manifest registrieren
+        if (manifest.containsKey("useCases")) {
+            Object useCasesObj = manifest.get("useCases");
+            if (useCasesObj instanceof List) {
+                // Alte Use Cases loeschen und neu anlegen
+                appUseCaseRepository.deleteByAppId(app.getId());
+                for (Object ucObj : (List<?>) useCasesObj) {
+                    if (ucObj instanceof Map) {
+                        Map<String, Object> ucMap = (Map<String, Object>) ucObj;
+                        String key = (String) ucMap.get("key");
+                        String label = (String) ucMap.get("label");
+                        String beschreibung = (String) ucMap.getOrDefault("beschreibung", "");
+                        if (key != null && label != null) {
+                            AppUseCase auc = AppUseCase.builder()
+                                    .id("auc-" + UUID.randomUUID().toString().substring(0, 8))
+                                    .appId(app.getId())
+                                    .useCase(key)
+                                    .useCaseLabel(label)
+                                    .beschreibung(beschreibung)
+                                    .build();
+                            appUseCaseRepository.save(auc);
+                        }
+                    }
+                }
+            }
         }
     }
 

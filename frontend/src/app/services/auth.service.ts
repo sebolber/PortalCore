@@ -10,6 +10,7 @@ export interface AuthUser {
   nachname: string;
   email: string;
   initialen: string;
+  superAdmin?: boolean;
 }
 
 export interface AuthTenant {
@@ -138,5 +139,13 @@ export class AuthService {
 
   darfSchreiben(useCase: string): boolean {
     return this.hatBerechtigung(useCase, 'schreiben');
+  }
+
+  darfAppInstallieren(): boolean {
+    return this.hatBerechtigung('appstore-admin', 'schreiben');
+  }
+
+  isSuperAdmin(): boolean {
+    return this.currentUser()?.superAdmin === true;
   }
 }

@@ -6,6 +6,7 @@ import { AppService } from '../../services/app.service';
 import { InstalledAppService } from '../../services/installed-app.service';
 import { DeploymentService } from '../../services/deployment.service';
 import { PortalStateService } from '../../services/portal-state.service';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-app-detail',
@@ -65,7 +66,7 @@ import { PortalStateService } from '../../services/portal-state.service';
 
             <!-- Action Buttons -->
             <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
-              <button *ngIf="!isInstalled"
+              <button *ngIf="!isInstalled && authService.darfAppInstallieren()"
                       (click)="install()"
                       [disabled]="installing"
                       class="px-6 py-2.5 bg-[#006EC7] text-white text-sm font-medium rounded-lg hover:bg-[#005BA3] transition-colors disabled:opacity-50">
@@ -89,7 +90,8 @@ import { PortalStateService } from '../../services/portal-state.service';
                   <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                   Container laeuft
                 </span>
-                <button (click)="uninstall()"
+                <button *ngIf="authService.darfAppInstallieren()"
+                        (click)="uninstall()"
                         [disabled]="uninstalling"
                         class="px-4 py-2.5 bg-white border border-red-200 text-red-600 text-sm font-medium rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50">
                   {{ uninstalling ? 'Wird deinstalliert...' : 'Deinstallieren' }}
@@ -198,6 +200,7 @@ export class AppDetailComponent implements OnInit {
   private readonly installedAppService = inject(InstalledAppService);
   private readonly deploymentService = inject(DeploymentService);
   private readonly portalState = inject(PortalStateService);
+  readonly authService = inject(AuthService);
 
   app: PortalApp | undefined;
   isInstalled = false;

@@ -12,6 +12,8 @@ public interface GruppenBerechtigungRepository extends JpaRepository<GruppenBere
 
     List<GruppenBerechtigung> findByGruppeId(String gruppeId);
 
+    List<GruppenBerechtigung> findByAppId(String appId);
+
     @Query("SELECT gb FROM GruppenBerechtigung gb WHERE gb.gruppe.id IN " +
            "(SELECT g.id FROM Gruppe g JOIN g.benutzer u WHERE u.id = :userId)")
     List<GruppenBerechtigung> findByUserId(String userId);

@@ -145,13 +145,14 @@ public class AuthService {
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("token", token);
-        result.put("user", Map.of(
-                "id", user.getId(),
-                "vorname", user.getVorname(),
-                "nachname", user.getNachname(),
-                "email", user.getEmail(),
-                "initialen", user.getInitialen()
-        ));
+        Map<String, Object> userMap = new LinkedHashMap<>();
+        userMap.put("id", user.getId());
+        userMap.put("vorname", user.getVorname());
+        userMap.put("nachname", user.getNachname());
+        userMap.put("email", user.getEmail());
+        userMap.put("initialen", user.getInitialen());
+        userMap.put("superAdmin", user.isSuperAdmin());
+        result.put("user", userMap);
         result.put("tenantId", effectiveTenantId);
         result.put("tenants", tenants);
         result.put("berechtigungen", permList);

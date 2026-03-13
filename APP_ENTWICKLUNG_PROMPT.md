@@ -10,6 +10,7 @@
 - **Datum:** 2026-03-13
 - **Aenderungshistorie:**
   - 2026-03-13: Erstversion mit Menue-Konfiguration, AppParameter-Schema, Deployment-Manifest, und vollstaendiger Projektstruktur
+  - 2026-03-13: App-uebergreifende Berechtigungen: Use Cases in portal-app.yaml, automatische Synchronisation bei Installation
 
 ---
 
@@ -114,6 +115,22 @@ env:
   SPRING_DATASOURCE_PASSWORD: meineapp
   NODE_ENV: production
 healthCheck: /api/actuator/health
+
+# Use Cases (Berechtigungen) der App -- PFLICHT
+# Diese werden beim Installieren automatisch im Portal-Berechtigungssystem registriert.
+# Administratoren erhalten sofort volle Rechte (anzeigen/lesen/schreiben/loeschen).
+# Andere Gruppen koennen die Rechte ueber die Gruppenverwaltung konfigurieren.
+# Beim Deinstallieren werden die Berechtigungen automatisch entfernt.
+useCases:
+  - key: meine-app-dashboard          # Eindeutiger technischer Schluessel
+    label: "Meine App - Dashboard"     # Anzeigename in der Gruppenverwaltung
+    beschreibung: "Zugriff auf das Dashboard der App"
+  - key: meine-app-verwaltung
+    label: "Meine App - Verwaltung"
+    beschreibung: "Verwaltungsfunktionen der App"
+  - key: meine-app-berichte
+    label: "Meine App - Berichte"
+    beschreibung: "Berichtswesen und Auswertungen"
 
 # App-Store Metadaten (ueberschreiben DB-Eintraege im Portal)
 appStore:
@@ -782,7 +799,152 @@ Uebergreifender Parameter-Dialog
 
 ---
 
-## 13. Checkliste fuer neue Apps
+## 13. App-uebergreifende Berechtigungen (PFLICHT)
+
+### 13.1 Konzept
+
+Das Portal verfuegt ueber ein zentrales Berechtigungssystem mit feingranularen Gruppenberechtigungen. Jede installierte App muss ihre **Use Cases** (Anwendungsfaelle) beim Portal registrieren, damit:
+
+1. **Administratoren** automatisch volle Rechte auf alle App-Use-Cases erhalten
+2. **Andere Gruppen** die Rechte pro Use Case konfigurieren koennen (anzeigen/lesen/schreiben/loeschen)
+3. **Menuepunkte** automatisch ausgeblendet werden, wenn ein Benutzer keine `anzeigen`-Berechtigung hat
+4. Beim **Deinstallieren** alle zugehoerigen Berechtigungen automatisch entfernt werden
+
+### 13.2 Use Cases in portal-app.yaml definieren
+
+Jede App muss ihre Use Cases im `portal-app.yaml` Manifest deklarieren:
+
+```yaml
+useCases:
+  - key: meine-app-dashboard          # Eindeutig, Prefix mit App-Name empfohlen
+    label: "Meine App - Dashboard"     # Anzeigename in der Portal-Gruppenverwaltung
+    beschreibung: "Zugriff auf das Dashboard der App"
+  - key: meine-app-stammdaten
+    label: "Meine App - Stammdaten"
+    beschreibung: "Verwaltung von Stammdaten"
+```
+
+**Regeln fuer Use-Case-Keys:**
+- Prefix mit App-Name oder App-ID verwenden (`meine-app-...`)
+- Nur Kleinbuchstaben, Bindestriche, keine Leerzeichen
+- Muss innerhalb der App eindeutig sein
+- Sollte den fachlichen Anwendungsfall beschreiben
+
+### 13.3 Berechtigungspruefung in der App implementieren
+
+Die App muss die Portal-Berechtigungen in ihren eigenen Endpunkten pruefen. Dazu leitet das Portal den JWT-Token an die App weiter.
+
+**Variante 1: Portal-API abfragen (empfohlen)**
+
+```java
+@Service
+public class PortalBerechtigungService {
+
+    @Value("${portal.api.url:http://portal-backend:8080/api}")
+    private String portalApiUrl;
+
+    private final RestTemplate restTemplate;
+
+    /**
+     * Prueft ob der aktuelle Benutzer eine Berechtigung hat.
+     * Der JWT-Token wird vom Portal-Request durchgereicht.
+     */
+    public boolean hatBerechtigung(String token, String useCase, String typ) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+        HttpEntity<?> entity = new HttpEntity<>(headers);
+
+        try {
+            ResponseEntity<Map> response = restTemplate.exchange(
+                portalApiUrl + "/auth/me",
+                HttpMethod.GET, entity, Map.class);
+
+            if (response.getBody() == null) return false;
+
+            List<Map<String, Object>> berechtigungen =
+                (List<Map<String, Object>>) response.getBody().get("berechtigungen");
+
+            return berechtigungen.stream()
+                .filter(b -> useCase.equals(b.get("useCase")))
+                .anyMatch(b -> Boolean.TRUE.equals(b.get(typ)));
+        } catch (Exception e) {
+            return false;
+        }
+    }
+}
+```
+
+**Variante 2: JWT-Claims direkt auswerten**
+
+```java
+// Der Portal-JWT enthaelt: userId, tenantId, sessionId, email
+// Die Berechtigungen muessen separat vom Portal abgefragt werden,
+// da sie nicht im Token enthalten sind (Token waere zu gross).
+```
+
+### 13.4 Berechtigungsarten
+
+Jeder Use Case hat vier Berechtigungsstufen:
+
+| Recht       | Beschreibung                                       |
+|-------------|-----------------------------------------------------|
+| `anzeigen`  | Menuepunkt/Dialog ist sichtbar                      |
+| `lesen`     | Daten duerfen gelesen werden                        |
+| `schreiben` | Daten duerfen erstellt und bearbeitet werden         |
+| `loeschen`  | Daten duerfen geloescht werden                       |
+
+Wenn `anzeigen` deaktiviert ist, sieht der Benutzer den Use Case und den zugehoerigen Menuepunkt gar nicht.
+
+### 13.5 App-Installation Berechtigungsfluss
+
+```
+1. Admin klickt "Installieren" im App Store
+   └── Nur Benutzer mit Berechtigung "appstore-admin" (schreiben) koennen installieren
+       Alle anderen Benutzer koennen den App Store nur durchstoebbern
+
+2. Portal liest portal-app.yaml → useCases
+   └── Use Cases werden in Tabelle "app_use_cases" registriert
+
+3. Admin-Gruppe (g-admin) erhaelt automatisch volle Rechte
+   └── Fuer jeden Use Case: anzeigen=true, lesen=true, schreiben=true, loeschen=true
+
+4. Andere Gruppen koennen manuell konfiguriert werden
+   └── In der Gruppenverwaltung: Use Cases der App erscheinen mit "App: app-id" Badge
+
+5. Beim Deinstallieren
+   └── Alle Berechtigungen mit app_id der App werden aus ALLEN Gruppen entfernt
+   └── Registrierte Use Cases werden aus app_use_cases entfernt
+```
+
+### 13.6 Mandantenspezifische Berechtigungen
+
+- Jeder Mandant kann eigene Gruppen erstellen und die Berechtigungen individuell konfigurieren
+- Es gibt einen **Mandanten-Administrator** pro Mandant (Gruppe "Administration" mit Mandant-Zuordnung)
+- Es gibt einen **Super-Administrator** (mandantenuebergreifend, Flag `super_admin` auf dem Benutzer)
+- Der Super-Administrator kann Apps fuer alle Mandanten installieren und Mandantenzuordnungen verwalten
+
+### 13.7 REST-API fuer Use-Case-Registrierung (alternativ zu Manifest)
+
+Apps koennen ihre Use Cases auch zur Laufzeit ueber die Portal-API registrieren:
+
+```
+GET    /api/apps/{appId}/use-cases          -- Registrierte Use Cases abrufen
+POST   /api/apps/{appId}/use-cases          -- Neuen Use Case registrieren
+DELETE /api/apps/{appId}/use-cases/{id}     -- Use Case entfernen
+```
+
+**Request-Body (POST):**
+```json
+{
+  "useCase": "meine-app-berichte",
+  "useCaseLabel": "Meine App - Berichte",
+  "beschreibung": "Zugriff auf Berichtswesen"
+}
+```
+
+---
+
+## 14. Checkliste fuer neue Apps
 
 ### Pflicht -- ohne diese Punkte ist die App nicht installierbar
 
@@ -795,6 +957,8 @@ Uebergreifender Parameter-Dialog
 - [ ] `GET /api/actuator/health` oder eigener Health-Check antwortet mit 200
 - [ ] `port` in `portal-app.yaml` stimmt mit dem exponierten Container-Port ueberein
 - [ ] Routen in `portal-app-menu.yaml` stimmen mit Angular-Routen ueberein
+- [ ] `useCases` in `portal-app.yaml` definiert (alle Anwendungsfaelle der App)
+- [ ] Berechtigungspruefung in App-Endpunkten implementiert (Portal-JWT auswerten)
 - [ ] App startet ohne manuelle Konfiguration (nur Umgebungsvariablen)
 - [ ] CORS erlaubt Zugriffe vom Portal (`*` oder Portal-URL)
 - [ ] Deutsche Oberflaeche (de-DE)
@@ -823,7 +987,7 @@ Uebergreifender Parameter-Dialog
 
 ---
 
-## 14. Beispiel: Minimale App
+## 15. Beispiel: Minimale App
 
 Eine minimale App die alle Kriterien erfuellt:
 
@@ -835,6 +999,14 @@ version: 1.0.0
 dockerfile: Dockerfile
 port: 80
 healthCheck: /api/actuator/health
+
+useCases:
+  - key: demo-app-home
+    label: "Demo App - Startseite"
+    beschreibung: "Zugriff auf die Startseite der Demo App"
+  - key: demo-app-settings
+    label: "Demo App - Einstellungen"
+    beschreibung: "App-Einstellungen verwalten"
 ```
 
 ### portal-app-menu.yaml
@@ -883,7 +1055,7 @@ VALUES ('p1', 'Allgemein', 'App-Name', 'app.name', 'Demo App', 'Demo App', 'STRI
 
 ---
 
-## 15. Aenderungsprotokoll
+## 16. Aenderungsprotokoll
 
 > **Regel:** Jedes Mal wenn neue Anforderungen, Schnittstellen oder Kriterien hinzukommen, die eine App erfuellen muss um im Portal installierbar zu sein, MUSS diese Datei aktualisiert werden.
 
@@ -896,10 +1068,14 @@ VALUES ('p1', 'Allgemein', 'App-Name', 'app.name', 'Demo App', 'Demo App', 'STRI
 | 2026-03-13  | Mandanten: Erweitert um Adresse, Kontaktdaten, Ansprechpartner     |
 | 2026-03-13  | Benutzer: Erweitert um Personendaten, mehrere Adressen, Hauptadresse|
 | 2026-03-13  | Audit-Log: Sicherheitsrelevante Aktionen werden protokolliert       |
+| 2026-03-13  | App-Berechtigungen: useCases in portal-app.yaml, auto-Sync bei Install |
+| 2026-03-13  | Super-Admin: Mandantenuebergreifender Administrator                 |
+| 2026-03-13  | App-Installation: Nur noch fuer Administratoren (appstore-admin)    |
+| 2026-03-13  | Use-Case-API: REST-Endpunkt zur Laufzeit-Registrierung von Use Cases|
 
 ---
 
-## 16. Haeufige Fehler
+## 17. Haeufige Fehler
 
 | Problem                                     | Loesung                                              |
 |---------------------------------------------|------------------------------------------------------|
@@ -913,3 +1089,6 @@ VALUES ('p1', 'Allgemein', 'App-Name', 'app.name', 'Demo App', 'Demo App', 'STRI
 | 401 Unauthorized bei API-Aufrufen          | JWT-Token fehlt, `Authorization: Bearer <token>` Header setzen    |
 | Benutzer sieht Menuepunkt nicht            | `anzeigen`-Berechtigung fuer den Use Case in der Gruppe pruefen   |
 | Mandantenwechsel schlaegt fehl             | Benutzer muss dem Zielmandanten zugeordnet sein (user_tenants)     |
+| App-Berechtigungen fehlen nach Installation | `useCases` in `portal-app.yaml` pruefen, werden beim Deployment gelesen |
+| Installieren-Button nicht sichtbar          | Nur Benutzer mit `appstore-admin` Berechtigung (Schreiben) koennen installieren |
+| App-Use-Cases nicht in Gruppenverwaltung    | App muss installiert UND deployed sein, Use Cases muessen im Manifest stehen |

@@ -5,6 +5,7 @@ import { InstalledApp } from '../../models/app.model';
 import { InstalledAppService } from '../../services/installed-app.service';
 import { DeploymentService } from '../../services/deployment.service';
 import { PortalStateService } from '../../services/portal-state.service';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-installed-apps',
@@ -114,7 +115,8 @@ import { PortalStateService } from '../../services/portal-state.service';
           </button>
 
           <!-- Uninstall -->
-          <button (click)="uninstall(installed)"
+          <button *ngIf="authService.darfAppInstallieren()"
+                  (click)="uninstall(installed)"
                   [disabled]="uninstallingId === installed.id"
                   class="px-3 py-2 bg-white border border-red-200 text-red-600 text-xs font-medium rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50">
             {{ uninstallingId === installed.id ? 'Entfernt...' : 'Deinstallieren' }}
@@ -140,6 +142,7 @@ export class InstalledAppsComponent implements OnInit {
   private readonly installedAppService = inject(InstalledAppService);
   private readonly deploymentService = inject(DeploymentService);
   private readonly portalState = inject(PortalStateService);
+  readonly authService = inject(AuthService);
 
   apps: InstalledApp[] = [];
   loading = true;
