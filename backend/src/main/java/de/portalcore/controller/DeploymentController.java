@@ -9,7 +9,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/deployments")
-@CrossOrigin(origins = "*")
 public class DeploymentController {
 
     private final DeploymentService deploymentService;

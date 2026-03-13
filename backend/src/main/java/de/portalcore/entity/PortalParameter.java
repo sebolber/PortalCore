@@ -72,6 +72,9 @@ public class PortalParameter {
     @Column(name = "tenant_id")
     private String tenantId;
 
+    @Column(name = "admin_only")
+    private boolean adminOnly;
+
     @PrePersist
     void prePersist() {
         if (createdAt == null) createdAt = LocalDateTime.now();

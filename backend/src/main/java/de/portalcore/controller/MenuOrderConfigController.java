@@ -9,7 +9,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/menu-order")
-@CrossOrigin(origins = "*")
 public class MenuOrderConfigController {
 
     private final MenuOrderConfigService configService;

@@ -13,6 +13,12 @@ public interface PortalParameterRepository extends JpaRepository<PortalParameter
 
     List<PortalParameter> findByAppId(String appId);
 
+    @Query("SELECT p FROM PortalParameter p WHERE p.key = :key AND p.tenantId IS NULL")
+    java.util.Optional<PortalParameter> findGlobalByKey(@Param("key") String key);
+
+    @Query("SELECT p FROM PortalParameter p WHERE p.key LIKE :prefix AND p.tenantId IS NULL")
+    List<PortalParameter> findGlobalByKeyStartingWith(@Param("prefix") String prefix);
+
     List<PortalParameter> findByGroup(String group);
 
     List<PortalParameter> findByAppIdAndGroup(String appId, String group);

@@ -13,5 +13,9 @@ WORKDIR /app
 RUN apk add --no-cache docker-cli git
 
 COPY --from=build /app/target/*.jar app.jar
+
+# Verzeichnis fuer externe Konfiguration (portal-init.yml)
+RUN mkdir -p /app/config
+
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]

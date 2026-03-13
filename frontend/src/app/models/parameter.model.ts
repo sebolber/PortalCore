@@ -21,6 +21,7 @@ export interface PortalParameter {
   gueltigVon?: string;
   gueltigBis?: string;
   tenantId?: string;
+  adminOnly?: boolean;
 }
 
 export interface ParameterAuditLog {

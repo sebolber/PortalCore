@@ -12,7 +12,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/custom-menu-items")
-@CrossOrigin(origins = "*")
 public class CustomMenuItemController {
 
     private final CustomMenuItemService menuItemService;

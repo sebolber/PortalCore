@@ -22,40 +22,62 @@ public class OtpService {
     private static final Logger log = LoggerFactory.getLogger(OtpService.class);
 
     private final OtpCodeRepository otpCodeRepository;
-    private final JavaMailSender mailSender;
+    private final EmailConfigService emailConfigService;
+    private final JavaMailSender fallbackMailSender;
 
     @Value("${portal.otp.length:6}")
-    private int otpLength;
+    private int otpLengthDefault;
 
     @Value("${portal.otp.expiration-minutes:10}")
-    private int expirationMinutes;
+    private int expirationMinutesDefault;
 
     @Value("${portal.otp.max-attempts:5}")
-    private int maxAttempts;
+    private int maxAttemptsDefault;
 
     @Value("${portal.otp.rate-limit-per-hour:5}")
-    private int rateLimitPerHour;
-
-    @Value("${portal.email.from:noreply@health-portal.de}")
-    private String fromEmail;
+    private int rateLimitPerHourDefault;
 
     @Value("${portal.otp.send-mail:true}")
-    private boolean sendMail;
+    private boolean sendMailDefault;
 
     private final SecureRandom secureRandom = new SecureRandom();
 
     public OtpService(OtpCodeRepository otpCodeRepository,
+                      EmailConfigService emailConfigService,
                       Optional<JavaMailSender> mailSender) {
         this.otpCodeRepository = otpCodeRepository;
-        this.mailSender = mailSender.orElse(null);
+        this.emailConfigService = emailConfigService;
+        this.fallbackMailSender = mailSender.orElse(null);
+    }
+
+    private int getOtpLength() {
+        return emailConfigService.getIntParam("portal.auth.otp.length", otpLengthDefault);
+    }
+
+    private int getExpirationMinutes() {
+        return emailConfigService.getIntParam("portal.auth.otp.expiration-minutes", expirationMinutesDefault);
+    }
+
+    private int getMaxAttempts() {
+        return emailConfigService.getIntParam("portal.auth.otp.max-attempts", maxAttemptsDefault);
+    }
+
+    private int getRateLimitPerHour() {
+        return emailConfigService.getIntParam("portal.auth.otp.rate-limit", rateLimitPerHourDefault);
+    }
+
+    private boolean isSendMailEnabled() {
+        return emailConfigService.isEmailAuthEnabled() && emailConfigService.isSmtpConfigured();
     }
 
     public String generateAndSendOtp(String email, String ipAdresse) {
         // Rate Limiting
         long recentCount = otpCodeRepository.countRecentByEmail(email, LocalDateTime.now().minusHours(1));
-        if (recentCount >= rateLimitPerHour) {
+        if (recentCount >= getRateLimitPerHour()) {
             throw new IllegalStateException("Zu viele Anmeldeversuche. Bitte versuchen Sie es spaeter erneut.");
         }
+
+        int expMinutes = getExpirationMinutes();
 
         // Code generieren
         String code = generateCode();
@@ -65,7 +87,7 @@ public class OtpService {
                 .email(email)
                 .code(code)
                 .erstelltAm(LocalDateTime.now())
-                .gueltigBis(LocalDateTime.now().plusMinutes(expirationMinutes))
+                .gueltigBis(LocalDateTime.now().plusMinutes(expMinutes))
                 .verwendet(false)
                 .ipAdresse(ipAdresse)
                 .versuche(0)
@@ -74,8 +96,8 @@ public class OtpService {
         otpCodeRepository.save(otpCode);
 
         // E-Mail senden
-        if (sendMail && mailSender != null) {
-            sendOtpEmail(email, code);
+        if (isSendMailEnabled()) {
+            sendOtpEmail(email, code, expMinutes);
         } else {
             log.info("OTP fuer {}: {} (E-Mail-Versand deaktiviert)", email, code);
         }
@@ -95,7 +117,7 @@ public class OtpService {
         OtpCode otp = otpOpt.get();
 
         // Max Versuche pruefen
-        if (otp.getVersuche() >= maxAttempts) {
+        if (otp.getVersuche() >= getMaxAttempts()) {
             otp.setVerwendet(true);
             otpCodeRepository.save(otp);
             return false;
@@ -118,17 +140,27 @@ public class OtpService {
     }
 
     private String generateCode() {
+        int length = getOtpLength();
         StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < otpLength; i++) {
+        for (int i = 0; i < length; i++) {
             sb.append(secureRandom.nextInt(10));
         }
         return sb.toString();
     }
 
-    private void sendOtpEmail(String to, String code) {
+    private void sendOtpEmail(String to, String code, int expMinutes) {
         try {
+            JavaMailSender sender = emailConfigService.isSmtpConfigured()
+                    ? emailConfigService.createMailSender()
+                    : fallbackMailSender;
+
+            if (sender == null) {
+                log.warn("Kein Mail-Sender verfuegbar. OTP fuer {} (Fallback): {}", to, code);
+                return;
+            }
+
             SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(fromEmail);
+            message.setFrom(emailConfigService.getFromAddress());
             message.setTo(to);
             message.setSubject("Health Portal - Ihr Anmeldecode");
             message.setText(String.format(
@@ -140,8 +172,8 @@ public class OtpService {
                     "ignorieren Sie bitte diese E-Mail.\n\n" +
                     "Mit freundlichen Gruessen\n" +
                     "Ihr Health Portal Team",
-                    code, expirationMinutes));
-            mailSender.send(message);
+                    code, expMinutes));
+            sender.send(message);
             log.info("OTP-Email an {} gesendet", to);
         } catch (Exception e) {
             log.error("Fehler beim Senden der OTP-Email an {}: {}", to, e.getMessage());

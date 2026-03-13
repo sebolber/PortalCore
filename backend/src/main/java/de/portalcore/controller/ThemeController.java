@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/theme")
-@CrossOrigin(origins = "*")
 public class ThemeController {
 
     private final ThemeService themeService;

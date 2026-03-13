@@ -16,7 +16,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/tenants/{tenantId}/installed-apps")
-@CrossOrigin(origins = "*")
 public class InstalledAppController {
 
     private final InstalledAppService installedAppService;

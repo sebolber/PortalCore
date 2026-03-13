@@ -14,7 +14,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/gruppen")
-@CrossOrigin("*")
 public class GruppenController {
 
     private final GruppenService gruppenService;

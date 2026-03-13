@@ -17,7 +17,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/parameters")
-@CrossOrigin(origins = "*")
 public class ParameterController {
 
     private final ParameterService parameterService;
@@ -49,7 +48,11 @@ public class ParameterController {
     }
 
     @PostMapping
-    public ResponseEntity<PortalParameter> create(@RequestBody PortalParameter parameter) {
+    public ResponseEntity<?> create(@RequestBody PortalParameter parameter) {
+        if (!isCurrentUserSuperAdmin()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Nur Administratoren duerfen Parameter erstellen."));
+        }
         return ResponseEntity.ok(parameterService.create(parameter));
     }
 
@@ -61,6 +64,10 @@ public class ParameterController {
         if (!parameterService.hasAccess(existing, getCurrentTenantId(), isCurrentUserSuperAdmin())) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("error", "Kein Zugriff auf diesen Parameter."));
+        }
+        if (existing.isAdminOnly() && !isCurrentUserSuperAdmin()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Dieser Parameter darf nur von Administratoren geaendert werden."));
         }
         PortalParameter updated = parameterService.updateParameter(id, parameter);
         return ResponseEntity.ok(updated);
@@ -74,6 +81,10 @@ public class ParameterController {
         if (!parameterService.hasAccess(existing, getCurrentTenantId(), isCurrentUserSuperAdmin())) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("error", "Kein Zugriff auf diesen Parameter."));
+        }
+        if (existing.isAdminOnly() && !isCurrentUserSuperAdmin()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Dieser Parameter darf nur von Administratoren geaendert werden."));
         }
         String value = body.get("value");
         String grund = body.getOrDefault("grund", "");
@@ -93,6 +104,10 @@ public class ParameterController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("error", "Kein Zugriff auf diesen Parameter."));
         }
+        if (parameter.isAdminOnly() && !isCurrentUserSuperAdmin()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Dieser Parameter darf nur von Administratoren zurueckgesetzt werden."));
+        }
         String modifiedBy = getCurrentUserName();
         PortalParameter updated = parameterService.updateValue(
                 id, parameter.getDefaultValue(), modifiedBy, "Auf Standardwert zurueckgesetzt");
@@ -105,6 +120,10 @@ public class ParameterController {
         if (!parameterService.hasAccess(parameter, getCurrentTenantId(), isCurrentUserSuperAdmin())) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("error", "Kein Zugriff auf diesen Parameter."));
+        }
+        if (parameter.isAdminOnly() && !isCurrentUserSuperAdmin()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Dieser Parameter darf nur von Administratoren geloescht werden."));
         }
         parameterService.delete(id);
         return ResponseEntity.noContent().build();

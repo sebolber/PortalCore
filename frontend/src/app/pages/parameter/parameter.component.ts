@@ -157,6 +157,9 @@ import { AuthService } from '../../services/auth.service';
                               @if (param.sensitive) {
                                 <span class="text-xs px-1.5 py-0.5 rounded bg-error/10 text-error font-medium">Sensibel</span>
                               }
+                              @if (param.adminOnly) {
+                                <span class="text-xs px-1.5 py-0.5 rounded bg-red-50 text-red-600 font-medium" title="Nur Administratoren duerfen diesen Parameter aendern">Nur Admin</span>
+                              }
                               @if (param.tenantId) {
                                 <span class="text-xs px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 font-medium" title="Mandantenspezifisch">Mandant: {{ param.tenantId }}</span>
                               } @else {
@@ -254,7 +257,9 @@ import { AuthService } from '../../services/auth.service';
                                 @if (param.unit) {
                                   <span class="text-xs text-gray-400">{{ param.unit }}</span>
                                 }
-                                <button (click)="startEdit(param)" class="ml-2 text-xs text-primary hover:underline">Bearbeiten</button>
+                                @if (!param.adminOnly || authService.isSuperAdmin()) {
+                                  <button (click)="startEdit(param)" class="ml-2 text-xs text-primary hover:underline">Bearbeiten</button>
+                                }
                               </div>
                             }
                           </div>

@@ -4,6 +4,9 @@ import { FormsModule } from '@angular/forms';
 import { ThemeService, PortalTheme } from '../../services/theme.service';
 import { CustomMenuService, CustomMenuItem, MenuOrderConfig } from '../../services/custom-menu.service';
 import { PortalStateService } from '../../services/portal-state.service';
+import { ParameterService } from '../../services/parameter.service';
+import { AuthService } from '../../services/auth.service';
+import { PortalParameter } from '../../models/parameter.model';
 
 @Component({
   selector: 'app-settings',
@@ -283,6 +286,220 @@ import { PortalStateService } from '../../services/portal-state.service';
         </div>
       </ng-container>
 
+      <!-- Tab: E-Mail (nur fuer Admins) -->
+      <ng-container *ngIf="activeTab === 'email'">
+        <!-- SMTP-Konfiguration -->
+        <div class="bg-white border border-gray-200 rounded-xl">
+          <div class="px-5 py-4 border-b border-gray-200">
+            <h2 class="text-base font-semibold text-gray-900">SMTP-Konfiguration (Postausgang)</h2>
+            <p class="text-xs text-gray-500 mt-0.5">Konfiguration fuer den E-Mail-Versand (z.B. OTP-Codes)</p>
+          </div>
+          <div class="p-5 space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">SMTP-Server</label>
+                <input type="text" [(ngModel)]="emailConfig.smtpHost"
+                       class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--portal-primary,#006EC7)]"
+                       placeholder="smtp.example.de"/>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">SMTP-Port</label>
+                <input type="number" [(ngModel)]="emailConfig.smtpPort"
+                       class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--portal-primary,#006EC7)]"
+                       placeholder="587"/>
+              </div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Benutzername</label>
+                <input type="text" [(ngModel)]="emailConfig.smtpUsername"
+                       class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--portal-primary,#006EC7)]"
+                       placeholder="user@example.de"/>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Passwort</label>
+                <input type="password" [(ngModel)]="emailConfig.smtpPassword"
+                       class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--portal-primary,#006EC7)]"
+                       placeholder="********"/>
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Absender-E-Mail</label>
+              <input type="email" [(ngModel)]="emailConfig.fromAddress"
+                     class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--portal-primary,#006EC7)]"
+                     placeholder="noreply@health-portal.de"/>
+            </div>
+            <div class="flex flex-wrap gap-6">
+              <label class="flex items-center gap-2 cursor-pointer">
+                <button (click)="emailConfig.smtpAuth = !emailConfig.smtpAuth"
+                        class="relative w-11 h-6 rounded-full transition-colors duration-200"
+                        [style.background-color]="emailConfig.smtpAuth ? themeData().primaryColor : '#D1D5DB'">
+                  <span class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200"
+                        [ngClass]="emailConfig.smtpAuth ? 'translate-x-5' : 'translate-x-0'"></span>
+                </button>
+                <span class="text-sm text-gray-700">Authentifizierung</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <button (click)="emailConfig.smtpStarttls = !emailConfig.smtpStarttls"
+                        class="relative w-11 h-6 rounded-full transition-colors duration-200"
+                        [style.background-color]="emailConfig.smtpStarttls ? themeData().primaryColor : '#D1D5DB'">
+                  <span class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200"
+                        [ngClass]="emailConfig.smtpStarttls ? 'translate-x-5' : 'translate-x-0'"></span>
+                </button>
+                <span class="text-sm text-gray-700">STARTTLS</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <button (click)="emailConfig.smtpSsl = !emailConfig.smtpSsl"
+                        class="relative w-11 h-6 rounded-full transition-colors duration-200"
+                        [style.background-color]="emailConfig.smtpSsl ? themeData().primaryColor : '#D1D5DB'">
+                  <span class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200"
+                        [ngClass]="emailConfig.smtpSsl ? 'translate-x-5' : 'translate-x-0'"></span>
+                </button>
+                <span class="text-sm text-gray-700">SSL/TLS</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- IMAP-Konfiguration -->
+        <div class="bg-white border border-gray-200 rounded-xl">
+          <div class="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
+            <div>
+              <h2 class="text-base font-semibold text-gray-900">IMAP-Konfiguration (Posteingang)</h2>
+              <p class="text-xs text-gray-500 mt-0.5">Optionaler Posteingang ueber IMAP</p>
+            </div>
+            <button (click)="emailConfig.imapEnabled = !emailConfig.imapEnabled"
+                    class="relative w-11 h-6 rounded-full transition-colors duration-200"
+                    [style.background-color]="emailConfig.imapEnabled ? themeData().primaryColor : '#D1D5DB'">
+              <span class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200"
+                    [ngClass]="emailConfig.imapEnabled ? 'translate-x-5' : 'translate-x-0'"></span>
+            </button>
+          </div>
+          <div class="p-5 space-y-4" *ngIf="emailConfig.imapEnabled">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">IMAP-Server</label>
+                <input type="text" [(ngModel)]="emailConfig.imapHost"
+                       class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm" placeholder="imap.example.de"/>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">IMAP-Port</label>
+                <input type="number" [(ngModel)]="emailConfig.imapPort"
+                       class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm" placeholder="993"/>
+              </div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Benutzername</label>
+                <input type="text" [(ngModel)]="emailConfig.imapUsername"
+                       class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm"/>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Passwort</label>
+                <input type="password" [(ngModel)]="emailConfig.imapPassword"
+                       class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm"/>
+              </div>
+            </div>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <button (click)="emailConfig.imapSsl = !emailConfig.imapSsl"
+                      class="relative w-11 h-6 rounded-full transition-colors duration-200"
+                      [style.background-color]="emailConfig.imapSsl ? themeData().primaryColor : '#D1D5DB'">
+                <span class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200"
+                      [ngClass]="emailConfig.imapSsl ? 'translate-x-5' : 'translate-x-0'"></span>
+              </button>
+              <span class="text-sm text-gray-700">SSL/TLS</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- POP3-Konfiguration -->
+        <div class="bg-white border border-gray-200 rounded-xl">
+          <div class="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
+            <div>
+              <h2 class="text-base font-semibold text-gray-900">POP3-Konfiguration (Posteingang)</h2>
+              <p class="text-xs text-gray-500 mt-0.5">Alternativer Posteingang ueber POP3</p>
+            </div>
+            <button (click)="emailConfig.pop3Enabled = !emailConfig.pop3Enabled"
+                    class="relative w-11 h-6 rounded-full transition-colors duration-200"
+                    [style.background-color]="emailConfig.pop3Enabled ? themeData().primaryColor : '#D1D5DB'">
+              <span class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200"
+                    [ngClass]="emailConfig.pop3Enabled ? 'translate-x-5' : 'translate-x-0'"></span>
+            </button>
+          </div>
+          <div class="p-5 space-y-4" *ngIf="emailConfig.pop3Enabled">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">POP3-Server</label>
+                <input type="text" [(ngModel)]="emailConfig.pop3Host"
+                       class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm" placeholder="pop3.example.de"/>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">POP3-Port</label>
+                <input type="number" [(ngModel)]="emailConfig.pop3Port"
+                       class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm" placeholder="995"/>
+              </div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Benutzername</label>
+                <input type="text" [(ngModel)]="emailConfig.pop3Username"
+                       class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm"/>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Passwort</label>
+                <input type="password" [(ngModel)]="emailConfig.pop3Password"
+                       class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm"/>
+              </div>
+            </div>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <button (click)="emailConfig.pop3Ssl = !emailConfig.pop3Ssl"
+                      class="relative w-11 h-6 rounded-full transition-colors duration-200"
+                      [style.background-color]="emailConfig.pop3Ssl ? themeData().primaryColor : '#D1D5DB'">
+                <span class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200"
+                      [ngClass]="emailConfig.pop3Ssl ? 'translate-x-5' : 'translate-x-0'"></span>
+              </button>
+              <span class="text-sm text-gray-700">SSL/TLS</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- E-Mail-Authentifizierung -->
+        <div class="bg-white border border-gray-200 rounded-xl">
+          <div class="px-5 py-4 border-b border-gray-200">
+            <h2 class="text-base font-semibold text-gray-900">E-Mail-Authentifizierung</h2>
+            <p class="text-xs text-gray-500 mt-0.5">Benutzeranmeldung per E-Mail-OTP aktivieren/deaktivieren</p>
+          </div>
+          <div class="p-5 space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-gray-900">OTP per E-Mail</p>
+                <p class="text-xs text-gray-500 mt-0.5">Einmal-Code per E-Mail fuer die Anmeldung senden</p>
+              </div>
+              <button (click)="emailConfig.authEmailEnabled = !emailConfig.authEmailEnabled"
+                      class="relative w-11 h-6 rounded-full transition-colors duration-200"
+                      [style.background-color]="emailConfig.authEmailEnabled ? themeData().primaryColor : '#D1D5DB'">
+                <span class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200"
+                      [ngClass]="emailConfig.authEmailEnabled ? 'translate-x-5' : 'translate-x-0'"></span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hinweis -->
+        <div *ngIf="emailSaveMsg" class="p-3 text-sm rounded-lg"
+             [ngClass]="emailSaveMsg.startsWith('Fehler') ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'">
+          {{ emailSaveMsg }}
+        </div>
+
+        <!-- Speichern -->
+        <div class="flex justify-end">
+          <button (click)="saveEmailConfig()" class="px-6 py-2 text-sm font-medium text-white rounded-lg transition-colors"
+                  [style.background-color]="themeData().primaryColor">
+            E-Mail-Konfiguration speichern
+          </button>
+        </div>
+      </ng-container>
+
       <!-- Tab: Menue -->
       <ng-container *ngIf="activeTab === 'menue'">
         <!-- Custom Menu Items -->
@@ -420,16 +637,23 @@ export class SettingsComponent implements OnInit {
   private readonly themeService = inject(ThemeService);
   private readonly menuService = inject(CustomMenuService);
   private readonly portalState = inject(PortalStateService);
+  private readonly parameterService = inject(ParameterService);
+  private readonly authService = inject(AuthService);
 
   readonly themeData = this.themeService.theme;
   readonly customMenuItems = signal<CustomMenuItem[]>([]);
 
-  activeTab: 'profil' | 'darstellung' | 'menue' = 'profil';
-  tabs = [
-    { key: 'profil' as const, label: 'Profil' },
-    { key: 'darstellung' as const, label: 'Darstellung' },
-    { key: 'menue' as const, label: 'Menue' },
-  ];
+  activeTab: 'profil' | 'darstellung' | 'email' | 'menue' = 'profil';
+  tabs: { key: typeof this.activeTab; label: string }[] = [];
+
+  private buildTabs(): void {
+    this.tabs = [
+      { key: 'profil', label: 'Profil' },
+      { key: 'darstellung', label: 'Darstellung' },
+      ...(this.authService.isSuperAdmin() ? [{ key: 'email' as const, label: 'E-Mail' }] : []),
+      { key: 'menue', label: 'Menue' },
+    ];
+  }
 
   profile = { name: 'Sabine Mueller', email: 'sabine.mueller@health-portal.de' };
   notifications = { email: true, push: false, digest: 'woechentlich' };
@@ -461,10 +685,27 @@ export class SettingsComponent implements OnInit {
     'formulare', 'ki-agenten', 'einstellungen'
   ];
 
+  // E-Mail-Konfiguration
+  emailConfig = {
+    smtpHost: '', smtpPort: 587, smtpUsername: '', smtpPassword: '',
+    smtpAuth: false, smtpStarttls: false, smtpSsl: false, fromAddress: '',
+    imapHost: '', imapPort: 993, imapUsername: '', imapPassword: '',
+    imapSsl: true, imapEnabled: false,
+    pop3Host: '', pop3Port: 995, pop3Username: '', pop3Password: '',
+    pop3Ssl: true, pop3Enabled: false,
+    authEmailEnabled: true
+  };
+  emailParams: PortalParameter[] = [];
+  emailSaveMsg = '';
+
   ngOnInit(): void {
+    this.buildTabs();
     this.resetTheme();
     this.loadCustomMenuItems();
     this.loadMenuOrder();
+    if (this.authService.isSuperAdmin()) {
+      this.loadEmailConfig();
+    }
   }
 
   resetTheme(): void {
@@ -552,5 +793,105 @@ export class SettingsComponent implements OnInit {
     this.menuService.saveMenuOrder(tenantId, configs).subscribe({
       next: (saved) => this.menuOrder = saved
     });
+  }
+
+  loadEmailConfig(): void {
+    this.parameterService.getAll().subscribe({
+      next: (params) => {
+        this.emailParams = params.filter(p => p.key.startsWith('portal.email.') || p.key.startsWith('portal.auth.'));
+        const get = (key: string) => this.emailParams.find(p => p.key === key)?.value || '';
+        const getBool = (key: string) => get(key) === 'true';
+        const getNum = (key: string, def: number) => {
+          const v = get(key);
+          return v ? parseInt(v, 10) : def;
+        };
+
+        this.emailConfig = {
+          smtpHost: get('portal.email.smtp.host'),
+          smtpPort: getNum('portal.email.smtp.port', 587),
+          smtpUsername: get('portal.email.smtp.username'),
+          smtpPassword: '', // Passwort nicht anzeigen
+          smtpAuth: getBool('portal.email.smtp.auth'),
+          smtpStarttls: getBool('portal.email.smtp.starttls'),
+          smtpSsl: getBool('portal.email.smtp.ssl'),
+          fromAddress: get('portal.email.from'),
+          imapHost: get('portal.email.imap.host'),
+          imapPort: getNum('portal.email.imap.port', 993),
+          imapUsername: get('portal.email.imap.username'),
+          imapPassword: '',
+          imapSsl: getBool('portal.email.imap.ssl'),
+          imapEnabled: getBool('portal.email.imap.enabled'),
+          pop3Host: get('portal.email.pop3.host'),
+          pop3Port: getNum('portal.email.pop3.port', 995),
+          pop3Username: get('portal.email.pop3.username'),
+          pop3Password: '',
+          pop3Ssl: getBool('portal.email.pop3.ssl'),
+          pop3Enabled: getBool('portal.email.pop3.enabled'),
+          authEmailEnabled: getBool('portal.auth.email.enabled'),
+        };
+      }
+    });
+  }
+
+  saveEmailConfig(): void {
+    this.emailSaveMsg = '';
+    const updates: { key: string; value: string }[] = [
+      { key: 'portal.email.smtp.host', value: this.emailConfig.smtpHost },
+      { key: 'portal.email.smtp.port', value: String(this.emailConfig.smtpPort) },
+      { key: 'portal.email.smtp.username', value: this.emailConfig.smtpUsername },
+      { key: 'portal.email.smtp.auth', value: String(this.emailConfig.smtpAuth) },
+      { key: 'portal.email.smtp.starttls', value: String(this.emailConfig.smtpStarttls) },
+      { key: 'portal.email.smtp.ssl', value: String(this.emailConfig.smtpSsl) },
+      { key: 'portal.email.from', value: this.emailConfig.fromAddress },
+      { key: 'portal.email.imap.host', value: this.emailConfig.imapHost },
+      { key: 'portal.email.imap.port', value: String(this.emailConfig.imapPort) },
+      { key: 'portal.email.imap.username', value: this.emailConfig.imapUsername },
+      { key: 'portal.email.imap.ssl', value: String(this.emailConfig.imapSsl) },
+      { key: 'portal.email.imap.enabled', value: String(this.emailConfig.imapEnabled) },
+      { key: 'portal.email.pop3.host', value: this.emailConfig.pop3Host },
+      { key: 'portal.email.pop3.port', value: String(this.emailConfig.pop3Port) },
+      { key: 'portal.email.pop3.username', value: this.emailConfig.pop3Username },
+      { key: 'portal.email.pop3.ssl', value: String(this.emailConfig.pop3Ssl) },
+      { key: 'portal.email.pop3.enabled', value: String(this.emailConfig.pop3Enabled) },
+      { key: 'portal.auth.email.enabled', value: String(this.emailConfig.authEmailEnabled) },
+    ];
+
+    // Passwoerter nur aktualisieren wenn nicht leer
+    if (this.emailConfig.smtpPassword) {
+      updates.push({ key: 'portal.email.smtp.password', value: this.emailConfig.smtpPassword });
+    }
+    if (this.emailConfig.imapPassword) {
+      updates.push({ key: 'portal.email.imap.password', value: this.emailConfig.imapPassword });
+    }
+    if (this.emailConfig.pop3Password) {
+      updates.push({ key: 'portal.email.pop3.password', value: this.emailConfig.pop3Password });
+    }
+
+    let completed = 0;
+    let errors = 0;
+    const total = updates.length;
+
+    for (const u of updates) {
+      const param = this.emailParams.find(p => p.key === u.key);
+      if (!param) { completed++; continue; }
+
+      this.parameterService.updateValue(param.id, u.value, 'E-Mail-Konfiguration aktualisiert').subscribe({
+        next: () => {
+          completed++;
+          if (completed === total) {
+            this.emailSaveMsg = errors > 0
+              ? `Fehler: ${errors} Parameter konnten nicht gespeichert werden.`
+              : 'E-Mail-Konfiguration erfolgreich gespeichert.';
+          }
+        },
+        error: () => {
+          completed++;
+          errors++;
+          if (completed === total) {
+            this.emailSaveMsg = `Fehler: ${errors} Parameter konnten nicht gespeichert werden.`;
+          }
+        }
+      });
+    }
   }
 }

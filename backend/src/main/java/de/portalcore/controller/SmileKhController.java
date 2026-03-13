@@ -12,7 +12,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/smile-kh")
-@CrossOrigin(origins = "*")
 public class SmileKhController {
 
     private final SmileKhService smileKhService;

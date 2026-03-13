@@ -10,7 +10,6 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/apps/{appId}/use-cases")
-@CrossOrigin(origins = "*")
 public class AppUseCaseController {
 
     private final AppUseCaseRepository appUseCaseRepository;

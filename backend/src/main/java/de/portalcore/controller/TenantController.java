@@ -15,7 +15,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/tenants")
-@CrossOrigin(origins = "*")
 public class TenantController {
 
     private final TenantService tenantService;
