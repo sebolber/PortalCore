@@ -16,7 +16,7 @@ export const routes: Routes = [
       { path: 'appstore', loadComponent: () => import('./pages/appstore/app-store.component').then(m => m.AppStoreComponent) },
       { path: 'appstore/installiert', loadComponent: () => import('./pages/appstore/installed-apps.component').then(m => m.InstalledAppsComponent) },
       { path: 'appstore/:appId', loadComponent: () => import('./pages/appstore/app-detail.component').then(m => m.AppDetailComponent) },
-      { path: 'nachrichten', loadComponent: () => import('./pages/messages/messages.component').then(m => m.MessagesComponent) },
+      { path: 'nachrichten', loadComponent: () => import('./pages/nachrichtencenter/nachrichtencenter.component').then(m => m.NachrichtencenterComponent) },
       { path: 'cms', loadComponent: () => import('./pages/cms/cms.component').then(m => m.CmsComponent) },
       { path: 'batch', loadComponent: () => import('./pages/batch-jobs/batch-jobs.component').then(m => m.BatchJobsComponent) },
       { path: 'formulare', loadComponent: () => import('./pages/forms/forms.component').then(m => m.FormsComponent) },
