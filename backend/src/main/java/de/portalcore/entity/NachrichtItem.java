@@ -61,6 +61,14 @@ public class NachrichtItem {
     @Column(name = "referenz_id")
     private String referenzId;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_id")
+    private NachrichtItem parent;
+
+    @Builder.Default
+    @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<NachrichtItem> unteraufgaben = new ArrayList<>();
+
     @Builder.Default
     @OneToMany(mappedBy = "nachricht", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<NachrichtEmpfaenger> empfaenger = new ArrayList<>();

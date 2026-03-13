@@ -40,6 +40,9 @@ export interface NachrichtItem {
   gelesen: boolean;
   archiviert: boolean;
   erledigt: boolean;
+  parentId: string | null;
+  unteraufgabenGesamt: number;
+  unteraufgabenErledigt: number;
 }
 
 export interface NachrichtErstellen {
@@ -52,4 +55,12 @@ export interface NachrichtErstellen {
   empfaengerIds: string[];
   referenzTyp?: string;
   referenzId?: string;
+}
+
+export interface UnteraufgabeErstellen {
+  betreff: string;
+  inhalt: string;
+  prioritaet?: NachrichtPrioritaet;
+  frist?: string;
+  empfaengerIds: string[];
 }

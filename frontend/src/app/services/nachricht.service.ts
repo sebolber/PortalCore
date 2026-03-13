@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { NachrichtItem, NachrichtErstellen, NachrichtAnhang, NachrichtTyp } from '../models/nachricht.model';
+import { NachrichtItem, NachrichtErstellen, NachrichtAnhang, NachrichtTyp, UnteraufgabeErstellen } from '../models/nachricht.model';
 import { API_URL } from './api.service';
 
 @Injectable({ providedIn: 'root' })
@@ -65,5 +65,13 @@ export class NachrichtService {
 
   anhangHerunterladen(anhangId: string): Observable<Blob> {
     return this.http.get(`${this.basePath}/anhaenge/${anhangId}`, { responseType: 'blob' });
+  }
+
+  getUnteraufgaben(nachrichtId: string): Observable<NachrichtItem[]> {
+    return this.http.get<NachrichtItem[]>(`${this.basePath}/${nachrichtId}/unteraufgaben`);
+  }
+
+  unteraufgabeErstellen(nachrichtId: string, data: UnteraufgabeErstellen): Observable<NachrichtItem> {
+    return this.http.post<NachrichtItem>(`${this.basePath}/${nachrichtId}/unteraufgaben`, data);
   }
 }

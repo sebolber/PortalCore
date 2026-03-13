@@ -1,7 +1,7 @@
 import { Component, signal, computed, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { NachrichtItem, NachrichtTyp, NachrichtPrioritaet, NachrichtErstellen } from '../../models/nachricht.model';
+import { NachrichtItem, NachrichtTyp, NachrichtPrioritaet, NachrichtErstellen, UnteraufgabeErstellen } from '../../models/nachricht.model';
 import { NachrichtService } from '../../services/nachricht.service';
 import { UserService } from '../../services/user.service';
 import { PortalUser } from '../../models/user.model';
@@ -161,6 +161,12 @@ type TypFilter = 'alle' | 'NACHRICHT' | 'AUFGABE';
                       <path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
                     </svg>
                     {{ item.anhaenge.length }}
+                  </span>
+                  <span *ngIf="item.unteraufgabenGesamt > 0" class="text-[10px] text-gray-400 flex items-center gap-0.5">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                    </svg>
+                    {{ item.unteraufgabenErledigt }}/{{ item.unteraufgabenGesamt }}
                   </span>
                   <span *ngIf="item.empfaenger.length > 1" class="text-[10px] text-gray-400">
                     {{ item.empfaenger.length }} Empf.
@@ -446,6 +452,126 @@ type TypFilter = 'alle' | 'NACHRICHT' | 'AUFGABE';
                 </button>
               </div>
             </div>
+
+            <!-- Unteraufgaben (Sub-tasks) -->
+            <div *ngIf="selectedItem()!.typ === 'AUFGABE'" class="mt-6 pt-4 border-t border-gray-100">
+              <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2">
+                  <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Unteraufgaben</p>
+                  <span *ngIf="selectedItem()!.unteraufgabenGesamt > 0"
+                        class="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">
+                    {{ selectedItem()!.unteraufgabenErledigt }}/{{ selectedItem()!.unteraufgabenGesamt }}
+                  </span>
+                </div>
+                <button (click)="toggleUnteraufgabeForm()"
+                        class="text-xs text-[#006EC7] hover:underline flex items-center gap-1">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+                  </svg>
+                  Hinzufuegen
+                </button>
+              </div>
+
+              <!-- Progress bar -->
+              <div *ngIf="selectedItem()!.unteraufgabenGesamt > 0" class="mb-3">
+                <div class="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div class="h-full bg-green-500 rounded-full transition-all"
+                       [style.width.%]="(selectedItem()!.unteraufgabenErledigt / selectedItem()!.unteraufgabenGesamt) * 100"></div>
+                </div>
+              </div>
+
+              <!-- Sub-task list -->
+              <div class="space-y-1.5">
+                <div *ngFor="let ua of unteraufgaben()"
+                     class="flex items-center gap-3 px-3 py-2 bg-gray-50 rounded-lg">
+                  <button (click)="toggleUnteraufgabeErledigt(ua)"
+                          class="w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors"
+                          [ngClass]="ua.erledigt ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 hover:border-green-400'">
+                    <svg *ngIf="ua.erledigt" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                    </svg>
+                  </button>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm truncate" [ngClass]="ua.erledigt ? 'text-gray-400 line-through' : 'text-gray-700'">{{ ua.betreff }}</p>
+                    <div class="flex items-center gap-2 mt-0.5">
+                      <span class="text-[10px] text-gray-400">{{ ua.erstellerName }}</span>
+                      <span *ngIf="ua.empfaenger.length > 0" class="text-[10px] text-gray-400">
+                        &rarr; {{ ua.empfaenger[0].name }}{{ ua.empfaenger.length > 1 ? ' +' + (ua.empfaenger.length - 1) : '' }}
+                      </span>
+                      <span *ngIf="ua.frist" class="text-[10px] text-gray-400 flex items-center gap-0.5">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                          <circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M12 6v6l4 2"/>
+                        </svg>
+                        {{ formatDatum(ua.frist) }}
+                      </span>
+                    </div>
+                  </div>
+                  <span *ngIf="ua.prioritaet === 'HOCH' || ua.prioritaet === 'DRINGEND'"
+                        class="text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0"
+                        [ngClass]="ua.prioritaet === 'DRINGEND' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'">
+                    {{ ua.prioritaet === 'DRINGEND' ? '!!' : '!' }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Add sub-task form -->
+              <div *ngIf="showUnteraufgabeForm()" class="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
+                <input type="text" placeholder="Unteraufgabe..."
+                       [(ngModel)]="neueUnteraufgabe.betreff"
+                       class="w-full px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#006EC7]"/>
+                <textarea [(ngModel)]="neueUnteraufgabe.inhalt" rows="2" placeholder="Beschreibung (optional)"
+                          class="w-full px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#006EC7] resize-none"></textarea>
+                <div class="flex gap-2">
+                  <input type="datetime-local" [(ngModel)]="neueUnteraufgabe.frist" placeholder="Frist"
+                         class="flex-1 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#006EC7]"/>
+                  <select [(ngModel)]="neueUnteraufgabe.prioritaet"
+                          class="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#006EC7]">
+                    <option value="NIEDRIG">Niedrig</option>
+                    <option value="NORMAL">Normal</option>
+                    <option value="HOCH">Hoch</option>
+                    <option value="DRINGEND">Dringend</option>
+                  </select>
+                </div>
+                <!-- Sub-task recipients -->
+                <div class="flex flex-wrap gap-1 p-2 bg-white border border-gray-200 rounded-lg min-h-[32px]">
+                  <span *ngFor="let u of unteraufgabeEmpfaenger(); let i = index"
+                        class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                    {{ u.vorname }} {{ u.nachname }}
+                    <button (click)="removeUnteraufgabeEmpf(i)" class="text-blue-400 hover:text-blue-700">
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                  </span>
+                  <input type="text" placeholder="Zuweisen..."
+                         [(ngModel)]="unteraufgabeEmpfSuche"
+                         (focus)="showUaEmpfDropdown = true"
+                         class="flex-1 min-w-[80px] text-sm bg-transparent border-none outline-none"/>
+                </div>
+                <div *ngIf="showUaEmpfDropdown && filteredUaUsers().length > 0"
+                     class="bg-white border border-gray-200 rounded-lg shadow-lg max-h-32 overflow-y-auto z-10 relative">
+                  <button *ngFor="let user of filteredUaUsers()"
+                          (click)="addUnteraufgabeEmpf(user)"
+                          class="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50">
+                    <div class="w-5 h-5 rounded-full bg-gray-300 flex items-center justify-center text-white text-[9px] font-bold">{{ user.initialen }}</div>
+                    {{ user.vorname }} {{ user.nachname }}
+                  </button>
+                </div>
+                <div class="flex justify-end gap-2">
+                  <button (click)="showUnteraufgabeForm.set(false)" class="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700">Abbrechen</button>
+                  <button (click)="unteraufgabeHinzufuegen()"
+                          [disabled]="!neueUnteraufgabe.betreff.trim() || unteraufgabeEmpfaenger().length === 0"
+                          class="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors"
+                          [ngClass]="neueUnteraufgabe.betreff.trim() && unteraufgabeEmpfaenger().length > 0
+                            ? 'bg-[#006EC7] text-white hover:bg-[#005ba3]'
+                            : 'bg-gray-200 text-gray-400 cursor-not-allowed'">
+                    Erstellen
+                  </button>
+                </div>
+              </div>
+
+              <div *ngIf="unteraufgaben().length === 0 && !showUnteraufgabeForm()" class="text-center py-4">
+                <p class="text-xs text-gray-400">Keine Unteraufgaben vorhanden</p>
+              </div>
+            </div>
           </div>
         </ng-container>
 
@@ -476,6 +602,25 @@ export class NachrichtencenterComponent implements OnInit {
   readonly ungelesenAnzahl = signal(0);
   readonly allUsers = signal<PortalUser[]>([]);
   readonly selectedEmpfaengerList = signal<PortalUser[]>([]);
+
+  readonly unteraufgaben = signal<NachrichtItem[]>([]);
+  readonly showUnteraufgabeForm = signal(false);
+  readonly unteraufgabeEmpfaengerList = signal<PortalUser[]>([]);
+  readonly unteraufgabeEmpfaenger = computed(() => this.unteraufgabeEmpfaengerList());
+  unteraufgabeEmpfSuche = '';
+  showUaEmpfDropdown = false;
+  neueUnteraufgabe: { betreff: string; inhalt: string; prioritaet: NachrichtPrioritaet; frist: string } = {
+    betreff: '', inhalt: '', prioritaet: 'NORMAL', frist: ''
+  };
+
+  readonly filteredUaUsers = computed(() => {
+    const q = this.unteraufgabeEmpfSuche.toLowerCase();
+    const selectedIds = new Set(this.unteraufgabeEmpfaengerList().map(u => u.id));
+    return this.allUsers()
+      .filter(u => !selectedIds.has(u.id))
+      .filter(u => !q || (u.vorname + ' ' + u.nachname).toLowerCase().includes(q))
+      .slice(0, 10);
+  });
 
   searchQuery = '';
   empfaengerSuche = '';
@@ -565,6 +710,11 @@ export class NachrichtencenterComponent implements OnInit {
 
   selectItem(item: NachrichtItem): void {
     this.selectedItem.set(item);
+    this.showUnteraufgabeForm.set(false);
+    this.unteraufgaben.set([]);
+    if (item.typ === 'AUFGABE') {
+      this.loadUnteraufgaben(item.id);
+    }
     if (!item.gelesen && this.activeOrdner() === 'posteingang') {
       this.nachrichtService.alsGelesenMarkieren(item.id).subscribe(() => {
         this.items.update(items =>
@@ -702,6 +852,69 @@ export class NachrichtencenterComponent implements OnInit {
       a.download = dateiname;
       a.click();
       window.URL.revokeObjectURL(url);
+    });
+  }
+
+  // ===== Unteraufgaben =====
+
+  loadUnteraufgaben(parentId: string): void {
+    this.nachrichtService.getUnteraufgaben(parentId).subscribe({
+      next: items => this.unteraufgaben.set(items),
+      error: () => this.unteraufgaben.set([])
+    });
+  }
+
+  toggleUnteraufgabeForm(): void {
+    this.showUnteraufgabeForm.update(v => !v);
+    if (this.showUnteraufgabeForm()) {
+      this.neueUnteraufgabe = { betreff: '', inhalt: '', prioritaet: 'NORMAL', frist: '' };
+      this.unteraufgabeEmpfaengerList.set([]);
+      this.unteraufgabeEmpfSuche = '';
+    }
+  }
+
+  addUnteraufgabeEmpf(user: PortalUser): void {
+    this.unteraufgabeEmpfaengerList.update(list => [...list, user]);
+    this.unteraufgabeEmpfSuche = '';
+    this.showUaEmpfDropdown = false;
+  }
+
+  removeUnteraufgabeEmpf(index: number): void {
+    this.unteraufgabeEmpfaengerList.update(list => list.filter((_, i) => i !== index));
+  }
+
+  unteraufgabeHinzufuegen(): void {
+    const item = this.selectedItem();
+    if (!item || !this.neueUnteraufgabe.betreff.trim() || this.unteraufgabeEmpfaengerList().length === 0) return;
+    const data: UnteraufgabeErstellen = {
+      betreff: this.neueUnteraufgabe.betreff,
+      inhalt: this.neueUnteraufgabe.inhalt,
+      empfaengerIds: this.unteraufgabeEmpfaengerList().map(u => u.id),
+      ...(this.neueUnteraufgabe.prioritaet !== 'NORMAL' ? { prioritaet: this.neueUnteraufgabe.prioritaet } : {}),
+      ...(this.neueUnteraufgabe.frist ? { frist: this.neueUnteraufgabe.frist } : {}),
+    };
+    this.nachrichtService.unteraufgabeErstellen(item.id, data).subscribe({
+      next: () => {
+        this.loadUnteraufgaben(item.id);
+        this.showUnteraufgabeForm.set(false);
+        this.selectedItem.update(s => s ? {
+          ...s,
+          unteraufgabenGesamt: s.unteraufgabenGesamt + 1
+        } : s);
+      }
+    });
+  }
+
+  toggleUnteraufgabeErledigt(ua: NachrichtItem): void {
+    if (ua.erledigt) return;
+    this.nachrichtService.alsErledigtMarkieren(ua.id).subscribe(() => {
+      this.unteraufgaben.update(items =>
+        items.map(i => i.id === ua.id ? { ...i, erledigt: true, status: 'ERLEDIGT' as any } : i)
+      );
+      this.selectedItem.update(s => s ? {
+        ...s,
+        unteraufgabenErledigt: s.unteraufgabenErledigt + 1
+      } : s);
     });
   }
 

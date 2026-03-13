@@ -117,6 +117,26 @@ public class NachrichtController {
         return ResponseEntity.ok(Map.of("markiert", count));
     }
 
+    // ===== Unteraufgaben =====
+
+    @PostMapping("/{id}/unteraufgaben")
+    public ResponseEntity<NachrichtItemDto> unteraufgabeErstellen(
+            @PathVariable String id, @RequestBody UnteraufgabeRequest request) {
+        AuthDetails auth = getAuth();
+        NachrichtItem item = nachrichtService.unteraufgabeErstellen(
+                id, auth.userId(), auth.tenantId(),
+                request.betreff, request.inhalt,
+                request.prioritaet, request.frist, request.empfaengerIds);
+        return ResponseEntity.status(HttpStatus.CREATED).body(toDto(item, auth.userId()));
+    }
+
+    @GetMapping("/{id}/unteraufgaben")
+    public ResponseEntity<List<NachrichtItemDto>> getUnteraufgaben(@PathVariable String id) {
+        AuthDetails auth = getAuth();
+        List<NachrichtItem> items = nachrichtService.getUnteraufgaben(id);
+        return ResponseEntity.ok(items.stream().map(n -> toDto(n, auth.userId())).toList());
+    }
+
     // ===== Anhänge =====
 
     @PostMapping("/{id}/anhaenge")
@@ -179,7 +199,10 @@ public class NachrichtController {
                 item.getAnhaenge().stream().map(this::toAnhangDto).toList(),
                 empfStatus != null && empfStatus.isGelesen(),
                 empfStatus != null && empfStatus.isArchiviert(),
-                empfStatus != null && empfStatus.isErledigt()
+                empfStatus != null && empfStatus.isErledigt(),
+                item.getParent() != null ? item.getParent().getId() : null,
+                nachrichtService.countUnteraufgaben(item.getId()),
+                nachrichtService.countErledigteUnteraufgaben(item.getId())
         );
     }
 
@@ -200,7 +223,11 @@ public class NachrichtController {
                             LocalDateTime erinnerungAm, LocalDateTime erstelltAm,
                             boolean systemGeneriert, String referenzTyp, String referenzId,
                             List<EmpfaengerDto> empfaenger, List<AnhangDto> anhaenge,
-                            boolean gelesen, boolean archiviert, boolean erledigt) {}
+                            boolean gelesen, boolean archiviert, boolean erledigt,
+                            String parentId, long unteraufgabenGesamt, long unteraufgabenErledigt) {}
+
+    record UnteraufgabeRequest(String betreff, String inhalt, NachrichtPrioritaet prioritaet,
+                               LocalDateTime frist, List<String> empfaengerIds) {}
 
     record EmpfaengerDto(String id, String name, String initialen,
                          boolean gelesen, boolean archiviert, boolean erledigt) {}

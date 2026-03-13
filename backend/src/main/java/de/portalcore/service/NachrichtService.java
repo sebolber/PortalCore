@@ -214,6 +214,70 @@ public class NachrichtService {
                 referenzTyp, referenzId);
     }
 
+    // ===== Unteraufgaben =====
+
+    @Transactional
+    public NachrichtItem unteraufgabeErstellen(String parentId, String erstellerId, String tenantId,
+                                                String betreff, String inhalt,
+                                                NachrichtPrioritaet prioritaet, LocalDateTime frist,
+                                                List<String> empfaengerIds) {
+        NachrichtItem parent = findById(parentId);
+        if (parent.getTyp() != NachrichtTyp.AUFGABE) {
+            throw new IllegalArgumentException("Unteraufgaben koennen nur fuer Aufgaben erstellt werden");
+        }
+
+        PortalUser ersteller = userRepo.findById(erstellerId)
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + erstellerId));
+        Tenant tenant = tenantRepo.findById(tenantId)
+                .orElseThrow(() -> new EntityNotFoundException("Tenant not found: " + tenantId));
+
+        NachrichtItem unteraufgabe = NachrichtItem.builder()
+                .id(UUID.randomUUID().toString())
+                .typ(NachrichtTyp.AUFGABE)
+                .betreff(betreff)
+                .inhalt(inhalt)
+                .ersteller(ersteller)
+                .tenant(tenant)
+                .prioritaet(prioritaet != null ? prioritaet : NachrichtPrioritaet.NORMAL)
+                .status(NachrichtStatus.OFFEN)
+                .frist(frist)
+                .erstelltAm(LocalDateTime.now())
+                .aktualisiertAm(LocalDateTime.now())
+                .systemGeneriert(false)
+                .parent(parent)
+                .build();
+
+        unteraufgabe = nachrichtRepo.save(unteraufgabe);
+
+        for (String empfId : empfaengerIds) {
+            PortalUser empf = userRepo.findById(empfId)
+                    .orElseThrow(() -> new EntityNotFoundException("User not found: " + empfId));
+            NachrichtEmpfaenger ne = NachrichtEmpfaenger.builder()
+                    .id(UUID.randomUUID().toString())
+                    .nachricht(unteraufgabe)
+                    .empfaenger(empf)
+                    .gelesen(false)
+                    .archiviert(false)
+                    .erledigt(false)
+                    .build();
+            empfaengerRepo.save(ne);
+        }
+
+        return unteraufgabe;
+    }
+
+    public List<NachrichtItem> getUnteraufgaben(String parentId) {
+        return nachrichtRepo.findByParentIdOrderByErstelltAmAsc(parentId);
+    }
+
+    public long countUnteraufgaben(String parentId) {
+        return nachrichtRepo.countUnteraufgaben(parentId);
+    }
+
+    public long countErledigteUnteraufgaben(String parentId) {
+        return nachrichtRepo.countErledigteUnteraufgaben(parentId);
+    }
+
     // ===== Empfänger-Status für UI =====
 
     public NachrichtEmpfaenger getEmpfaengerStatus(String nachrichtId, String userId) {
