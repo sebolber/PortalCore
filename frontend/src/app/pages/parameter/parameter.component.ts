@@ -49,13 +49,38 @@ import { AuthService } from '../../services/auth.service';
 
       <!-- Tab 1: Parameter -->
       @if (activeTab() === 'parameter') {
-        <!-- Stats Cards -->
+        <!-- Stats Cards (Schnellfilter) -->
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
           @for (stat of paramStats(); track stat.label) {
-            <div class="bg-white rounded-lg border border-gray-200 p-4 shadow-card">
+            <button
+              (click)="applyQuickFilter(stat.filterKey)"
+              class="bg-white rounded-lg border-2 p-4 shadow-card text-left transition-all cursor-pointer hover:shadow-md"
+              [class]="activeQuickFilter() === stat.filterKey
+                ? 'border-[' + stat.color + '] ring-2 ring-' + stat.ringClass + ' bg-' + stat.bgClass
+                : 'border-gray-200 hover:border-gray-300'"
+              [class.border-primary]="activeQuickFilter() === stat.filterKey && stat.filterKey === 'total'"
+              [class.ring-2]="activeQuickFilter() === stat.filterKey"
+              [class.ring-primary/20]="activeQuickFilter() === stat.filterKey && stat.filterKey === 'total'"
+              [class.bg-primary/5]="activeQuickFilter() === stat.filterKey && stat.filterKey === 'total'"
+              [class.border-accent-violet]="activeQuickFilter() === stat.filterKey && stat.filterKey === 'apps'"
+              [class.ring-accent-violet/20]="activeQuickFilter() === stat.filterKey && stat.filterKey === 'apps'"
+              [class.bg-accent-violet/5]="activeQuickFilter() === stat.filterKey && stat.filterKey === 'apps'"
+              [class.border-accent-turquoise]="activeQuickFilter() === stat.filterKey && stat.filterKey === 'groups'"
+              [class.ring-accent-turquoise/20]="activeQuickFilter() === stat.filterKey && stat.filterKey === 'groups'"
+              [class.bg-accent-turquoise/5]="activeQuickFilter() === stat.filterKey && stat.filterKey === 'groups'"
+              [class.border-accent-orange]="activeQuickFilter() === stat.filterKey && stat.filterKey === 'changes'"
+              [class.ring-accent-orange/20]="activeQuickFilter() === stat.filterKey && stat.filterKey === 'changes'"
+              [class.bg-accent-orange/5]="activeQuickFilter() === stat.filterKey && stat.filterKey === 'changes'"
+              [class.border-warning]="activeQuickFilter() === stat.filterKey && stat.filterKey === 'hotReload'"
+              [class.ring-warning/20]="activeQuickFilter() === stat.filterKey && stat.filterKey === 'hotReload'"
+              [class.bg-warning/5]="activeQuickFilter() === stat.filterKey && stat.filterKey === 'hotReload'"
+              [class.border-error]="activeQuickFilter() === stat.filterKey && stat.filterKey === 'sensitive'"
+              [class.ring-error/20]="activeQuickFilter() === stat.filterKey && stat.filterKey === 'sensitive'"
+              [class.bg-error/5]="activeQuickFilter() === stat.filterKey && stat.filterKey === 'sensitive'"
+            >
               <div class="text-2xl font-semibold" [style.color]="stat.color">{{ stat.value }}</div>
-              <div class="text-xs text-gray-500 mt-1">{{ stat.label }}</div>
-            </div>
+              <div class="text-xs mt-1" [class]="activeQuickFilter() === stat.filterKey ? 'text-gray-700 font-medium' : 'text-gray-500'">{{ stat.label }}</div>
+            </button>
           }
         </div>
 
@@ -65,13 +90,13 @@ import { AuthService } from '../../services/auth.service';
             type="text"
             placeholder="Suche nach Schluessel, Label oder Beschreibung..."
             [ngModel]="searchFilter()"
-            (ngModelChange)="searchFilter.set($event)"
+            (ngModelChange)="searchFilter.set($event); activeQuickFilter.set('')"
             class="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary w-72"
           />
 
           <select
             [ngModel]="appFilter()"
-            (ngModelChange)="appFilter.set($event)"
+            (ngModelChange)="appFilter.set($event); activeQuickFilter.set('')"
             class="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
           >
             <option value="">Alle Apps</option>
@@ -82,7 +107,7 @@ import { AuthService } from '../../services/auth.service';
 
           <select
             [ngModel]="groupFilter()"
-            (ngModelChange)="groupFilter.set($event)"
+            (ngModelChange)="groupFilter.set($event); activeQuickFilter.set('')"
             class="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
           >
             <option value="">Alle Gruppen</option>
@@ -93,7 +118,7 @@ import { AuthService } from '../../services/auth.service';
 
           <select
             [ngModel]="typeFilter()"
-            (ngModelChange)="typeFilter.set($event)"
+            (ngModelChange)="typeFilter.set($event); activeQuickFilter.set('')"
             class="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
           >
             <option value="">Alle Typen</option>
@@ -110,7 +135,7 @@ import { AuthService } from '../../services/auth.service';
 
           <select
             [ngModel]="scopeFilter()"
-            (ngModelChange)="scopeFilter.set($event)"
+            (ngModelChange)="scopeFilter.set($event); activeQuickFilter.set('')"
             class="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
           >
             <option value="">Alle (Global + Mandant)</option>
@@ -120,7 +145,7 @@ import { AuthService } from '../../services/auth.service';
 
           <select
             [ngModel]="booleanFilter()"
-            (ngModelChange)="booleanFilter.set($event)"
+            (ngModelChange)="booleanFilter.set($event); activeQuickFilter.set('')"
             class="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
           >
             <option value="">Alle Flags</option>
@@ -357,6 +382,7 @@ export class ParameterComponent implements OnInit {
   readonly auditAppFilter = signal('');
   readonly groupFilter = signal('');
   readonly booleanFilter = signal('');
+  readonly activeQuickFilter = signal<string>('');
   readonly editingParam = signal<string | null>(null);
   readonly editValue = signal('');
   readonly editGrund = signal('');
@@ -384,12 +410,12 @@ export class ParameterComponent implements OnInit {
     const hotReload = params.filter(p => p.hotReload).length;
     const sensitive = params.filter(p => p.sensitive).length;
     return [
-      { label: 'Total', value: params.length, color: '#006EC7' },
-      { label: 'Apps', value: apps.size, color: '#461EBE' },
-      { label: 'Gruppen', value: groups.size, color: '#28DCAA' },
-      { label: 'Aenderungen', value: this.auditLog().length, color: '#FF9868' },
-      { label: 'Hot-Reload', value: hotReload, color: '#FFC107' },
-      { label: 'Sensibel', value: sensitive, color: '#CC3333' },
+      { label: 'Total', value: params.length, color: '#006EC7', filterKey: 'total', ringClass: 'primary/20', bgClass: 'primary/5' },
+      { label: 'Apps', value: apps.size, color: '#461EBE', filterKey: 'apps', ringClass: 'accent-violet/20', bgClass: 'accent-violet/5' },
+      { label: 'Gruppen', value: groups.size, color: '#28DCAA', filterKey: 'groups', ringClass: 'accent-turquoise/20', bgClass: 'accent-turquoise/5' },
+      { label: 'Aenderungen', value: this.auditLog().length, color: '#FF9868', filterKey: 'changes', ringClass: 'accent-orange/20', bgClass: 'accent-orange/5' },
+      { label: 'Hot-Reload', value: hotReload, color: '#FFC107', filterKey: 'hotReload', ringClass: 'warning/20', bgClass: 'warning/5' },
+      { label: 'Sensibel', value: sensitive, color: '#CC3333', filterKey: 'sensitive', ringClass: 'error/20', bgClass: 'error/5' },
     ];
   });
 
@@ -437,6 +463,48 @@ export class ParameterComponent implements OnInit {
 
     return params;
   });
+
+  applyQuickFilter(filterKey: string): void {
+    // Toggle: erneuter Klick auf gleiche Kachel hebt Filter auf
+    if (this.activeQuickFilter() === filterKey) {
+      this.activeQuickFilter.set('');
+      this.clearAllFilters();
+      return;
+    }
+
+    this.activeQuickFilter.set(filterKey);
+    this.clearAllFilters();
+
+    switch (filterKey) {
+      case 'total':
+        // Alle anzeigen (keine Filter)
+        break;
+      case 'apps':
+        // Zeige alle - kein spezifischer Filter, nur Highlight
+        break;
+      case 'groups':
+        // Zeige alle - kein spezifischer Filter, nur Highlight
+        break;
+      case 'changes':
+        this.switchToChangelog();
+        return;
+      case 'hotReload':
+        this.booleanFilter.set('hotReload');
+        break;
+      case 'sensitive':
+        this.booleanFilter.set('sensitive');
+        break;
+    }
+  }
+
+  private clearAllFilters(): void {
+    this.appFilter.set('');
+    this.groupFilter.set('');
+    this.typeFilter.set('');
+    this.scopeFilter.set('');
+    this.booleanFilter.set('');
+    this.searchFilter.set('');
+  }
 
   loadParameters(): void {
     this.loading.set(true);
