@@ -14,7 +14,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/apps")
-@CrossOrigin(origins = "*")
 public class AppController {
 
     private final AppService appService;
@@ -50,5 +49,23 @@ public class AppController {
     public ResponseEntity<Map<MarketSegment, Long>> getAppCountPerSegment() {
         Map<MarketSegment, Long> counts = appService.getAppCountPerSegment();
         return ResponseEntity.ok(counts);
+    }
+
+    @PostMapping
+    public ResponseEntity<PortalApp> createApp(@RequestBody PortalApp app) {
+        PortalApp created = appService.create(app);
+        return ResponseEntity.ok(created);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<PortalApp> updateApp(@PathVariable String id, @RequestBody PortalApp app) {
+        PortalApp updated = appService.update(id, app);
+        return ResponseEntity.ok(updated);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteApp(@PathVariable String id) {
+        appService.delete(id);
+        return ResponseEntity.noContent().build();
     }
 }

@@ -10,7 +10,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/aufgaben")
-@CrossOrigin(origins = "*")
 public class AufgabenController {
 
     private final AufgabenService aufgabenService;

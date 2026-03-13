@@ -1,19 +1,44 @@
+<!-- Mobile Backdrop -->
+<div
+  *ngIf="mobileSidebarOpen()"
+  (click)="closeMobile()"
+  class="fixed inset-0 bg-black/50 z-30 md:hidden"
+></div>
+
+<!-- Sidebar -->
 <aside
-  class="fixed top-0 left-0 h-screen bg-white border-r border-gray-200 flex flex-col z-20 transition-all duration-300"
-  [style.width]="collapsed() ? '64px' : '256px'"
+  class="fixed top-0 left-0 h-screen bg-white border-r border-gray-200 flex flex-col transition-all duration-300"
+  [ngClass]="{
+    'z-40': mobileSidebarOpen(),
+    'z-20': !mobileSidebarOpen(),
+    '-translate-x-full md:translate-x-0': !mobileSidebarOpen(),
+    'translate-x-0': mobileSidebarOpen()
+  }"
+  [style.width]="collapsed() && !mobileSidebarOpen() ? '64px' : '256px'"
 >
   <!-- Logo -->
   <div class="flex items-center h-16 px-4 border-b border-gray-100 shrink-0">
-    <div class="w-8 h-8 rounded-full bg-[#006EC7] flex items-center justify-center text-white text-sm font-bold shrink-0">
-      HP
+    <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
+         [style.background-color]="theme().primaryColor">
+      {{ theme().portalIconInitials }}
     </div>
     <span
-      *ngIf="!collapsed()"
+      *ngIf="!collapsed() || mobileSidebarOpen()"
       class="ml-3 text-base font-semibold text-gray-800 whitespace-nowrap"
-      style="font-family: 'Fira Sans', sans-serif"
+      style="font-family: var(--portal-font-family, 'Fira Sans', sans-serif)"
     >
-      Health Portal
+      {{ theme().portalTitle }}
     </span>
+    <!-- Mobile close button -->
+    <button
+      *ngIf="mobileSidebarOpen()"
+      (click)="closeMobile()"
+      class="ml-auto p-1 text-gray-400 hover:text-gray-600 md:hidden"
+    >
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+      </svg>
+    </button>
   </div>
 
   <!-- Navigation -->
@@ -26,8 +51,8 @@
           routerLinkActive="bg-blue-50 text-[#006EC7]"
           [routerLinkActiveOptions]="{ exact: true }"
           class="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
-          [class.justify-center]="collapsed()"
-          [title]="collapsed() ? 'Dashboard' : ''"
+          [class.justify-center]="collapsed() && !mobileSidebarOpen()"
+          [title]="collapsed() && !mobileSidebarOpen() ? 'Dashboard' : ''"
         >
           <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
             <rect x="3" y="3" width="7" height="7" rx="1" stroke-linecap="round" stroke-linejoin="round"/>
@@ -35,7 +60,7 @@
             <rect x="3" y="14" width="7" height="7" rx="1" stroke-linecap="round" stroke-linejoin="round"/>
             <rect x="14" y="14" width="7" height="7" rx="1" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
-          <span *ngIf="!collapsed()" class="text-sm font-medium whitespace-nowrap">Dashboard</span>
+          <span *ngIf="!collapsed() || mobileSidebarOpen()" class="text-sm font-medium whitespace-nowrap">Dashboard</span>
         </a>
       </li>
 
@@ -45,33 +70,87 @@
           routerLink="/nachrichten"
           routerLinkActive="bg-blue-50 text-[#006EC7]"
           class="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
-          [class.justify-center]="collapsed()"
-          [title]="collapsed() ? 'Nachrichten' : ''"
+          [class.justify-center]="collapsed() && !mobileSidebarOpen()"
+          [title]="collapsed() && !mobileSidebarOpen() ? 'Nachrichten' : ''"
         >
           <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
             <path stroke-linecap="round" stroke-linejoin="round" d="M13.73 21a2 2 0 01-3.46 0"/>
           </svg>
-          <span *ngIf="!collapsed()" class="text-sm font-medium whitespace-nowrap">Nachrichten</span>
+          <span *ngIf="!collapsed() || mobileSidebarOpen()" class="text-sm font-medium whitespace-nowrap">Nachrichten</span>
         </a>
       </li>
+
+      <!-- Installierte Anwendungen (expandable) -->
+      <li *ngIf="installedApps().length > 0">
+        <button
+          (click)="toggleInstalledApps()"
+          class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+          [class.justify-center]="collapsed() && !mobileSidebarOpen()"
+          [title]="collapsed() && !mobileSidebarOpen() ? 'Installierte Anwendungen' : ''"
+        >
+          <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+          </svg>
+          <span *ngIf="!collapsed() || mobileSidebarOpen()" class="text-sm font-medium whitespace-nowrap flex-1 text-left">Installierte Anwendungen</span>
+          <svg
+            *ngIf="!collapsed() || mobileSidebarOpen()"
+            class="w-4 h-4 shrink-0 transition-transform duration-200"
+            [class.rotate-180]="installedAppsExpanded"
+            fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+
+        <!-- Installed Apps Submenu -->
+        <ul
+          *ngIf="installedAppsExpanded && (!collapsed() || mobileSidebarOpen())"
+          class="mt-1 ml-5 space-y-1 border-l border-gray-200 pl-3"
+        >
+          <li *ngFor="let app of installedApps()">
+            <a [routerLink]="app.route"
+               class="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-500 hover:text-gray-900 rounded transition-colors">
+              <div class="w-5 h-5 rounded flex items-center justify-center text-white text-[9px] font-bold shrink-0"
+                   [style.background-color]="app.color">
+                {{ app.shortName }}
+              </div>
+              {{ app.name }}
+            </a>
+          </li>
+        </ul>
+      </li>
+
+      <!-- Collapsed: show installed app icons (desktop only) -->
+      <ng-container *ngIf="collapsed() && !mobileSidebarOpen()">
+        <li *ngFor="let app of installedApps()">
+          <a [routerLink]="app.route"
+             [title]="app.name"
+             class="flex items-center justify-center px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors">
+            <div class="w-7 h-7 rounded-lg flex items-center justify-center text-white text-[10px] font-bold"
+                 [style.background-color]="app.color">
+              {{ app.shortName }}
+            </div>
+          </a>
+        </li>
+      </ng-container>
 
       <!-- Plattform (expandable) -->
       <li>
         <button
           (click)="togglePlattform()"
           class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
-          [class.justify-center]="collapsed()"
-          [title]="collapsed() ? 'Plattform' : ''"
+          [class.justify-center]="collapsed() && !mobileSidebarOpen()"
+          [title]="collapsed() && !mobileSidebarOpen() ? 'Plattform' : ''"
         >
           <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 2L2 7l10 5 10-5-10-5z"/>
             <path stroke-linecap="round" stroke-linejoin="round" d="M2 17l10 5 10-5"/>
             <path stroke-linecap="round" stroke-linejoin="round" d="M2 12l10 5 10-5"/>
           </svg>
-          <span *ngIf="!collapsed()" class="text-sm font-medium whitespace-nowrap flex-1 text-left">Plattform</span>
+          <span *ngIf="!collapsed() || mobileSidebarOpen()" class="text-sm font-medium whitespace-nowrap flex-1 text-left">Plattform</span>
           <svg
-            *ngIf="!collapsed()"
+            *ngIf="!collapsed() || mobileSidebarOpen()"
             class="w-4 h-4 shrink-0 transition-transform duration-200"
             [class.rotate-180]="plattformExpanded"
             fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"
@@ -82,7 +161,7 @@
 
         <!-- Submenu -->
         <ul
-          *ngIf="plattformExpanded && !collapsed()"
+          *ngIf="plattformExpanded && (!collapsed() || mobileSidebarOpen())"
           class="mt-1 ml-5 space-y-1 border-l border-gray-200 pl-3"
         >
           <li>
@@ -116,6 +195,18 @@
             </a>
           </li>
           <li>
+            <a routerLink="/gruppen" routerLinkActive="text-[#006EC7] font-semibold"
+               class="block px-3 py-1.5 text-sm text-gray-500 hover:text-gray-900 rounded transition-colors">
+              Gruppen
+            </a>
+          </li>
+          <li>
+            <a routerLink="/mandanten" routerLinkActive="text-[#006EC7] font-semibold"
+               class="block px-3 py-1.5 text-sm text-gray-500 hover:text-gray-900 rounded transition-colors">
+              Mandanten
+            </a>
+          </li>
+          <li>
             <a routerLink="/aufgaben" routerLinkActive="text-[#006EC7] font-semibold"
                class="block px-3 py-1.5 text-sm text-gray-500 hover:text-gray-900 rounded transition-colors">
               Aufgaben
@@ -139,15 +230,15 @@
           routerLink="/formulare"
           routerLinkActive="bg-blue-50 text-[#006EC7]"
           class="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
-          [class.justify-center]="collapsed()"
-          [title]="collapsed() ? 'Formulare' : ''"
+          [class.justify-center]="collapsed() && !mobileSidebarOpen()"
+          [title]="collapsed() && !mobileSidebarOpen() ? 'Formulare' : ''"
         >
           <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
             <rect x="9" y="3" width="6" height="4" rx="1" stroke-linecap="round" stroke-linejoin="round"/>
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6M9 16h6"/>
           </svg>
-          <span *ngIf="!collapsed()" class="text-sm font-medium whitespace-nowrap">Formulare</span>
+          <span *ngIf="!collapsed() || mobileSidebarOpen()" class="text-sm font-medium whitespace-nowrap">Formulare</span>
         </a>
       </li>
 
@@ -157,8 +248,8 @@
           routerLink="/ki-agenten"
           routerLinkActive="bg-blue-50 text-[#006EC7]"
           class="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
-          [class.justify-center]="collapsed()"
-          [title]="collapsed() ? 'KI-Agenten' : ''"
+          [class.justify-center]="collapsed() && !mobileSidebarOpen()"
+          [title]="collapsed() && !mobileSidebarOpen() ? 'KI-Agenten' : ''"
         >
           <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
             <rect x="3" y="11" width="18" height="10" rx="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -166,8 +257,41 @@
             <circle cx="15" cy="16" r="1" fill="currentColor"/>
             <path stroke-linecap="round" stroke-linejoin="round" d="M8 11V7a4 4 0 118 0v4"/>
           </svg>
-          <span *ngIf="!collapsed()" class="text-sm font-medium whitespace-nowrap">KI-Agenten</span>
+          <span *ngIf="!collapsed() || mobileSidebarOpen()" class="text-sm font-medium whitespace-nowrap">KI-Agenten</span>
         </a>
+      </li>
+
+      <!-- Custom Menu Items (iFrame) -->
+      <li *ngIf="customMenuItems().length > 0">
+        <button
+          (click)="toggleCustomMenu()"
+          class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+          [class.justify-center]="collapsed() && !mobileSidebarOpen()"
+        >
+          <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10.172 13.828a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.102 1.101"/>
+          </svg>
+          <span *ngIf="!collapsed() || mobileSidebarOpen()" class="text-sm font-medium whitespace-nowrap flex-1 text-left">Extern</span>
+          <svg *ngIf="!collapsed() || mobileSidebarOpen()" class="w-4 h-4 shrink-0 transition-transform duration-200" [class.rotate-180]="customMenuExpanded" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+        <ul *ngIf="customMenuExpanded && (!collapsed() || mobileSidebarOpen())" class="mt-1 ml-5 space-y-1 border-l border-gray-200 pl-3">
+          <li *ngFor="let item of customMenuItems()">
+            <a *ngIf="item.menuType === 'IFRAME'" [routerLink]="'/iframe/' + item.id"
+               routerLinkActive="font-semibold" [style.--active-color]="theme().primaryColor"
+               class="block px-3 py-1.5 text-sm text-gray-500 hover:text-gray-900 rounded transition-colors">
+              {{ item.label }}
+            </a>
+            <a *ngIf="item.menuType === 'LINK'" [href]="item.url" target="_blank" rel="noopener"
+               class="block px-3 py-1.5 text-sm text-gray-500 hover:text-gray-900 rounded transition-colors">
+              {{ item.label }}
+              <svg class="w-3 h-3 inline-block ml-1 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+            </a>
+            <hr *ngIf="item.menuType === 'SEPARATOR'" class="my-1 border-gray-200"/>
+          </li>
+        </ul>
       </li>
 
       <!-- Einstellungen -->
@@ -176,52 +300,36 @@
           routerLink="/einstellungen"
           routerLinkActive="bg-blue-50 text-[#006EC7]"
           class="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
-          [class.justify-center]="collapsed()"
-          [title]="collapsed() ? 'Einstellungen' : ''"
+          [class.justify-center]="collapsed() && !mobileSidebarOpen()"
+          [title]="collapsed() && !mobileSidebarOpen() ? 'Einstellungen' : ''"
         >
           <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
             <circle cx="12" cy="12" r="3" stroke-linecap="round" stroke-linejoin="round"/>
             <path stroke-linecap="round" stroke-linejoin="round" d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
           </svg>
-          <span *ngIf="!collapsed()" class="text-sm font-medium whitespace-nowrap">Einstellungen</span>
+          <span *ngIf="!collapsed() || mobileSidebarOpen()" class="text-sm font-medium whitespace-nowrap">Einstellungen</span>
         </a>
       </li>
     </ul>
   </nav>
 
-  <!-- Installed Apps -->
-  <div *ngIf="!collapsed()" class="px-4 pb-3 border-t border-gray-100 pt-3">
-    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Installierte Apps</p>
-    <div class="flex flex-wrap gap-2">
-      <a
-        *ngFor="let app of installedApps()"
-        [routerLink]="app.route"
-        [title]="app.name"
-        class="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold hover:opacity-80 transition-opacity"
-        [style.background-color]="app.color"
-      >
-        {{ app.shortName }}
-      </a>
-    </div>
-  </div>
+  <!-- Logout -->
+  <button
+    (click)="doLogout()"
+    class="flex items-center gap-3 px-4 py-3 border-t border-gray-100 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0"
+    [class.justify-center]="collapsed() && !mobileSidebarOpen()"
+    [title]="collapsed() && !mobileSidebarOpen() ? 'Abmelden' : ''"
+  >
+    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+    </svg>
+    <span *ngIf="!collapsed() || mobileSidebarOpen()" class="text-sm font-medium whitespace-nowrap">Abmelden</span>
+  </button>
 
-  <!-- Collapsed: just show small dots for apps -->
-  <div *ngIf="collapsed()" class="px-2 pb-3 border-t border-gray-100 pt-3 flex flex-col items-center gap-2">
-    <a
-      *ngFor="let app of installedApps()"
-      [routerLink]="app.route"
-      [title]="app.name"
-      class="w-8 h-8 rounded-lg flex items-center justify-center text-white text-[10px] font-bold hover:opacity-80 transition-opacity"
-      [style.background-color]="app.color"
-    >
-      {{ app.shortName }}
-    </a>
-  </div>
-
-  <!-- Collapse Toggle -->
+  <!-- Collapse Toggle (desktop only) -->
   <button
     (click)="toggle()"
-    class="flex items-center justify-center h-12 border-t border-gray-100 text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors shrink-0"
+    class="hidden md:flex items-center justify-center h-12 border-t border-gray-100 text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors shrink-0"
   >
     <svg
       class="w-5 h-5 transition-transform duration-300"

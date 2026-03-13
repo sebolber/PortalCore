@@ -25,6 +25,11 @@ services:
       DB_HOST: postgres
     ports:
       - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp/portal-deployments:/tmp/portal-deployments
+      # Erstinstallation: portal-init.yml hier ablegen (optional)
+      # - ./portal-init.yml:/app/config/portal-init.yml:ro
     depends_on:
       postgres:
         condition: service_healthy

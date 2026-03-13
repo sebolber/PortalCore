@@ -69,4 +69,25 @@ public class PortalApp {
     private boolean isNew;
 
     private String route;
+
+    @Column(name = "repository_url")
+    private String repositoryUrl;
+
+    @Column(name = "application_url")
+    private String applicationUrl;
+
+    @Column(name = "manifest_image")
+    private String manifestImage;
+
+    @Column(name = "manifest_port")
+    private Integer manifestPort;
+
+    @Column(name = "manifest_dockerfile")
+    private String manifestDockerfile;
+
+    @Column(name = "manifest_env", columnDefinition = "TEXT")
+    private String manifestEnv;
+
+    @Column(name = "manifest_health_check")
+    private String manifestHealthCheck;
 }

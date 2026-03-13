@@ -62,4 +62,23 @@ public class PortalParameter {
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
+
+    @Column(name = "gueltig_von")
+    private LocalDateTime gueltigVon;
+
+    @Column(name = "gueltig_bis")
+    private LocalDateTime gueltigBis;
+
+    @Column(name = "tenant_id")
+    private String tenantId;
+
+    @Column(name = "admin_only")
+    private boolean adminOnly;
+
+    @PrePersist
+    void prePersist() {
+        if (createdAt == null) createdAt = LocalDateTime.now();
+        if (gueltigVon == null) gueltigVon = LocalDateTime.of(1970, 1, 1, 0, 0);
+        if (gueltigBis == null) gueltigBis = LocalDateTime.of(9999, 12, 31, 23, 59, 59);
+    }
 }

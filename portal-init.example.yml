@@ -1,0 +1,47 @@
+# Portal Erstinstallation - Beispiel-Konfiguration
+# =================================================
+# Kopieren Sie diese Datei als portal-init.yml und passen Sie die Werte an.
+#
+# Fuer Docker-Deployment:
+#   1. Datei anpassen und nach backend/src/main/resources/portal-init.yml kopieren
+#   2. Oder als Volume mounten: -v ./portal-init.yml:/app/config/portal-init.yml
+
+# Super-User fuer die Erstinstallation
+superUser:
+  vorname: Max
+  nachname: Mustermann
+  email: admin@meine-organisation.de
+  tenantId: t-aok-nw
+
+# Parameter-Werte (nur leere Werte werden ueberschrieben)
+parameters:
+  # SMTP-Konfiguration (Postausgang)
+  portal.email.smtp.host: smtp.meine-organisation.de
+  portal.email.smtp.port: "587"
+  portal.email.smtp.username: portal@meine-organisation.de
+  portal.email.smtp.password: "geheim"
+  portal.email.smtp.auth: "true"
+  portal.email.smtp.starttls: "true"
+  portal.email.smtp.ssl: "false"
+  portal.email.from: portal@meine-organisation.de
+
+  # IMAP-Konfiguration (Posteingang, optional)
+  portal.email.imap.host: imap.meine-organisation.de
+  portal.email.imap.port: "993"
+  portal.email.imap.username: portal@meine-organisation.de
+  portal.email.imap.password: "geheim"
+  portal.email.imap.ssl: "true"
+  portal.email.imap.enabled: "false"
+
+  # POP3-Konfiguration (Posteingang, alternativ zu IMAP)
+  portal.email.pop3.host: pop3.meine-organisation.de
+  portal.email.pop3.port: "995"
+  portal.email.pop3.username: portal@meine-organisation.de
+  portal.email.pop3.password: "geheim"
+  portal.email.pop3.ssl: "true"
+  portal.email.pop3.enabled: "false"
+
+  # E-Mail-Authentifizierung (OTP)
+  portal.auth.email.enabled: "true"
+  portal.auth.otp.length: "6"
+  portal.auth.otp.expiration-minutes: "10"

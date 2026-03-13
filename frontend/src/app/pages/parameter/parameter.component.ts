@@ -1,28 +1,19 @@
-import { Component, computed, signal } from '@angular/core';
+import { Component, OnInit, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { PortalParameter } from '../../models/parameter.model';
-
-interface ParameterChange {
-  id: string;
-  timestamp: string;
-  parameterKey: string;
-  appName: string;
-  oldValue: string;
-  newValue: string;
-  user: string;
-  reason: string;
-}
+import { PortalParameter, ParameterAuditLog } from '../../models/parameter.model';
+import { ParameterService } from '../../services/parameter.service';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-parameter',
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <div class="p-6 max-w-[1400px] mx-auto">
+    <div class="max-w-[1400px] mx-auto">
       <!-- Header -->
       <div class="mb-6">
-        <h1 class="text-2xl font-condensed font-semibold text-gray-900">Parameterverwaltung</h1>
+        <h1 class="text-xl sm:text-2xl font-condensed font-semibold text-gray-900">Parameterverwaltung</h1>
         <p class="text-sm text-gray-500 mt-1">Systemparameter und Konfigurationen verwalten</p>
       </div>
 
@@ -38,11 +29,11 @@ interface ParameterChange {
           Parameter
           <span class="ml-1.5 text-xs px-1.5 py-0.5 rounded-full"
             [class]="activeTab() === 'parameter' ? 'bg-primary/10 text-primary' : 'bg-gray-100 text-gray-500'">
-            32
+            {{ parameters().length }}
           </span>
         </button>
         <button
-          (click)="activeTab.set('changelog')"
+          (click)="switchToChangelog()"
           class="px-4 py-2.5 text-sm font-medium transition-colors relative"
           [class]="activeTab() === 'changelog'
             ? 'text-primary border-b-2 border-primary'
@@ -51,7 +42,7 @@ interface ParameterChange {
           Aenderungsprotokoll
           <span class="ml-1.5 text-xs px-1.5 py-0.5 rounded-full"
             [class]="activeTab() === 'changelog' ? 'bg-primary/10 text-primary' : 'bg-gray-100 text-gray-500'">
-            {{ changeLog.length }}
+            {{ auditLog().length }}
           </span>
         </button>
       </div>
@@ -60,7 +51,7 @@ interface ParameterChange {
       @if (activeTab() === 'parameter') {
         <!-- Stats Cards -->
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-          @for (stat of paramStats; track stat.label) {
+          @for (stat of paramStats(); track stat.label) {
             <div class="bg-white rounded-lg border border-gray-200 p-4 shadow-card">
               <div class="text-2xl font-semibold" [style.color]="stat.color">{{ stat.value }}</div>
               <div class="text-xs text-gray-500 mt-1">{{ stat.label }}</div>
@@ -68,8 +59,8 @@ interface ParameterChange {
           }
         </div>
 
-        <!-- App Filter -->
-        <div class="mb-4">
+        <!-- Filters -->
+        <div class="flex flex-wrap gap-3 mb-4">
           <select
             [ngModel]="appFilter()"
             (ngModelChange)="appFilter.set($event)"
@@ -80,7 +71,50 @@ interface ParameterChange {
               <option [value]="app">{{ app }}</option>
             }
           </select>
+
+          <input
+            type="text"
+            placeholder="Suche nach Schluessel, Label oder Beschreibung..."
+            [ngModel]="searchFilter()"
+            (ngModelChange)="searchFilter.set($event)"
+            class="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary w-72"
+          />
+
+          <select
+            [ngModel]="typeFilter()"
+            (ngModelChange)="typeFilter.set($event)"
+            class="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+          >
+            <option value="">Alle Typen</option>
+            <option value="STRING">STRING</option>
+            <option value="NUMBER">NUMBER</option>
+            <option value="BOOLEAN">BOOLEAN</option>
+            <option value="EMAIL">EMAIL</option>
+            <option value="URL">URL</option>
+            <option value="SELECT">SELECT</option>
+            <option value="DATE">DATE</option>
+            <option value="PASSWORD">PASSWORD</option>
+            <option value="TEXTAREA">TEXTAREA</option>
+          </select>
+
+          <select
+            [ngModel]="scopeFilter()"
+            (ngModelChange)="scopeFilter.set($event)"
+            class="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+          >
+            <option value="">Alle (Global + Mandant)</option>
+            <option value="global">Nur globale Parameter</option>
+            <option value="tenant">Nur mandantenspezifische</option>
+          </select>
         </div>
+
+        <!-- Error Message -->
+        @if (errorMsg()) {
+          <div class="mb-4 p-3 bg-error/10 text-error text-sm rounded-lg border border-error/20">
+            {{ errorMsg() }}
+            <button (click)="errorMsg.set('')" class="ml-2 font-bold">x</button>
+          </div>
+        }
 
         <!-- Grouped Parameters -->
         @for (appGroup of groupedParameters(); track appGroup.appName) {
@@ -123,55 +157,91 @@ interface ParameterChange {
                               @if (param.sensitive) {
                                 <span class="text-xs px-1.5 py-0.5 rounded bg-error/10 text-error font-medium">Sensibel</span>
                               }
+                              @if (param.adminOnly) {
+                                <span class="text-xs px-1.5 py-0.5 rounded bg-red-50 text-red-600 font-medium" title="Nur Administratoren duerfen diesen Parameter aendern">Nur Admin</span>
+                              }
+                              @if (param.tenantId) {
+                                <span class="text-xs px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 font-medium" title="Mandantenspezifisch">Mandant: {{ param.tenantId }}</span>
+                              } @else {
+                                <span class="text-xs px-1.5 py-0.5 rounded bg-blue-50 text-blue-500 font-medium" title="Gilt fuer alle Mandanten">Global</span>
+                              }
                             </div>
                             <div class="text-sm font-medium text-gray-900">{{ param.label }}</div>
                             @if (param.description) {
                               <div class="text-xs text-gray-400 mt-0.5">{{ param.description }}</div>
+                            }
+                            @if (param.gueltigVon || param.gueltigBis) {
+                              <div class="text-xs text-gray-400 mt-1 flex items-center gap-1">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                @if (param.gueltigVon && param.gueltigVon !== '1970-01-01T00:00:00') {
+                                  <span>ab {{ param.gueltigVon | date:'dd.MM.yyyy' }}</span>
+                                }
+                                @if (param.gueltigBis && param.gueltigBis !== '9999-12-31T23:59:59') {
+                                  <span>bis {{ param.gueltigBis | date:'dd.MM.yyyy' }}</span>
+                                }
+                                @if ((!param.gueltigVon || param.gueltigVon === '1970-01-01T00:00:00') && (!param.gueltigBis || param.gueltigBis === '9999-12-31T23:59:59')) {
+                                  <span>Unbegrenzt gueltig</span>
+                                }
+                              </div>
                             }
                           </div>
 
                           <div class="flex items-center gap-2 shrink-0">
                             @if (editingParam() === param.id) {
                               <!-- Edit Mode -->
-                              @if (param.type === 'boolean') {
-                                <select
-                                  [ngModel]="editValue()"
-                                  (ngModelChange)="editValue.set($event)"
-                                  class="px-2 py-1 text-sm border border-primary rounded bg-white focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                >
-                                  <option value="true">true</option>
-                                  <option value="false">false</option>
-                                </select>
-                              } @else if (param.type === 'select' && param.options) {
-                                <select
-                                  [ngModel]="editValue()"
-                                  (ngModelChange)="editValue.set($event)"
-                                  class="px-2 py-1 text-sm border border-primary rounded bg-white focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                >
-                                  @for (opt of param.options; track opt) {
-                                    <option [value]="opt">{{ opt }}</option>
+                              <div class="flex flex-col gap-2">
+                                <div class="flex items-center gap-2">
+                                  @if (param.type === 'BOOLEAN') {
+                                    <select
+                                      [ngModel]="editValue()"
+                                      (ngModelChange)="editValue.set($event)"
+                                      class="px-2 py-1 text-sm border border-primary rounded bg-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                    >
+                                      <option value="true">true</option>
+                                      <option value="false">false</option>
+                                    </select>
+                                  } @else if (param.type === 'SELECT' && param.options) {
+                                    <select
+                                      [ngModel]="editValue()"
+                                      (ngModelChange)="editValue.set($event)"
+                                      class="px-2 py-1 text-sm border border-primary rounded bg-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                    >
+                                      @for (opt of splitOptions(param.options); track opt) {
+                                        <option [value]="opt">{{ opt }}</option>
+                                      }
+                                    </select>
+                                  } @else if (param.type === 'TEXTAREA') {
+                                    <textarea
+                                      [ngModel]="editValue()"
+                                      (ngModelChange)="editValue.set($event)"
+                                      class="px-2 py-1 text-sm border border-primary rounded bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 w-64"
+                                      rows="2"
+                                    ></textarea>
+                                  } @else {
+                                    <input
+                                      [type]="param.type === 'NUMBER' ? 'number' : param.type === 'PASSWORD' ? 'password' : param.type === 'EMAIL' ? 'email' : param.type === 'DATE' ? 'date' : 'text'"
+                                      [ngModel]="editValue()"
+                                      (ngModelChange)="editValue.set($event)"
+                                      class="px-2 py-1 text-sm border border-primary rounded bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 w-48"
+                                    />
                                   }
-                                </select>
-                              } @else if (param.type === 'textarea') {
-                                <textarea
-                                  [ngModel]="editValue()"
-                                  (ngModelChange)="editValue.set($event)"
-                                  class="px-2 py-1 text-sm border border-primary rounded bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 w-64"
-                                  rows="2"
-                                ></textarea>
-                              } @else {
+                                  @if (param.unit) {
+                                    <span class="text-xs text-gray-400">{{ param.unit }}</span>
+                                  }
+                                </div>
                                 <input
-                                  [type]="param.type === 'number' ? 'number' : param.type === 'password' ? 'password' : 'text'"
-                                  [ngModel]="editValue()"
-                                  (ngModelChange)="editValue.set($event)"
-                                  class="px-2 py-1 text-sm border border-primary rounded bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 w-48"
+                                  type="text"
+                                  placeholder="Grund der Aenderung..."
+                                  [ngModel]="editGrund()"
+                                  (ngModelChange)="editGrund.set($event)"
+                                  class="px-2 py-1 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 w-full"
                                 />
-                              }
-                              @if (param.unit) {
-                                <span class="text-xs text-gray-400">{{ param.unit }}</span>
-                              }
-                              <button (click)="saveEdit(param)" class="px-2 py-1 text-xs bg-primary text-white rounded hover:bg-primary-dark transition-colors">Speichern</button>
-                              <button (click)="cancelEdit()" class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors">Abbrechen</button>
+                                <div class="flex gap-1">
+                                  <button (click)="saveEdit(param)" [disabled]="saving()" class="px-2 py-1 text-xs bg-primary text-white rounded hover:bg-primary-dark transition-colors disabled:opacity-50">Speichern</button>
+                                  <button (click)="resetParam(param)" [disabled]="saving()" class="px-2 py-1 text-xs bg-warning/10 text-warning rounded hover:bg-warning/20 transition-colors disabled:opacity-50" title="Auf Standardwert zuruecksetzen">Reset</button>
+                                  <button (click)="cancelEdit()" class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors">Abbrechen</button>
+                                </div>
+                              </div>
                             } @else {
                               <!-- Display Mode -->
                               <div class="flex items-center gap-2">
@@ -187,11 +257,18 @@ interface ParameterChange {
                                 @if (param.unit) {
                                   <span class="text-xs text-gray-400">{{ param.unit }}</span>
                                 }
-                                <button (click)="startEdit(param)" class="ml-2 text-xs text-primary hover:underline">Bearbeiten</button>
+                                @if (!param.adminOnly || authService.isSuperAdmin()) {
+                                  <button (click)="startEdit(param)" class="ml-2 text-xs text-primary hover:underline">Bearbeiten</button>
+                                }
                               </div>
                             }
                           </div>
                         </div>
+                        @if (param.lastModifiedBy) {
+                          <div class="mt-2 text-[10px] text-gray-400">
+                            Zuletzt geaendert: {{ param.lastModified | date:'dd.MM.yyyy HH:mm' }} von {{ param.lastModifiedBy }}
+                          </div>
+                        }
                       </div>
                     }
                   </div>
@@ -200,12 +277,34 @@ interface ParameterChange {
             }
           </div>
         }
+
+        @if (groupedParameters().length === 0 && !loading()) {
+          <div class="text-center text-gray-400 py-12">Keine Parameter gefunden.</div>
+        }
+
+        @if (loading()) {
+          <div class="text-center text-gray-400 py-12">Lade Parameter...</div>
+        }
       }
 
       <!-- Tab 2: Aenderungsprotokoll -->
       @if (activeTab() === 'changelog') {
-        <div class="bg-white rounded-lg border border-gray-200 shadow-card overflow-hidden">
-          <table class="w-full text-sm">
+        <!-- Audit Log Filters -->
+        <div class="flex flex-wrap gap-3 mb-4">
+          <select
+            [ngModel]="auditAppFilter()"
+            (ngModelChange)="auditAppFilter.set($event); loadAuditLog()"
+            class="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+          >
+            <option value="">Alle Apps</option>
+            @for (app of appNames(); track app) {
+              <option [value]="app">{{ app }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="bg-white rounded-lg border border-gray-200 shadow-card overflow-hidden overflow-x-auto">
+          <table class="w-full text-sm min-w-[700px]">
             <thead>
               <tr class="bg-gray-50 border-b border-gray-200">
                 <th class="text-left px-4 py-3 font-medium text-gray-600">Zeitpunkt</th>
@@ -218,22 +317,28 @@ interface ParameterChange {
               </tr>
             </thead>
             <tbody>
-              @for (entry of changeLog; track entry.id) {
+              @for (entry of auditLog(); track entry.id) {
                 <tr class="border-b border-gray-100 hover:bg-gray-50">
-                  <td class="px-4 py-3 text-gray-500 text-xs font-mono">{{ entry.timestamp }}</td>
+                  <td class="px-4 py-3 text-gray-500 text-xs font-mono">{{ entry.geaendertAm | date:'dd.MM.yyyy HH:mm' }}</td>
                   <td class="px-4 py-3">
-                    <code class="text-xs font-mono text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded">{{ entry.parameterKey }}</code>
+                    <code class="text-xs font-mono text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded">{{ entry.paramKey }}</code>
                   </td>
                   <td class="px-4 py-3 text-gray-600 text-xs">{{ entry.appName }}</td>
                   <td class="px-4 py-3">
-                    <span class="font-mono text-xs text-error bg-error/5 px-1.5 py-0.5 rounded">{{ entry.oldValue }}</span>
+                    <span class="font-mono text-xs text-error bg-error/5 px-1.5 py-0.5 rounded">{{ entry.alterWert }}</span>
                   </td>
                   <td class="px-4 py-3">
-                    <span class="font-mono text-xs text-success bg-success/5 px-1.5 py-0.5 rounded">{{ entry.newValue }}</span>
+                    <span class="font-mono text-xs text-success bg-success/5 px-1.5 py-0.5 rounded">{{ entry.neuerWert }}</span>
                   </td>
-                  <td class="px-4 py-3 text-gray-600 text-xs">{{ entry.user }}</td>
-                  <td class="px-4 py-3 text-gray-500 text-xs">{{ entry.reason }}</td>
+                  <td class="px-4 py-3 text-gray-600 text-xs">{{ entry.geaendertVon }}</td>
+                  <td class="px-4 py-3 text-gray-500 text-xs">{{ entry.grund }}</td>
                 </tr>
+              }
+              @if (auditLog().length === 0 && !loadingAudit()) {
+                <tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">Keine Aenderungen vorhanden.</td></tr>
+              }
+              @if (loadingAudit()) {
+                <tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">Lade Aenderungsprotokoll...</td></tr>
               }
             </tbody>
           </table>
@@ -242,96 +347,72 @@ interface ParameterChange {
     </div>
   `,
 })
-export class ParameterComponent {
+export class ParameterComponent implements OnInit {
   readonly activeTab = signal<'parameter' | 'changelog'>('parameter');
   readonly appFilter = signal('');
+  readonly searchFilter = signal('');
+  readonly typeFilter = signal('');
+  readonly scopeFilter = signal('');
+  readonly auditAppFilter = signal('');
   readonly expandedGroups = signal<Set<string>>(new Set());
   readonly editingParam = signal<string | null>(null);
   readonly editValue = signal('');
+  readonly editGrund = signal('');
   readonly revealedSensitive = signal<Set<string>>(new Set());
+  readonly parameters = signal<PortalParameter[]>([]);
+  readonly auditLog = signal<ParameterAuditLog[]>([]);
+  readonly loading = signal(false);
+  readonly loadingAudit = signal(false);
+  readonly saving = signal(false);
+  readonly errorMsg = signal('');
 
-  readonly paramStats = [
-    { label: 'Total', value: 32, color: '#006EC7' },
-    { label: 'Apps', value: 6, color: '#461EBE' },
-    { label: 'Gruppen', value: 12, color: '#28DCAA' },
-    { label: 'Aenderungen', value: 47, color: '#FF9868' },
-    { label: 'Hot-Reload', value: 8, color: '#FFC107' },
-    { label: 'Sensibel', value: 2, color: '#CC3333' },
-  ];
+  constructor(
+    private parameterService: ParameterService,
+    public authService: AuthService
+  ) {}
 
-  readonly parameters: PortalParameter[] = [
-    // Portal - Allgemein
-    { id: 'pm1', key: 'portal.name', label: 'Portal Name', description: 'Anzeigename des Portals', appId: 'portal', appName: 'Portal', group: 'Allgemein', type: 'string', value: 'Health Portal', defaultValue: 'Health Portal', required: true, validationRules: [], sensitive: false, hotReload: true, lastModified: '2026-03-10', lastModifiedBy: 'Anna Schneider', createdAt: '2025-01-01' },
-    { id: 'pm2', key: 'portal.version', label: 'Portal Version', description: 'Aktuelle Version', appId: 'portal', appName: 'Portal', group: 'Allgemein', type: 'string', value: '2.4.1', defaultValue: '1.0.0', required: true, validationRules: [], sensitive: false, hotReload: false, lastModified: '2026-03-01', lastModifiedBy: 'System', createdAt: '2025-01-01' },
-    { id: 'pm3', key: 'portal.maintenance', label: 'Wartungsmodus', description: 'Wartungsmodus aktivieren', appId: 'portal', appName: 'Portal', group: 'Allgemein', type: 'boolean', value: 'false', defaultValue: 'false', required: false, validationRules: [], sensitive: false, hotReload: true, lastModified: '2026-02-15', lastModifiedBy: 'Anna Schneider', createdAt: '2025-01-01' },
-    { id: 'pm4', key: 'portal.language', label: 'Standardsprache', description: 'Standard-Spracheinstellung', appId: 'portal', appName: 'Portal', group: 'Allgemein', type: 'select', value: 'de', defaultValue: 'de', required: true, validationRules: [], options: ['de', 'en', 'fr'], sensitive: false, hotReload: true, lastModified: '2026-01-10', lastModifiedBy: 'Anna Schneider', createdAt: '2025-01-01' },
-    // Portal - Session
-    { id: 'pm5', key: 'portal.session.timeout', label: 'Session Timeout', description: 'Timeout in Minuten', appId: 'portal', appName: 'Portal', group: 'Session', type: 'number', value: '30', defaultValue: '30', required: true, validationRules: [], unit: 'min', sensitive: false, hotReload: true, lastModified: '2026-03-05', lastModifiedBy: 'Anna Schneider', createdAt: '2025-01-01' },
-    { id: 'pm6', key: 'portal.session.maxConcurrent', label: 'Max. gleichzeitige Sessions', description: 'Pro Benutzer', appId: 'portal', appName: 'Portal', group: 'Session', type: 'number', value: '3', defaultValue: '3', required: true, validationRules: [], sensitive: false, hotReload: false, lastModified: '2026-02-20', lastModifiedBy: 'Anna Schneider', createdAt: '2025-01-01' },
-    // Portal - E-Mail
-    { id: 'pm7', key: 'portal.email.sender', label: 'Absender E-Mail', description: 'Standard-Absenderadresse', appId: 'portal', appName: 'Portal', group: 'E-Mail', type: 'email', value: 'noreply@health-portal.de', defaultValue: 'noreply@health-portal.de', required: true, validationRules: [], sensitive: false, hotReload: false, lastModified: '2026-01-15', lastModifiedBy: 'Anna Schneider', createdAt: '2025-01-01' },
-    { id: 'pm8', key: 'portal.email.smtp.password', label: 'SMTP Passwort', description: 'SMTP-Server Passwort', appId: 'portal', appName: 'Portal', group: 'E-Mail', type: 'password', value: 'smtp-secret-2026', defaultValue: '', required: true, validationRules: [], sensitive: true, hotReload: false, lastModified: '2026-03-01', lastModifiedBy: 'Anna Schneider', createdAt: '2025-01-01' },
-    // SMILE KH - Fallmanagement
-    { id: 'pm9', key: 'smile.fall.maxDauer', label: 'Max. Falldauer', description: 'Maximale Bearbeitungsdauer', appId: 'smile', appName: 'SMILE KH', group: 'Fallmanagement', type: 'number', value: '90', defaultValue: '90', required: true, validationRules: [], unit: 'Tage', sensitive: false, hotReload: false, lastModified: '2026-02-10', lastModifiedBy: 'Thomas Fischer', createdAt: '2025-03-01' },
-    { id: 'pm10', key: 'smile.fall.autoClose', label: 'Auto-Schliessung', description: 'Faelle automatisch schliessen', appId: 'smile', appName: 'SMILE KH', group: 'Fallmanagement', type: 'boolean', value: 'true', defaultValue: 'false', required: false, validationRules: [], sensitive: false, hotReload: true, lastModified: '2026-03-08', lastModifiedBy: 'Laura Mueller', createdAt: '2025-03-01' },
-    { id: 'pm11', key: 'smile.fall.prioritaet', label: 'Standard-Prioritaet', description: 'Standardmaessige Fallprioritaet', appId: 'smile', appName: 'SMILE KH', group: 'Fallmanagement', type: 'select', value: 'mittel', defaultValue: 'mittel', required: true, validationRules: [], options: ['niedrig', 'mittel', 'hoch', 'kritisch'], sensitive: false, hotReload: true, lastModified: '2026-01-20', lastModifiedBy: 'Thomas Fischer', createdAt: '2025-03-01' },
-    // SMILE KH - Pruefung
-    { id: 'pm12', key: 'smile.pruefung.frist', label: 'Pruefungsfrist', description: 'Standard-Pruefungsfrist', appId: 'smile', appName: 'SMILE KH', group: 'Pruefung', type: 'number', value: '14', defaultValue: '14', required: true, validationRules: [], unit: 'Tage', sensitive: false, hotReload: false, lastModified: '2026-02-28', lastModifiedBy: 'Thomas Fischer', createdAt: '2025-03-01' },
-    { id: 'pm13', key: 'smile.pruefung.vierAugen', label: 'Vier-Augen-Prinzip', description: 'Vier-Augen-Prinzip bei Freigabe', appId: 'smile', appName: 'SMILE KH', group: 'Pruefung', type: 'boolean', value: 'true', defaultValue: 'true', required: false, validationRules: [], sensitive: false, hotReload: false, lastModified: '2026-01-05', lastModifiedBy: 'Anna Schneider', createdAt: '2025-03-01' },
-    // Abrechnung - Rechnungen
-    { id: 'pm14', key: 'abrechnung.zahlungsziel', label: 'Zahlungsziel', description: 'Standard-Zahlungsziel', appId: 'abrechnung', appName: 'Abrechnung', group: 'Rechnungen', type: 'number', value: '30', defaultValue: '30', required: true, validationRules: [], unit: 'Tage', sensitive: false, hotReload: false, lastModified: '2026-02-01', lastModifiedBy: 'Sandra Becker', createdAt: '2025-04-01' },
-    { id: 'pm15', key: 'abrechnung.mwst', label: 'Mehrwertsteuersatz', description: 'Standard MwSt-Satz', appId: 'abrechnung', appName: 'Abrechnung', group: 'Rechnungen', type: 'number', value: '19', defaultValue: '19', required: true, validationRules: [], unit: '%', sensitive: false, hotReload: false, lastModified: '2026-01-01', lastModifiedBy: 'Sandra Becker', createdAt: '2025-04-01' },
-    { id: 'pm16', key: 'abrechnung.waehrung', label: 'Waehrung', description: 'Standard-Waehrung', appId: 'abrechnung', appName: 'Abrechnung', group: 'Rechnungen', type: 'select', value: 'EUR', defaultValue: 'EUR', required: true, validationRules: [], options: ['EUR', 'CHF'], sensitive: false, hotReload: false, lastModified: '2025-12-01', lastModifiedBy: 'Anna Schneider', createdAt: '2025-04-01' },
-    // Abrechnung - Export
-    { id: 'pm17', key: 'abrechnung.export.format', label: 'Export-Format', description: 'Standard-Exportformat', appId: 'abrechnung', appName: 'Abrechnung', group: 'Export', type: 'select', value: 'CSV', defaultValue: 'CSV', required: true, validationRules: [], options: ['CSV', 'XLSX', 'PDF', 'XML'], sensitive: false, hotReload: true, lastModified: '2026-03-02', lastModifiedBy: 'Sandra Becker', createdAt: '2025-04-01' },
-    { id: 'pm18', key: 'abrechnung.export.maxRows', label: 'Max. Exportzeilen', description: 'Maximale Anzahl Zeilen pro Export', appId: 'abrechnung', appName: 'Abrechnung', group: 'Export', type: 'number', value: '50000', defaultValue: '10000', required: true, validationRules: [], sensitive: false, hotReload: true, lastModified: '2026-02-15', lastModifiedBy: 'Sandra Becker', createdAt: '2025-04-01' },
-    // WB-Foerderung - Antraege
-    { id: 'pm19', key: 'wb.antrag.maxBetrag', label: 'Max. Foerderbetrag', description: 'Maximaler Foerderbetrag pro Antrag', appId: 'wb', appName: 'WB-Foerderung', group: 'Antraege', type: 'number', value: '25000', defaultValue: '15000', required: true, validationRules: [], unit: 'EUR', sensitive: false, hotReload: false, lastModified: '2026-03-01', lastModifiedBy: 'Anna Schneider', createdAt: '2025-06-01' },
-    { id: 'pm20', key: 'wb.antrag.bearbeitungsFrist', label: 'Bearbeitungsfrist', description: 'Frist fuer Antragsbearbeitung', appId: 'wb', appName: 'WB-Foerderung', group: 'Antraege', type: 'number', value: '21', defaultValue: '14', required: true, validationRules: [], unit: 'Tage', sensitive: false, hotReload: false, lastModified: '2026-02-20', lastModifiedBy: 'Anna Schneider', createdAt: '2025-06-01' },
-    { id: 'pm21', key: 'wb.antrag.autoGenehmigung', label: 'Auto-Genehmigung', description: 'Automatische Genehmigung unter Schwellwert', appId: 'wb', appName: 'WB-Foerderung', group: 'Antraege', type: 'boolean', value: 'false', defaultValue: 'false', required: false, validationRules: [], sensitive: false, hotReload: true, lastModified: '2026-01-15', lastModifiedBy: 'Anna Schneider', createdAt: '2025-06-01' },
-    // WB-Foerderung - Berichte
-    { id: 'pm22', key: 'wb.bericht.intervall', label: 'Berichtsintervall', description: 'Standard-Berichtsintervall', appId: 'wb', appName: 'WB-Foerderung', group: 'Berichte', type: 'select', value: 'monatlich', defaultValue: 'monatlich', required: true, validationRules: [], options: ['wochentlich', 'monatlich', 'quartalsweise'], sensitive: false, hotReload: false, lastModified: '2026-01-10', lastModifiedBy: 'Anna Schneider', createdAt: '2025-06-01' },
-    // API Gateway - Allgemein
-    { id: 'pm23', key: 'api.rateLimit', label: 'Rate Limit', description: 'Maximale Anfragen pro Minute', appId: 'api', appName: 'API Gateway', group: 'Allgemein', type: 'number', value: '1000', defaultValue: '500', required: true, validationRules: [], unit: 'req/min', sensitive: false, hotReload: true, lastModified: '2026-03-10', lastModifiedBy: 'Michael Braun', createdAt: '2025-07-01' },
-    { id: 'pm24', key: 'api.timeout', label: 'Request Timeout', description: 'Standard Request Timeout', appId: 'api', appName: 'API Gateway', group: 'Allgemein', type: 'number', value: '30', defaultValue: '30', required: true, validationRules: [], unit: 'sek', sensitive: false, hotReload: true, lastModified: '2026-02-25', lastModifiedBy: 'Michael Braun', createdAt: '2025-07-01' },
-    { id: 'pm25', key: 'api.cors.origins', label: 'CORS Origins', description: 'Erlaubte CORS Origins', appId: 'api', appName: 'API Gateway', group: 'Allgemein', type: 'string', value: 'https://portal.health-portal.de', defaultValue: '*', required: true, validationRules: [], sensitive: false, hotReload: false, lastModified: '2026-01-20', lastModifiedBy: 'Michael Braun', createdAt: '2025-07-01' },
-    // API Gateway - Sicherheit
-    { id: 'pm26', key: 'api.auth.tokenExpiry', label: 'Token Gueltigkeitsdauer', description: 'JWT Token Ablaufzeit', appId: 'api', appName: 'API Gateway', group: 'Sicherheit', type: 'number', value: '3600', defaultValue: '3600', required: true, validationRules: [], unit: 'sek', sensitive: false, hotReload: false, lastModified: '2026-02-10', lastModifiedBy: 'Michael Braun', createdAt: '2025-07-01' },
-    { id: 'pm27', key: 'api.auth.secret', label: 'JWT Secret', description: 'Geheimer Schluessel fuer JWT', appId: 'api', appName: 'API Gateway', group: 'Sicherheit', type: 'password', value: 'super-secret-jwt-key-2026', defaultValue: '', required: true, validationRules: [], sensitive: true, hotReload: false, lastModified: '2026-03-01', lastModifiedBy: 'Anna Schneider', createdAt: '2025-07-01' },
-    // Arztregister - Suche
-    { id: 'pm28', key: 'arzt.suche.maxResults', label: 'Max. Suchergebnisse', description: 'Maximale Anzahl Suchergebnisse', appId: 'arzt', appName: 'Arztregister', group: 'Suche', type: 'number', value: '100', defaultValue: '50', required: true, validationRules: [], sensitive: false, hotReload: true, lastModified: '2026-03-05', lastModifiedBy: 'Daniel Hartmann', createdAt: '2025-09-01' },
-    { id: 'pm29', key: 'arzt.suche.fuzzy', label: 'Unscharfe Suche', description: 'Unscharfe Suche aktivieren', appId: 'arzt', appName: 'Arztregister', group: 'Suche', type: 'boolean', value: 'true', defaultValue: 'false', required: false, validationRules: [], sensitive: false, hotReload: true, lastModified: '2026-02-28', lastModifiedBy: 'Daniel Hartmann', createdAt: '2025-09-01' },
-    // Arztregister - Daten
-    { id: 'pm30', key: 'arzt.daten.syncIntervall', label: 'Sync-Intervall', description: 'Datenabgleich-Intervall', appId: 'arzt', appName: 'Arztregister', group: 'Daten', type: 'number', value: '24', defaultValue: '24', required: true, validationRules: [], unit: 'Stunden', sensitive: false, hotReload: false, lastModified: '2026-01-15', lastModifiedBy: 'Daniel Hartmann', createdAt: '2025-09-01' },
-    { id: 'pm31', key: 'arzt.daten.quelle', label: 'Datenquelle', description: 'Primaere Datenquelle', appId: 'arzt', appName: 'Arztregister', group: 'Daten', type: 'url', value: 'https://kbv-register.de/api/v2', defaultValue: 'https://kbv-register.de/api/v1', required: true, validationRules: [], sensitive: false, hotReload: false, lastModified: '2026-03-01', lastModifiedBy: 'Michael Braun', createdAt: '2025-09-01' },
-    { id: 'pm32', key: 'arzt.daten.cacheExpiry', label: 'Cache Ablaufzeit', description: 'Cache Gueltigkeitsdauer', appId: 'arzt', appName: 'Arztregister', group: 'Daten', type: 'number', value: '60', defaultValue: '30', required: true, validationRules: [], unit: 'min', sensitive: false, hotReload: true, lastModified: '2026-02-15', lastModifiedBy: 'Daniel Hartmann', createdAt: '2025-09-01' },
-  ];
+  ngOnInit(): void {
+    this.loadParameters();
+  }
 
-  readonly changeLog: ParameterChange[] = [
-    { id: 'c1', timestamp: '2026-03-10 14:30:00', parameterKey: 'api.rateLimit', appName: 'API Gateway', oldValue: '500', newValue: '1000', user: 'Michael Braun', reason: 'Erhoehung wegen steigender Last' },
-    { id: 'c2', timestamp: '2026-03-08 10:15:00', parameterKey: 'smile.fall.autoClose', appName: 'SMILE KH', oldValue: 'false', newValue: 'true', user: 'Laura Mueller', reason: 'Automatische Schliessung aktiviert' },
-    { id: 'c3', timestamp: '2026-03-05 09:00:00', parameterKey: 'portal.session.timeout', appName: 'Portal', oldValue: '15', newValue: '30', user: 'Anna Schneider', reason: 'Benutzeranforderung: laengere Sessions' },
-    { id: 'c4', timestamp: '2026-03-05 08:45:00', parameterKey: 'arzt.suche.maxResults', appName: 'Arztregister', oldValue: '50', newValue: '100', user: 'Daniel Hartmann', reason: 'Performance optimiert' },
-    { id: 'c5', timestamp: '2026-03-02 11:20:00', parameterKey: 'abrechnung.export.format', appName: 'Abrechnung', oldValue: 'XLSX', newValue: 'CSV', user: 'Sandra Becker', reason: 'CSV als Standard fuer Weiterverarbeitung' },
-    { id: 'c6', timestamp: '2026-03-01 16:00:00', parameterKey: 'portal.version', appName: 'Portal', oldValue: '2.3.8', newValue: '2.4.1', user: 'System', reason: 'Release-Update' },
-    { id: 'c7', timestamp: '2026-03-01 15:30:00', parameterKey: 'api.auth.secret', appName: 'API Gateway', oldValue: '***', newValue: '***', user: 'Anna Schneider', reason: 'Regelmaessige Rotation' },
-    { id: 'c8', timestamp: '2026-03-01 14:00:00', parameterKey: 'wb.antrag.maxBetrag', appName: 'WB-Foerderung', oldValue: '15000', newValue: '25000', user: 'Anna Schneider', reason: 'Budget-Anpassung 2026' },
-    { id: 'c9', timestamp: '2026-02-28 09:30:00', parameterKey: 'smile.pruefung.frist', appName: 'SMILE KH', oldValue: '7', newValue: '14', user: 'Thomas Fischer', reason: 'Fristverlaengerung fuer komplexe Faelle' },
-    { id: 'c10', timestamp: '2026-02-28 08:15:00', parameterKey: 'arzt.suche.fuzzy', appName: 'Arztregister', oldValue: 'false', newValue: 'true', user: 'Daniel Hartmann', reason: 'Bessere Suchergebnisse' },
-    { id: 'c11', timestamp: '2026-02-25 13:00:00', parameterKey: 'api.timeout', appName: 'API Gateway', oldValue: '15', newValue: '30', user: 'Michael Braun', reason: 'Timeout fuer grosse Datenmengen' },
-    { id: 'c12', timestamp: '2026-02-20 10:45:00', parameterKey: 'wb.antrag.bearbeitungsFrist', appName: 'WB-Foerderung', oldValue: '14', newValue: '21', user: 'Anna Schneider', reason: 'Mehr Zeit fuer Sachbearbeiter' },
-  ];
+  readonly paramStats = computed(() => {
+    const params = this.parameters();
+    const apps = new Set(params.map(p => p.appName));
+    const groups = new Set(params.map(p => p.group));
+    const hotReload = params.filter(p => p.hotReload).length;
+    const sensitive = params.filter(p => p.sensitive).length;
+    return [
+      { label: 'Total', value: params.length, color: '#006EC7' },
+      { label: 'Apps', value: apps.size, color: '#461EBE' },
+      { label: 'Gruppen', value: groups.size, color: '#28DCAA' },
+      { label: 'Aenderungen', value: this.auditLog().length, color: '#FF9868' },
+      { label: 'Hot-Reload', value: hotReload, color: '#FFC107' },
+      { label: 'Sensibel', value: sensitive, color: '#CC3333' },
+    ];
+  });
 
   readonly appNames = computed(() => {
-    const names = new Set(this.parameters.map(p => p.appName));
-    return Array.from(names);
+    const names = new Set(this.parameters().map(p => p.appName));
+    return Array.from(names).sort();
   });
 
   readonly groupedParameters = computed(() => {
-    let params = this.parameters;
-    const filter = this.appFilter();
-    if (filter) {
-      params = params.filter(p => p.appName === filter);
+    let params = this.parameters();
+    const appF = this.appFilter();
+    const search = this.searchFilter().toLowerCase();
+    const typeF = this.typeFilter();
+    const scopeF = this.scopeFilter();
+
+    if (appF) params = params.filter(p => p.appName === appF);
+    if (typeF) params = params.filter(p => p.type === typeF);
+    if (scopeF === 'global') params = params.filter(p => !p.tenantId);
+    if (scopeF === 'tenant') params = params.filter(p => !!p.tenantId);
+    if (search) {
+      params = params.filter(p =>
+        p.key.toLowerCase().includes(search) ||
+        p.label.toLowerCase().includes(search) ||
+        (p.description && p.description.toLowerCase().includes(search))
+      );
     }
 
     const byApp = new Map<string, Map<string, PortalParameter[]>>();
@@ -349,6 +430,41 @@ export class ParameterComponent {
     }));
   });
 
+  loadParameters(): void {
+    this.loading.set(true);
+    this.parameterService.getAll().subscribe({
+      next: (params) => {
+        this.parameters.set(params);
+        this.loading.set(false);
+      },
+      error: () => {
+        this.errorMsg.set('Fehler beim Laden der Parameter.');
+        this.loading.set(false);
+      }
+    });
+  }
+
+  loadAuditLog(): void {
+    this.loadingAudit.set(true);
+    const appId = this.auditAppFilter() || undefined;
+    this.parameterService.getAuditLog(appId).subscribe({
+      next: (log) => {
+        this.auditLog.set(log);
+        this.loadingAudit.set(false);
+      },
+      error: () => {
+        this.loadingAudit.set(false);
+      }
+    });
+  }
+
+  switchToChangelog(): void {
+    this.activeTab.set('changelog');
+    if (this.auditLog().length === 0) {
+      this.loadAuditLog();
+    }
+  }
+
   toggleGroup(key: string): void {
     const current = new Set(this.expandedGroups());
     if (current.has(key)) {
@@ -362,20 +478,51 @@ export class ParameterComponent {
   startEdit(param: PortalParameter): void {
     this.editingParam.set(param.id);
     this.editValue.set(param.value);
+    this.editGrund.set('');
   }
 
   cancelEdit(): void {
     this.editingParam.set(null);
     this.editValue.set('');
+    this.editGrund.set('');
   }
 
   saveEdit(param: PortalParameter): void {
     const newValue = this.editValue();
-    if (newValue !== param.value) {
-      (param as any).value = newValue;
+    const grund = this.editGrund();
+    if (newValue === param.value) {
+      this.cancelEdit();
+      return;
     }
-    this.editingParam.set(null);
-    this.editValue.set('');
+    this.saving.set(true);
+    this.errorMsg.set('');
+    this.parameterService.updateValue(param.id, newValue, grund).subscribe({
+      next: (updated) => {
+        this.parameters.update(params => params.map(p => p.id === updated.id ? updated : p));
+        this.saving.set(false);
+        this.cancelEdit();
+      },
+      error: (err) => {
+        this.errorMsg.set(err.error?.error || 'Fehler beim Speichern.');
+        this.saving.set(false);
+      }
+    });
+  }
+
+  resetParam(param: PortalParameter): void {
+    this.saving.set(true);
+    this.errorMsg.set('');
+    this.parameterService.resetToDefault(param.id).subscribe({
+      next: (updated) => {
+        this.parameters.update(params => params.map(p => p.id === updated.id ? updated : p));
+        this.saving.set(false);
+        this.cancelEdit();
+      },
+      error: (err) => {
+        this.errorMsg.set(err.error?.error || 'Fehler beim Zuruecksetzen.');
+        this.saving.set(false);
+      }
+    });
   }
 
   toggleSensitive(id: string): void {
@@ -388,17 +535,21 @@ export class ParameterComponent {
     this.revealedSensitive.set(current);
   }
 
+  splitOptions(options: string): string[] {
+    return options.split(',').map(o => o.trim());
+  }
+
   typeClass(type: string): string {
     switch (type) {
-      case 'string': return 'bg-primary/10 text-primary';
-      case 'number': return 'bg-accent-turquoise/10 text-accent-turquoise';
-      case 'boolean': return 'bg-warning/10 text-warning';
-      case 'email': return 'bg-info/10 text-info';
-      case 'url': return 'bg-accent-violet/10 text-accent-violet';
-      case 'select': return 'bg-accent-orange/10 text-accent-orange';
-      case 'password': return 'bg-error/10 text-error';
-      case 'date': return 'bg-accent-green/10 text-accent-green';
-      case 'textarea': return 'bg-gray-100 text-gray-600';
+      case 'STRING': return 'bg-primary/10 text-primary';
+      case 'NUMBER': return 'bg-accent-turquoise/10 text-accent-turquoise';
+      case 'BOOLEAN': return 'bg-warning/10 text-warning';
+      case 'EMAIL': return 'bg-info/10 text-info';
+      case 'URL': return 'bg-accent-violet/10 text-accent-violet';
+      case 'SELECT': return 'bg-accent-orange/10 text-accent-orange';
+      case 'PASSWORD': return 'bg-error/10 text-error';
+      case 'DATE': return 'bg-accent-green/10 text-accent-green';
+      case 'TEXTAREA': return 'bg-gray-100 text-gray-600';
       default: return 'bg-gray-100 text-gray-500';
     }
   }

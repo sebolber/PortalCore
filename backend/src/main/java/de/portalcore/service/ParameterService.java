@@ -1,6 +1,9 @@
 package de.portalcore.service;
 
+import de.portalcore.entity.ParameterAuditLog;
 import de.portalcore.entity.PortalParameter;
+import de.portalcore.enums.ParameterType;
+import de.portalcore.repository.ParameterAuditLogRepository;
 import de.portalcore.repository.PortalParameterRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
@@ -9,7 +12,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.List;
+import java.time.format.DateTimeParseException;
+import java.util.*;
 
 @Service
 @Transactional(readOnly = true)
@@ -18,9 +22,12 @@ public class ParameterService {
     private static final Logger log = LoggerFactory.getLogger(ParameterService.class);
 
     private final PortalParameterRepository portalParameterRepository;
+    private final ParameterAuditLogRepository auditLogRepository;
 
-    public ParameterService(PortalParameterRepository portalParameterRepository) {
+    public ParameterService(PortalParameterRepository portalParameterRepository,
+                            ParameterAuditLogRepository auditLogRepository) {
         this.portalParameterRepository = portalParameterRepository;
+        this.auditLogRepository = auditLogRepository;
     }
 
     public List<PortalParameter> findAll() {
@@ -34,6 +41,9 @@ public class ParameterService {
 
     @Transactional
     public PortalParameter create(PortalParameter parameter) {
+        if (parameter.getId() == null) {
+            parameter.setId("par-" + UUID.randomUUID().toString().substring(0, 8));
+        }
         parameter.setCreatedAt(LocalDateTime.now());
         parameter.setLastModified(LocalDateTime.now());
         return portalParameterRepository.save(parameter);
@@ -57,6 +67,9 @@ public class ParameterService {
         existing.setUnit(updatedParameter.getUnit());
         existing.setSensitive(updatedParameter.isSensitive());
         existing.setHotReload(updatedParameter.isHotReload());
+        existing.setGueltigVon(updatedParameter.getGueltigVon());
+        existing.setGueltigBis(updatedParameter.getGueltigBis());
+        existing.setTenantId(updatedParameter.getTenantId());
         existing.setLastModified(LocalDateTime.now());
         existing.setLastModifiedBy(updatedParameter.getLastModifiedBy());
         return portalParameterRepository.save(existing);
@@ -71,15 +84,99 @@ public class ParameterService {
     }
 
     @Transactional
-    public PortalParameter updateValue(String id, String newValue, String modifiedBy) {
+    public PortalParameter updateValue(String id, String newValue, String modifiedBy, String grund) {
         PortalParameter parameter = findById(id);
+
+        // Validierung
+        validateValue(parameter, newValue);
+
         String oldValue = parameter.getValue();
         parameter.setValue(newValue);
         parameter.setLastModified(LocalDateTime.now());
         parameter.setLastModifiedBy(modifiedBy);
-        log.info("Parameter '{}' (id={}) value changed from '{}' to '{}' by {}",
-                parameter.getKey(), id, oldValue, newValue, modifiedBy);
+
+        // Audit-Log schreiben
+        ParameterAuditLog auditEntry = ParameterAuditLog.builder()
+                .id("pal-" + UUID.randomUUID().toString().substring(0, 8))
+                .parameterId(parameter.getId())
+                .paramKey(parameter.getKey())
+                .appId(parameter.getAppId())
+                .appName(parameter.getAppName())
+                .alterWert(parameter.isSensitive() ? "***" : oldValue)
+                .neuerWert(parameter.isSensitive() ? "***" : newValue)
+                .geaendertVon(modifiedBy)
+                .geaendertAm(LocalDateTime.now())
+                .grund(grund)
+                .tenantId(parameter.getTenantId())
+                .build();
+        auditLogRepository.save(auditEntry);
+
+        log.info("Parameter '{}' (id={}) geaendert von '{}' durch {}",
+                parameter.getKey(), id,
+                parameter.isSensitive() ? "***" : oldValue + " -> " + newValue,
+                modifiedBy);
+
         return portalParameterRepository.save(parameter);
+    }
+
+    /**
+     * Validiert den Wert anhand des Parameter-Typs.
+     */
+    private void validateValue(PortalParameter parameter, String newValue) {
+        if (parameter.isRequired() && (newValue == null || newValue.isBlank())) {
+            throw new IllegalArgumentException("Parameter '" + parameter.getKey() + "' ist ein Pflichtfeld.");
+        }
+
+        if (newValue == null || newValue.isBlank()) return;
+
+        switch (parameter.getType()) {
+            case NUMBER -> {
+                try {
+                    Double.parseDouble(newValue);
+                } catch (NumberFormatException e) {
+                    throw new IllegalArgumentException(
+                            "Parameter '" + parameter.getKey() + "': Wert muss eine Zahl sein.");
+                }
+            }
+            case BOOLEAN -> {
+                if (!"true".equalsIgnoreCase(newValue) && !"false".equalsIgnoreCase(newValue)) {
+                    throw new IllegalArgumentException(
+                            "Parameter '" + parameter.getKey() + "': Wert muss 'true' oder 'false' sein.");
+                }
+            }
+            case DATE -> {
+                try {
+                    java.time.LocalDate.parse(newValue);
+                } catch (DateTimeParseException e) {
+                    throw new IllegalArgumentException(
+                            "Parameter '" + parameter.getKey() + "': Wert muss ein gueltiges Datum sein (YYYY-MM-DD).");
+                }
+            }
+            case EMAIL -> {
+                if (!newValue.matches("^[\\w.+-]+@[\\w.-]+\\.[a-zA-Z]{2,}$")) {
+                    throw new IllegalArgumentException(
+                            "Parameter '" + parameter.getKey() + "': Wert muss eine gueltige E-Mail-Adresse sein.");
+                }
+            }
+            case URL -> {
+                if (!newValue.matches("^https?://.*")) {
+                    throw new IllegalArgumentException(
+                            "Parameter '" + parameter.getKey() + "': Wert muss eine gueltige URL sein.");
+                }
+            }
+            case SELECT -> {
+                if (parameter.getOptions() != null && !parameter.getOptions().isBlank()) {
+                    List<String> opts = Arrays.asList(parameter.getOptions().split(","));
+                    if (!opts.contains(newValue)) {
+                        throw new IllegalArgumentException(
+                                "Parameter '" + parameter.getKey() + "': Wert muss einer der folgenden sein: " + parameter.getOptions());
+                    }
+                }
+            }
+            default -> {
+                // STRING, PASSWORD, TEXTAREA: keine spezielle Validierung
+            }
+        }
     }
 
     public List<PortalParameter> getByApp(String appId) {
@@ -94,15 +191,82 @@ public class ParameterService {
         return portalParameterRepository.findByAppIdAndGroup(appId, group);
     }
 
+    // ===== Mandantenspezifische Methoden =====
+
     /**
-     * Returns a simple audit log representation for a parameter.
-     * The audit trail is derived from the parameter's last-modified metadata.
-     * For a full audit log, integrate with a dedicated auditing framework (e.g., Hibernate Envers).
+     * Listet Parameter fuer einen Mandanten (eigene + globale).
+     * Super-Admins sehen alle Parameter.
      */
-    public String getAuditLog(String id) {
-        PortalParameter parameter = findById(id);
-        return String.format("Parameter: %s (id=%s), Last modified: %s by %s",
-                parameter.getKey(), parameter.getId(),
-                parameter.getLastModified(), parameter.getLastModifiedBy());
+    public List<PortalParameter> listParameters(String appId, String tenantId, boolean isSuperAdmin) {
+        if (isSuperAdmin) {
+            // Super-Admin sieht alle Parameter
+            if (appId != null && !appId.isBlank()) {
+                return portalParameterRepository.findByAppId(appId);
+            }
+            return portalParameterRepository.findAll();
+        }
+
+        // Normaler Benutzer: nur eigener Mandant + globale Parameter
+        if (appId != null && !appId.isBlank()) {
+            return portalParameterRepository.findByTenantIdOrGlobalAndAppId(tenantId, appId);
+        }
+        return portalParameterRepository.findByTenantIdOrGlobal(tenantId);
+    }
+
+    /**
+     * @deprecated Verwende listParameters(appId, tenantId, isSuperAdmin) stattdessen
+     */
+    public List<PortalParameter> listParameters(String appId) {
+        if (appId != null && !appId.isBlank()) {
+            return getByApp(appId);
+        }
+        return findAll();
+    }
+
+    @Transactional
+    public PortalParameter updateParameter(String id, PortalParameter parameter) {
+        return update(id, parameter);
+    }
+
+    /**
+     * Prueft ob der Benutzer Zugriff auf den Parameter hat.
+     * Super-Admins haben immer Zugriff.
+     * Normale Benutzer nur auf globale Parameter oder Parameter ihres Mandanten.
+     */
+    public boolean hasAccess(PortalParameter parameter, String tenantId, boolean isSuperAdmin) {
+        if (isSuperAdmin) return true;
+        // Globaler Parameter (kein Mandant) oder Parameter des eigenen Mandanten
+        return parameter.getTenantId() == null || parameter.getTenantId().equals(tenantId);
+    }
+
+    // Audit-Log abrufen
+    public List<ParameterAuditLog> getFullAuditLog() {
+        return auditLogRepository.findAllByOrderByGeaendertAmDesc();
+    }
+
+    public List<ParameterAuditLog> getAuditLogByApp(String appId) {
+        return auditLogRepository.findByAppIdOrderByGeaendertAmDesc(appId);
+    }
+
+    public List<ParameterAuditLog> getAuditLogByParameter(String parameterId) {
+        return auditLogRepository.findByParameterIdOrderByGeaendertAmDesc(parameterId);
+    }
+
+    // Mandantenspezifische Audit-Log Methoden
+    public List<ParameterAuditLog> getAuditLog(String appId, String parameterId, String tenantId, boolean isSuperAdmin) {
+        if (isSuperAdmin) {
+            if (parameterId != null) return getAuditLogByParameter(parameterId);
+            if (appId != null) return getAuditLogByApp(appId);
+            return getFullAuditLog();
+        }
+
+        // Mandantenspezifisch
+        if (parameterId != null) {
+            return auditLogRepository.findByTenantIdOrGlobalAndParameterIdOrderByGeaendertAmDesc(tenantId, parameterId);
+        }
+        if (appId != null) {
+            return auditLogRepository.findByTenantIdOrGlobalAndAppIdOrderByGeaendertAmDesc(tenantId, appId);
+        }
+        return auditLogRepository.findByTenantIdOrGlobalOrderByGeaendertAmDesc(tenantId);
     }
 }

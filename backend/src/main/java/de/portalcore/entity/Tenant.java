@@ -20,4 +20,35 @@ public class Tenant {
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
+
+    // Adresse
+    private String strasse;
+    private String hausnummer;
+    private String plz;
+    private String ort;
+
+    @Builder.Default
+    private String land = "Deutschland";
+
+    // Kontakt
+    private String telefon;
+    private String email;
+    private String webseite;
+    private String ansprechpartner;
+
+    @Builder.Default
+    private boolean aktiv = true;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    @PrePersist
+    void prePersist() {
+        if (createdAt == null) createdAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    void preUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
 }

@@ -1,0 +1,41 @@
+# portal-app.yaml - Manifest fuer Health Portal Apps
+# Diese Datei muss im Root-Verzeichnis des App-Repositories liegen.
+# Das Portal liest sie beim Deployment automatisch aus.
+
+# App-Metadaten (optional, ueberschreibt DB-Eintraege wenn gesetzt)
+name: Meine Beispiel-App
+version: 1.0.0
+description: Eine Beispielanwendung fuer das Health Portal
+
+# Option 1: Pre-built Docker Image (empfohlen fuer Produktion)
+# Wenn gesetzt, wird das Image aus der Registry gezogen statt lokal gebaut.
+# image: ghcr.io/meine-firma/meine-app:latest
+
+# Option 2: Lokaler Build aus Dockerfile (Standard wenn kein image gesetzt)
+dockerfile: Dockerfile
+
+# Port auf dem die App im Container lauscht
+port: 80
+
+# Umgebungsvariablen fuer den Container
+env:
+  NODE_ENV: production
+  API_URL: http://portal-backend:8080/api
+
+# Health-Check Endpunkt (optional)
+healthCheck: /health
+
+# Use Cases (Berechtigungen) der App
+# Diese werden beim Installieren automatisch in das Portal-Berechtigungssystem
+# uebernommen. Administratoren erhalten automatisch volle Rechte.
+# Andere Gruppen koennen die Rechte ueber die Gruppenverwaltung konfigurieren.
+useCases:
+  - key: meine-app-dashboard
+    label: "Meine App - Dashboard"
+    beschreibung: "Zugriff auf das Dashboard der App"
+  - key: meine-app-verwaltung
+    label: "Meine App - Verwaltung"
+    beschreibung: "Verwaltungsfunktionen der App"
+  - key: meine-app-berichte
+    label: "Meine App - Berichte"
+    beschreibung: "Berichtswesen und Auswertungen"

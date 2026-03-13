@@ -15,6 +15,13 @@ export interface PortalUser {
   erstelltAm: string;
   iamSync: boolean;
   initialen: string;
+  anrede?: string;
+  titel?: string;
+  telefon?: string;
+  mobil?: string;
+  abteilung?: string;
+  positionTitel?: string;
+  geburtsdatum?: string;
 }
 
 export interface PortalRolle {
@@ -38,4 +45,48 @@ export interface Berechtigung {
   appId: string;
   appName: string;
   gruppe: string;
+}
+
+export interface UserAdresse {
+  id: string;
+  typ: string;
+  bezeichnung?: string;
+  strasse?: string;
+  hausnummer?: string;
+  plz?: string;
+  ort?: string;
+  land?: string;
+  zusatz?: string;
+  istHauptadresse: boolean;
+}
+
+export interface Gruppe {
+  id: string;
+  name: string;
+  beschreibung?: string;
+  tenantId?: string;
+  systemGruppe: boolean;
+  farbe?: string;
+  berechtigungen: GruppenBerechtigung[];
+  benutzer?: PortalUser[];
+}
+
+export interface GruppenBerechtigung {
+  id: string;
+  useCase: string;
+  useCaseLabel: string;
+  anzeigen: boolean;
+  lesen: boolean;
+  schreiben: boolean;
+  loeschen: boolean;
+  appId?: string;
+}
+
+export interface UseCaseBerechtigung {
+  useCase: string;
+  label: string;
+  anzeigen: boolean;
+  lesen: boolean;
+  schreiben: boolean;
+  loeschen: boolean;
 }

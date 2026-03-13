@@ -68,4 +68,12 @@ public class RoleService {
     public List<PortalRolle> findByScope(String scope) {
         return portalRolleRepository.findByScope(scope);
     }
+
+    public List<PortalRolle> listRoles() {
+        return findAll();
+    }
+
+    public PortalRolle getRoleWithPermissions(String id) {
+        return findById(id);
+    }
 }

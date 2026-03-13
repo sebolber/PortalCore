@@ -1,0 +1,41 @@
+# Portal Erstinstallation - Konfigurationsdatei
+# ==============================================
+# Diese Datei wird beim ersten Start der Anwendung ausgelesen.
+# Parameter werden nur gesetzt, wenn der aktuelle Wert leer ist.
+#
+# Fuer Docker: Diese Datei entweder
+#   a) vor dem Build ins Backend kopieren (src/main/resources/portal-init.yml)
+#   b) oder als Volume mounten nach /app/config/portal-init.yml
+#
+# ACHTUNG: Sensitive Werte (Passwoerter) sollten hier nur fuer
+# Entwicklungs-/Testumgebungen eingetragen werden. In Produktion
+# sollten diese ueber die Admin-Oberflaeche konfiguriert werden.
+
+# Super-User fuer die Erstinstallation
+# Wird nur angelegt wenn noch kein Benutzer mit dieser E-Mail existiert.
+superUser:
+  vorname: Admin
+  nachname: Portal
+  email: admin@health-portal.de
+  tenantId: t-aok-nw
+
+# Parameter-Werte fuer die Erstinstallation
+# Schluessel muessen mit den param_key-Werten in der portal_parameters-Tabelle uebereinstimmen.
+# Nur leere Parameter werden ueberschrieben.
+parameters:
+  # SMTP-Konfiguration
+  portal.email.smtp.host: ""
+  portal.email.smtp.port: "587"
+  portal.email.smtp.username: ""
+  portal.email.smtp.password: ""
+  portal.email.smtp.auth: "true"
+  portal.email.smtp.starttls: "true"
+  portal.email.smtp.ssl: "false"
+  portal.email.from: "noreply@health-portal.de"
+
+  # E-Mail-Authentifizierung (OTP)
+  portal.auth.email.enabled: "true"
+  portal.auth.otp.length: "6"
+  portal.auth.otp.expiration-minutes: "10"
+  portal.auth.otp.max-attempts: "5"
+  portal.auth.otp.rate-limit: "5"

@@ -26,12 +26,40 @@ spring:
     serialization:
       write-dates-as-timestamps: false
 
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${MAIL_AUTH:false}
+          starttls:
+            enable: ${MAIL_STARTTLS:false}
+
 server:
   port: 8080
   servlet:
     context-path: /api
 
+# JWT und OTP Konfiguration
+portal:
+  jwt:
+    secret: ${JWT_SECRET:H34lthP0rt4lS3cur3K3y2026F0rJWT!MustB3AtL34st32Chars}
+    expiration-hours: ${JWT_EXPIRATION_HOURS:8}
+  otp:
+    length: 6
+    expiration-minutes: 10
+    max-attempts: 5
+    rate-limit-per-hour: 5
+    send-mail: ${OTP_SEND_MAIL:false}
+  email:
+    from: ${MAIL_FROM:noreply@health-portal.de}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200}
+
 logging:
   level:
     de.portalcore: DEBUG
-    org.springframework.security: DEBUG
+    org.springframework.security: WARN

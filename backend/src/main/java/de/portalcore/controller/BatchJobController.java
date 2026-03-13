@@ -10,7 +10,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/batch-jobs")
-@CrossOrigin(origins = "*")
 public class BatchJobController {
 
     private final BatchJobService batchJobService;
