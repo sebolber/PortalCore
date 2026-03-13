@@ -93,4 +93,75 @@ public class PortalUser {
 
     @Column(name = "super_admin")
     private boolean superAdmin;
+
+    // Neue Felder
+
+    @Column(name = "fehlgeschlagene_logins")
+    @Builder.Default
+    private int fehlgeschlageneLogins = 0;
+
+    @Column(name = "letzte_login_ip")
+    private String letzteLoginIp;
+
+    @Builder.Default
+    private String sprache = "de";
+
+    @Builder.Default
+    private String zeitzone = "Europe/Berlin";
+
+    @Column(name = "dark_mode")
+    private boolean darkMode;
+
+    @Column(name = "standard_dashboard")
+    private String standardDashboard;
+
+    @Column(name = "email_benachrichtigungen")
+    @Builder.Default
+    private boolean emailBenachrichtigungen = true;
+
+    @Column(name = "push_benachrichtigungen")
+    private boolean pushBenachrichtigungen;
+
+    @Column(name = "sms_benachrichtigungen")
+    private boolean smsBenachrichtigungen;
+
+    @Column(name = "newsletter_einwilligung")
+    private boolean newsletterEinwilligung;
+
+    @Column(name = "letzte_aenderung_am")
+    private LocalDateTime letzteAenderungAm;
+
+    @Column(name = "erstellt_von")
+    private String erstelltVon;
+
+    @Column(name = "zuletzt_geaendert_von")
+    private String zuletztGeaendertVon;
+
+    @Column(name = "audit_trail_id")
+    private String auditTrailId;
+
+    @Column(name = "delegationsrechte")
+    private boolean delegationsrechte;
+
+    // Stellvertretung / Vertreterregelung
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "user_stellvertreter",
+        joinColumns = @JoinColumn(name = "user_id"),
+        inverseJoinColumns = @JoinColumn(name = "stellvertreter_id")
+    )
+    @Builder.Default
+    @JsonIgnoreProperties({"stellvertreter", "rollen", "gruppen", "adressen", "tenant"})
+    private Set<PortalUser> stellvertreter = new HashSet<>();
+
+    @PrePersist
+    void prePersist() {
+        if (erstelltAm == null) erstelltAm = LocalDateTime.now();
+        if (letzteAenderungAm == null) letzteAenderungAm = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    void preUpdate() {
+        letzteAenderungAm = LocalDateTime.now();
+    }
 }

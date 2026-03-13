@@ -1,11 +1,13 @@
 import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
 import { PortalStateService } from '../services/portal-state.service';
+import { AuthService } from '../services/auth.service';
 
 @Component({
   selector: 'app-header',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RouterModule],
   template: `
     <header class="fixed top-0 right-0 h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 md:px-6 z-10 transition-all duration-300 left-0 md:left-[var(--sidebar-width)]"
             [style.--sidebar-width]="portalState.sidebarCollapsed() ? '64px' : '256px'">
@@ -83,11 +85,11 @@ import { PortalStateService } from '../services/portal-state.service';
             class="flex items-center gap-2 sm:gap-3 hover:bg-gray-50 rounded-lg px-1.5 sm:px-2 py-1.5 transition-colors"
           >
             <div class="w-8 h-8 rounded-full bg-[#006EC7] flex items-center justify-center text-white text-xs font-bold shrink-0">
-              SM
+              {{ userInitials }}
             </div>
             <div class="text-left hidden md:block">
-              <p class="text-sm font-medium text-gray-800 leading-tight" style="font-family: 'Fira Sans', sans-serif">Sabine Mueller</p>
-              <p class="text-xs text-gray-400 leading-tight">Administratorin</p>
+              <p class="text-sm font-medium text-gray-800 leading-tight" style="font-family: 'Fira Sans', sans-serif">{{ userName }}</p>
+              <p class="text-xs text-gray-400 leading-tight">{{ userRole }}</p>
             </div>
             <svg class="w-4 h-4 text-gray-400 hidden md:block" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
@@ -106,7 +108,7 @@ import { PortalStateService } from '../services/portal-state.service';
               </svg>
               Profil
             </a>
-            <a href="#" class="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+            <a routerLink="/einstellungen" (click)="userMenuOpen.set(false)" class="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
                 <circle cx="12" cy="12" r="3"/>
                 <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
@@ -114,14 +116,14 @@ import { PortalStateService } from '../services/portal-state.service';
               Einstellungen
             </a>
             <div class="border-t border-gray-100 my-1"></div>
-            <a href="#" class="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
+            <button (click)="doLogout()" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
                 <polyline stroke-linecap="round" stroke-linejoin="round" points="16 17 21 12 16 7"/>
                 <line stroke-linecap="round" stroke-linejoin="round" x1="21" y1="12" x2="9" y2="12"/>
               </svg>
               Abmelden
-            </a>
+            </button>
           </div>
         </div>
       </div>
@@ -130,5 +132,29 @@ import { PortalStateService } from '../services/portal-state.service';
 })
 export class HeaderComponent {
   readonly portalState = inject(PortalStateService);
+  private readonly authService = inject(AuthService);
   readonly userMenuOpen = signal(false);
+
+  get userName(): string {
+    const user = this.authService.currentUser();
+    if (user) return `${user.vorname} ${user.nachname}`;
+    return this.portalState.currentUserSnapshot.vorname + ' ' + this.portalState.currentUserSnapshot.nachname;
+  }
+
+  get userInitials(): string {
+    const user = this.authService.currentUser();
+    if (user) return user.initialen;
+    return this.portalState.currentUserSnapshot.initialen;
+  }
+
+  get userRole(): string {
+    const user = this.authService.currentUser();
+    if (user?.superAdmin) return 'Super-Admin';
+    return this.portalState.userRole() === 'admin' ? 'Administrator' : 'Benutzer';
+  }
+
+  doLogout(): void {
+    this.userMenuOpen.set(false);
+    this.authService.logout();
+  }
 }
