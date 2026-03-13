@@ -4,6 +4,8 @@ import { Router, NavigationEnd, RouterModule } from '@angular/router';
 import { PortalStateService } from '../services/portal-state.service';
 import { InstalledAppService } from '../services/installed-app.service';
 import { AuthService } from '../services/auth.service';
+import { ThemeService } from '../services/theme.service';
+import { CustomMenuService, CustomMenuItem } from '../services/custom-menu.service';
 import { filter } from 'rxjs/operators';
 
 @Component({
@@ -17,17 +19,23 @@ export class SidebarComponent implements OnInit {
   private readonly installedAppService = inject(InstalledAppService);
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
+  readonly themeService = inject(ThemeService);
+  private readonly customMenuService = inject(CustomMenuService);
 
   readonly collapsed = this.portalState.sidebarCollapsed;
   readonly mobileSidebarOpen = this.portalState.mobileSidebarOpen;
   readonly isAdmin = computed(() => this.portalState.userRole() === 'admin');
   readonly installedApps = signal<{ id: string; name: string; shortName: string; color: string; route: string }[]>([]);
+  readonly customMenuItems = signal<CustomMenuItem[]>([]);
+  readonly theme = this.themeService.theme;
 
   plattformExpanded = false;
   installedAppsExpanded = true;
+  customMenuExpanded = true;
 
   ngOnInit(): void {
     this.loadInstalledApps();
+    this.loadCustomMenuItems();
 
     // Close mobile sidebar on navigation
     this.router.events.pipe(
@@ -35,6 +43,19 @@ export class SidebarComponent implements OnInit {
     ).subscribe(() => {
       this.portalState.closeMobileSidebar();
     });
+  }
+
+  loadCustomMenuItems(): void {
+    const tenantId = this.portalState.currentTenantSnapshot.id;
+    this.customMenuService.getTopLevel(tenantId).subscribe({
+      next: (items) => this.customMenuItems.set(items.filter(i => i.visible)),
+      error: () => this.customMenuItems.set([]),
+    });
+  }
+
+  toggleCustomMenu(): void {
+    if (this.collapsed()) return;
+    this.customMenuExpanded = !this.customMenuExpanded;
   }
 
   loadInstalledApps(): void {

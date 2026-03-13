@@ -10,7 +10,8 @@ export class GruppenService {
   constructor(private http: HttpClient) {}
 
   getAll(tenantId?: string): Observable<Gruppe[]> {
-    const params = tenantId ? { tenantId } : {};
+    const params: Record<string, string> = {};
+    if (tenantId) { params['tenantId'] = tenantId; }
     return this.http.get<Gruppe[]>(`${API_URL}/gruppen`, { params });
   }
 

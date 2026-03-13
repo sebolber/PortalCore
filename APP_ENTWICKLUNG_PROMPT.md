@@ -13,6 +13,7 @@
   - 2026-03-13: App-uebergreifende Berechtigungen: Use Cases in portal-app.yaml, automatische Synchronisation bei Installation
   - 2026-03-13: Parameter-System: Audit-Log, Typ-Validierung, zeitliche Gueltigkeit (gueltig_von/gueltig_bis)
   - 2026-03-13: Parameter-Mandanten: Mandantenspezifische Parameter mit tenant_id, Mandanten-Isolation
+  - 2026-03-13: Portal CSS-Variablen: Theme-Integration mit --portal-primary/secondary/font CSS Custom Properties
 
 ---
 
@@ -958,6 +959,79 @@ Uebergreifender Parameter-Dialog
 ├── Tab: Andere App 1
 │   └── ...
 ```
+
+---
+
+## 12.5 Portal CSS-Variablen -- Theme-Integration (PFLICHT)
+
+Das Portal stellt ein einheitliches CSS-Variablen-System bereit, das alle eingebetteten Apps uebernehmen muessen. Dadurch passt sich das Erscheinungsbild der App automatisch an die Portal-Konfiguration an (Farben, Schrift, Branding).
+
+### Verfuegbare CSS-Variablen
+
+Die folgenden Variablen werden vom Portal auf `:root` gesetzt und koennen in jeder App per `var(--variable)` verwendet werden:
+
+| Variable | Beschreibung | Standard |
+|---|---|---|
+| `--portal-primary` | Primaerfarbe | `#006EC7` |
+| `--portal-primary-dark` | Primaerfarbe dunkel | `#004F8F` |
+| `--portal-primary-light` | Primaerfarbe hell | `#EBF3FA` |
+| `--portal-primary-contrast` | Kontrastfarbe zu Primaer | `#FFFFFF` |
+| `--portal-secondary` | Sekundaerfarbe | `#461EBE` |
+| `--portal-secondary-dark` | Sekundaerfarbe dunkel | `#2E1480` |
+| `--portal-secondary-light` | Sekundaerfarbe hell | `#F0EAFB` |
+| `--portal-secondary-contrast` | Kontrastfarbe zu Sekundaer | `#FFFFFF` |
+| `--portal-font-family` | Schriftart fuer Fliesstext | `'Fira Sans', sans-serif` |
+| `--portal-font-family-heading` | Schriftart fuer Ueberschriften | `'Fira Sans Condensed', sans-serif` |
+| `--portal-font-color` | Standard-Schriftfarbe | `#252220` |
+| `--portal-font-color-light` | Helle Schriftfarbe (Sekundaertext) | `#887D75` |
+
+### Verwendung in der App
+
+```css
+/* In styles.scss oder Component-Styles */
+.btn-primary {
+  background-color: var(--portal-primary);
+  color: var(--portal-primary-contrast);
+}
+.btn-primary:hover {
+  background-color: var(--portal-primary-dark);
+}
+body {
+  font-family: var(--portal-font-family);
+  color: var(--portal-font-color);
+}
+h1, h2, h3 {
+  font-family: var(--portal-font-family-heading);
+}
+```
+
+### Fallback-Werte
+
+Wenn die App auch standalone (ohne Portal) laufen soll, muessen Fallback-Werte definiert werden:
+
+```css
+:root {
+  --portal-primary: #006EC7;
+  --portal-primary-dark: #004F8F;
+  --portal-primary-light: #EBF3FA;
+  --portal-primary-contrast: #FFFFFF;
+  --portal-secondary: #461EBE;
+  --portal-secondary-dark: #2E1480;
+  --portal-secondary-light: #F0EAFB;
+  --portal-secondary-contrast: #FFFFFF;
+  --portal-font-family: 'Fira Sans', sans-serif;
+  --portal-font-family-heading: 'Fira Sans Condensed', sans-serif;
+  --portal-font-color: #252220;
+  --portal-font-color-light: #887D75;
+}
+```
+
+### Regeln
+
+1. **KEINE hardcodierten Farbwerte** fuer Primaer-/Sekundaerfarben verwenden -- immer CSS-Variablen nutzen
+2. **Schriftarten** muessen ueber `--portal-font-family` und `--portal-font-family-heading` gesetzt werden
+3. **Tailwind-Klassen** wie `bg-primary` oder `text-primary` duerfen weiterhin genutzt werden, aber die Tailwind-Config muss die CSS-Variablen referenzieren
+4. Bei iFrame-Einbindung werden die Variablen vom Portal per `postMessage` an die App weitergegeben (zukuenftige Erweiterung)
 
 ---
 

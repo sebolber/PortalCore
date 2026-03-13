@@ -5,9 +5,28 @@
 @tailwind utilities;
 
 :root {
-  --color-primary: #006EC7;
-  --color-primary-dark: #004F8F;
-  --color-primary-light: #EBF3FA;
+  /* Portal Theme – Primary Colors */
+  --portal-primary: #006EC7;
+  --portal-primary-dark: #004F8F;
+  --portal-primary-light: #EBF3FA;
+  --portal-primary-contrast: #FFFFFF;
+
+  /* Portal Theme – Secondary Colors */
+  --portal-secondary: #461EBE;
+  --portal-secondary-dark: #2E1480;
+  --portal-secondary-light: #F0EAFB;
+  --portal-secondary-contrast: #FFFFFF;
+
+  /* Portal Theme – Typography */
+  --portal-font-family: 'Fira Sans', sans-serif;
+  --portal-font-family-heading: 'Fira Sans Condensed', sans-serif;
+  --portal-font-color: #252220;
+  --portal-font-color-light: #887D75;
+
+  /* Legacy aliases (backward compatibility) */
+  --color-primary: var(--portal-primary);
+  --color-primary-dark: var(--portal-primary-dark);
+  --color-primary-light: var(--portal-primary-light);
 }
 
 * {

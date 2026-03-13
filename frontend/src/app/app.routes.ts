@@ -30,6 +30,7 @@ export const routes: Routes = [
       { path: 'wb-foerderung', loadComponent: () => import('./pages/wb-foerderung/wb-foerderung.component').then(m => m.WbFoerderungComponent) },
       { path: 'arztregister', loadComponent: () => import('./pages/arztregister/arztregister.component').then(m => m.ArztregisterComponent) },
       { path: 'aufgaben', loadComponent: () => import('./pages/aufgabensteuerung/aufgabensteuerung.component').then(m => m.AufgabensteuerungComponent) },
+      { path: 'iframe/:menuItemId', loadComponent: () => import('./pages/iframe/iframe-page.component').then(m => m.IframePageComponent) },
     ]
   },
   { path: '**', redirectTo: '' }
