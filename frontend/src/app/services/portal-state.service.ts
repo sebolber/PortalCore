@@ -110,11 +110,7 @@ export class PortalStateService {
 
   readonly currentTenant = signal<Tenant>(this.defaultTenant);
 
-  readonly installedApps = signal<LegacyInstalledApp[]>([
-    { id: 'dmp', name: 'DMP Manager', shortName: 'DM', color: '#006EC7', route: '/apps/dmp' },
-    { id: 'hzv', name: 'HZV Portal', shortName: 'HZ', color: '#E5580C', route: '/apps/hzv' },
-    { id: 'pzm', name: 'PZM Cockpit', shortName: 'PZ', color: '#16A34A', route: '/apps/pzm' },
-  ]);
+  readonly installedApps = signal<LegacyInstalledApp[]>([]);
 
   readonly isDarkTheme = computed(() => this.theme() === 'dark');
 

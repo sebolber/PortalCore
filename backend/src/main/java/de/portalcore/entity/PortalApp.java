@@ -69,4 +69,10 @@ public class PortalApp {
     private boolean isNew;
 
     private String route;
+
+    @Column(name = "repository_url")
+    private String repositoryUrl;
+
+    @Column(name = "application_url")
+    private String applicationUrl;
 }

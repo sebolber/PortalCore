@@ -1,7 +1,7 @@
 export type AppCategory = 'ABRECHNUNG' | 'FALLMANAGEMENT' | 'VERWALTUNG' | 'KI_AGENTEN' | 'ANALYSE' | 'KOMMUNIKATION' | 'INTEGRATION' | 'FORMULARE';
 export type MarketSegment = 'STEUERUNG_PRUEFSTELLEN' | 'KOSTENTRAEGER' | 'ABRECHNUNGSDIENSTLEISTER' | 'LEISTUNGSERBRINGER' | 'INFRASTRUKTUR_PLATTFORMEN' | 'OEFFENTLICHE_HAND_FORSCHUNG';
-export type AppType = 'anwendung' | 'integration';
-export type AppVendor = 'health_portal' | 'platform' | 'community' | 'drittanbieter';
+export type AppType = 'ANWENDUNG' | 'INTEGRATION';
+export type AppVendor = 'HEALTH_PORTAL' | 'PLATFORM' | 'COMMUNITY' | 'DRITTANBIETER';
 
 export interface PortalApp {
   id: string;
@@ -25,14 +25,15 @@ export interface PortalApp {
   featured: boolean;
   isNew: boolean;
   route?: string;
+  repositoryUrl?: string;
+  applicationUrl?: string;
 }
 
 export interface InstalledApp {
   id: string;
-  tenantId: string;
-  appId: string;
+  tenant?: { id: string; name: string; shortName: string };
+  app?: PortalApp;
   installedAt: string;
   installedBy: string;
   status: string;
-  app?: PortalApp;
 }

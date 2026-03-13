@@ -62,6 +62,8 @@ public class AppService {
         existing.setFeatured(updatedApp.isFeatured());
         existing.setNew(updatedApp.isNew());
         existing.setRoute(updatedApp.getRoute());
+        existing.setRepositoryUrl(updatedApp.getRepositoryUrl());
+        existing.setApplicationUrl(updatedApp.getApplicationUrl());
         return portalAppRepository.save(existing);
     }
 

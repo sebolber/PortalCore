@@ -56,6 +56,60 @@
         </a>
       </li>
 
+      <!-- Installierte Anwendungen (expandable) -->
+      <li *ngIf="installedApps().length > 0">
+        <button
+          (click)="toggleInstalledApps()"
+          class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+          [class.justify-center]="collapsed()"
+          [title]="collapsed() ? 'Installierte Anwendungen' : ''"
+        >
+          <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+          </svg>
+          <span *ngIf="!collapsed()" class="text-sm font-medium whitespace-nowrap flex-1 text-left">Installierte Anwendungen</span>
+          <svg
+            *ngIf="!collapsed()"
+            class="w-4 h-4 shrink-0 transition-transform duration-200"
+            [class.rotate-180]="installedAppsExpanded"
+            fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+
+        <!-- Installed Apps Submenu -->
+        <ul
+          *ngIf="installedAppsExpanded && !collapsed()"
+          class="mt-1 ml-5 space-y-1 border-l border-gray-200 pl-3"
+        >
+          <li *ngFor="let app of installedApps()">
+            <a [routerLink]="app.route"
+               class="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-500 hover:text-gray-900 rounded transition-colors">
+              <div class="w-5 h-5 rounded flex items-center justify-center text-white text-[9px] font-bold shrink-0"
+                   [style.background-color]="app.color">
+                {{ app.shortName }}
+              </div>
+              {{ app.name }}
+            </a>
+          </li>
+        </ul>
+      </li>
+
+      <!-- Collapsed: show installed app icons -->
+      <ng-container *ngIf="collapsed()">
+        <li *ngFor="let app of installedApps()">
+          <a [routerLink]="app.route"
+             [title]="app.name"
+             class="flex items-center justify-center px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors">
+            <div class="w-7 h-7 rounded-lg flex items-center justify-center text-white text-[10px] font-bold"
+                 [style.background-color]="app.color">
+              {{ app.shortName }}
+            </div>
+          </a>
+        </li>
+      </ng-container>
+
       <!-- Plattform (expandable) -->
       <li>
         <button
@@ -188,35 +242,6 @@
       </li>
     </ul>
   </nav>
-
-  <!-- Installed Apps -->
-  <div *ngIf="!collapsed()" class="px-4 pb-3 border-t border-gray-100 pt-3">
-    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Installierte Apps</p>
-    <div class="flex flex-wrap gap-2">
-      <a
-        *ngFor="let app of installedApps()"
-        [routerLink]="app.route"
-        [title]="app.name"
-        class="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold hover:opacity-80 transition-opacity"
-        [style.background-color]="app.color"
-      >
-        {{ app.shortName }}
-      </a>
-    </div>
-  </div>
-
-  <!-- Collapsed: just show small dots for apps -->
-  <div *ngIf="collapsed()" class="px-2 pb-3 border-t border-gray-100 pt-3 flex flex-col items-center gap-2">
-    <a
-      *ngFor="let app of installedApps()"
-      [routerLink]="app.route"
-      [title]="app.name"
-      class="w-8 h-8 rounded-lg flex items-center justify-center text-white text-[10px] font-bold hover:opacity-80 transition-opacity"
-      [style.background-color]="app.color"
-    >
-      {{ app.shortName }}
-    </a>
-  </div>
 
   <!-- Collapse Toggle -->
   <button

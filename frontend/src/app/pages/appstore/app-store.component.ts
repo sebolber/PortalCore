@@ -1,8 +1,11 @@
-import { Component } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { PortalApp, MarketSegment, AppType, AppCategory } from '../../models/app.model';
+import { PortalApp, MarketSegment, AppType, AppCategory, AppVendor } from '../../models/app.model';
+import { AppService } from '../../services/app.service';
+import { InstalledAppService } from '../../services/installed-app.service';
+import { PortalStateService } from '../../services/portal-state.service';
 
 interface MarketSegmentInfo {
   key: MarketSegment;
@@ -18,11 +21,136 @@ interface MarketSegmentInfo {
   template: `
     <!-- Hero Banner -->
     <div class="card bg-gradient-to-r from-[#006EC7] to-[#004A87] text-white !border-0 mb-6">
-      <h1 class="text-2xl font-bold mb-2">App-Marktplatz</h1>
-      <p class="text-blue-100 text-sm max-w-2xl">
-        Entdecken Sie Anwendungen und Integrationen fuer Ihr Gesundheitsportal.
-        Installieren Sie Apps passend zu Ihrem Marktsegment und erweitern Sie Ihre Plattform.
-      </p>
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-2xl font-bold mb-2">App-Marktplatz</h1>
+          <p class="text-blue-100 text-sm max-w-2xl">
+            Entdecken Sie Anwendungen und Integrationen fuer Ihr Gesundheitsportal.
+            Installieren Sie Apps passend zu Ihrem Marktsegment und erweitern Sie Ihre Plattform.
+          </p>
+        </div>
+        <button (click)="showCreateForm = true"
+                class="px-4 py-2 bg-white text-[#006EC7] text-sm font-medium rounded-lg hover:bg-blue-50 transition-colors shrink-0">
+          + Neue App anlegen
+        </button>
+      </div>
+    </div>
+
+    <!-- Create App Form Modal -->
+    <div *ngIf="showCreateForm" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="text-xl font-bold text-gray-800">Neue App anlegen</h2>
+          <button (click)="showCreateForm = false" class="text-gray-400 hover:text-gray-600">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="space-y-4">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+              <input [(ngModel)]="newApp.name" type="text" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#006EC7] focus:border-transparent"/>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">ID *</label>
+              <input [(ngModel)]="newApp.id" type="text" placeholder="z.B. meine-app" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#006EC7] focus:border-transparent"/>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Kurzbeschreibung *</label>
+            <input [(ngModel)]="newApp.shortDescription" type="text" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#006EC7] focus:border-transparent"/>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Beschreibung</label>
+            <textarea [(ngModel)]="newApp.longDescription" rows="3" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#006EC7] focus:border-transparent"></textarea>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Kategorie *</label>
+              <select [(ngModel)]="newApp.category" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#006EC7] focus:border-transparent">
+                <option *ngFor="let cat of categories" [value]="cat.key">{{ cat.label }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Marktsegment *</label>
+              <select [(ngModel)]="newApp.marketSegment" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#006EC7] focus:border-transparent">
+                <option *ngFor="let seg of segments" [value]="seg.key">{{ seg.name }}</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">App-Typ *</label>
+              <select [(ngModel)]="newApp.appType" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#006EC7] focus:border-transparent">
+                <option value="ANWENDUNG">Anwendung</option>
+                <option value="INTEGRATION">Integration</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Anbieter *</label>
+              <select [(ngModel)]="newApp.vendor" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#006EC7] focus:border-transparent">
+                <option value="HEALTH_PORTAL">Health Portal</option>
+                <option value="PLATFORM">Platform</option>
+                <option value="COMMUNITY">Community</option>
+                <option value="DRITTANBIETER">Drittanbieter</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-3 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Version</label>
+              <input [(ngModel)]="newApp.version" type="text" placeholder="1.0.0" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#006EC7] focus:border-transparent"/>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Icon-Kuerzel</label>
+              <input [(ngModel)]="newApp.iconInitials" type="text" maxlength="3" placeholder="z.B. MA" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#006EC7] focus:border-transparent"/>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Icon-Farbe</label>
+              <input [(ngModel)]="newApp.iconColor" type="color" class="w-full h-10 border border-gray-200 rounded-lg cursor-pointer"/>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Repository-URL</label>
+              <input [(ngModel)]="newApp.repositoryUrl" type="url" placeholder="https://github.com/..." class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#006EC7] focus:border-transparent"/>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Anwendungs-URL</label>
+              <input [(ngModel)]="newApp.applicationUrl" type="text" placeholder="/apps/meine-app" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#006EC7] focus:border-transparent"/>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Preis</label>
+            <select [(ngModel)]="newApp.price" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#006EC7] focus:border-transparent">
+              <option value="kostenlos">Kostenlos</option>
+              <option value="lizenzpflichtig">Lizenzpflichtig</option>
+            </select>
+          </div>
+
+          <div class="flex gap-3 pt-4 border-t border-gray-100">
+            <button (click)="createApp()"
+                    [disabled]="!newApp.name || !newApp.id || !newApp.shortDescription"
+                    class="flex-1 px-4 py-2.5 bg-[#006EC7] text-white text-sm font-medium rounded-lg hover:bg-[#005BA3] transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+              App anlegen
+            </button>
+            <button (click)="showCreateForm = false"
+                    class="px-4 py-2.5 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors">
+              Abbrechen
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Market Segments -->
@@ -169,20 +297,27 @@ interface MarketSegmentInfo {
     </div>
   `,
 })
-export class AppStoreComponent {
+export class AppStoreComponent implements OnInit {
+  private readonly appService = inject(AppService);
+  private readonly installedAppService = inject(InstalledAppService);
+  private readonly portalState = inject(PortalStateService);
+
   searchQuery = '';
   selectedSegment: MarketSegment | null = null;
   selectedAppType: AppType | 'alle' = 'alle';
   selectedCategory: AppCategory | null = null;
+  showCreateForm = false;
 
+  allApps: PortalApp[] = [];
   filteredApps: PortalApp[] = [];
+  installedAppIds: string[] = [];
 
-  readonly installedAppIds = ['kv-ai-abrechnung', 'smile-kh', 'arztregister', 'wb-foerderung', 'dmp-manager', 'smile-kv'];
+  newApp: Partial<PortalApp> = this.getEmptyApp();
 
   readonly appTypeOptions = [
     { label: 'Alle', value: 'alle' as const },
-    { label: 'Anwendung', value: 'anwendung' as AppType },
-    { label: 'Integration', value: 'integration' as AppType },
+    { label: 'Anwendung', value: 'ANWENDUNG' as AppType },
+    { label: 'Integration', value: 'INTEGRATION' as AppType },
   ];
 
   readonly categories: { key: AppCategory; label: string }[] = [
@@ -196,118 +331,50 @@ export class AppStoreComponent {
     { key: 'FORMULARE', label: 'Formulare' },
   ];
 
-  readonly segments: MarketSegmentInfo[] = [
-    { key: 'STEUERUNG_PRUEFSTELLEN', name: 'Steuerung & Pruefstellen', icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z', appCount: 4 },
-    { key: 'KOSTENTRAEGER', name: 'Kostentraeger', icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z', appCount: 5 },
-    { key: 'ABRECHNUNGSDIENSTLEISTER', name: 'Abrechnungsdienstleister', icon: 'M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z', appCount: 3 },
-    { key: 'LEISTUNGSERBRINGER', name: 'Leistungserbringer', icon: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4', appCount: 3 },
-    { key: 'INFRASTRUKTUR_PLATTFORMEN', name: 'Infrastruktur & Plattformen', icon: 'M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01', appCount: 2 },
-    { key: 'OEFFENTLICHE_HAND_FORSCHUNG', name: 'Oeffentliche Hand & Forschung', icon: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253', appCount: 2 },
+  segments: MarketSegmentInfo[] = [
+    { key: 'STEUERUNG_PRUEFSTELLEN', name: 'Steuerung & Pruefstellen', icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z', appCount: 0 },
+    { key: 'KOSTENTRAEGER', name: 'Kostentraeger', icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z', appCount: 0 },
+    { key: 'ABRECHNUNGSDIENSTLEISTER', name: 'Abrechnungsdienstleister', icon: 'M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z', appCount: 0 },
+    { key: 'LEISTUNGSERBRINGER', name: 'Leistungserbringer', icon: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4', appCount: 0 },
+    { key: 'INFRASTRUKTUR_PLATTFORMEN', name: 'Infrastruktur & Plattformen', icon: 'M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01', appCount: 0 },
+    { key: 'OEFFENTLICHE_HAND_FORSCHUNG', name: 'Oeffentliche Hand & Forschung', icon: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253', appCount: 0 },
   ];
 
-  readonly allApps: PortalApp[] = [
-    {
-      id: 'kv-ai-abrechnung', name: 'KV AI Abrechnung', shortDescription: 'KI-gestuetzte Abrechnungspruefung fuer KV-Leistungen mit automatischer Anomalie-Erkennung.',
-      longDescription: 'Vollstaendig KI-gestuetztes System zur automatisierten Pruefung von KV-Abrechnungen. Erkennt Anomalien, Doppeleinreichungen und Kodierungsfehler in Echtzeit.',
-      category: 'ABRECHNUNG', marketSegment: 'KOSTENTRAEGER', appType: 'anwendung', vendor: 'health_portal', vendorName: 'Health Portal',
-      version: '3.2.1', iconColor: '#006EC7', iconInitials: 'KV', rating: 5, reviewCount: 42, installCount: 128,
-      tags: ['KI', 'Abrechnung', 'KV'], price: 'lizenzpflichtig', compatibility: ['Portal 2.x'], featured: true, isNew: false, route: '/apps/kv-ai',
-    },
-    {
-      id: 'smile-kh', name: 'smile KH', shortDescription: 'Krankenhaus-Fallmanagement mit Ampelsystem und Rechnungsverfolgung fuer Kostentraeger.',
-      longDescription: 'Umfassendes Fallmanagement-System fuer Krankenhausabrechnungen. Bietet ein Ampelsystem zur schnellen Bewertung sowie eine vollstaendige Rechnungsverfolgung.',
-      category: 'FALLMANAGEMENT', marketSegment: 'KOSTENTRAEGER', appType: 'anwendung', vendor: 'health_portal', vendorName: 'Health Portal',
-      version: '4.1.0', iconColor: '#28DCAA', iconInitials: 'SK', rating: 4, reviewCount: 38, installCount: 95,
-      tags: ['Krankenhaus', 'Fallmanagement', 'Ampel'], price: 'lizenzpflichtig', compatibility: ['Portal 2.x'], featured: true, isNew: false, route: '/apps/smile-kh',
-    },
-    {
-      id: 'arztregister', name: 'Arztregister', shortDescription: 'Zentrale Verwaltung aller zugelassenen Aerzte, Therapeuten und Leistungsorte.',
-      longDescription: 'Verwalten Sie zentral alle zugelassenen Leistungserbringer inklusive Aerzte, Therapeuten und Leistungsorte mit vollstaendiger Historisierung.',
-      category: 'VERWALTUNG', marketSegment: 'STEUERUNG_PRUEFSTELLEN', appType: 'anwendung', vendor: 'health_portal', vendorName: 'Health Portal',
-      version: '2.5.0', iconColor: '#76C800', iconInitials: 'AR', rating: 4, reviewCount: 27, installCount: 73,
-      tags: ['Arzt', 'Register', 'Verwaltung'], price: 'kostenlos', compatibility: ['Portal 2.x'], featured: false, isNew: false, route: '/arztregister',
-    },
-    {
-      id: 'wb-foerderung', name: 'WB-Foerderung', shortDescription: 'Verwaltung und Tracking von Weiterbildungsfoerderungen im Gesundheitswesen.',
-      longDescription: 'Komplettloesung fuer die Verwaltung von Weiterbildungsfoerderungen. Tracking von Antraegen, Bewilligungen und Auszahlungen.',
-      category: 'VERWALTUNG', marketSegment: 'STEUERUNG_PRUEFSTELLEN', appType: 'anwendung', vendor: 'health_portal', vendorName: 'Health Portal',
-      version: '1.8.2', iconColor: '#FF9868', iconInitials: 'WB', rating: 4, reviewCount: 19, installCount: 45,
-      tags: ['Weiterbildung', 'Foerderung'], price: 'kostenlos', compatibility: ['Portal 2.x'], featured: false, isNew: false, route: '/wb-foerderung',
-    },
-    {
-      id: 'dmp-manager', name: 'DMP Manager', shortDescription: 'Disease-Management-Programme effizient verwalten und dokumentieren.',
-      longDescription: 'Umfassende Verwaltung von Disease-Management-Programmen mit Einschreibung, Dokumentation und Qualitaetssicherung.',
-      category: 'VERWALTUNG', marketSegment: 'KOSTENTRAEGER', appType: 'anwendung', vendor: 'health_portal', vendorName: 'Health Portal',
-      version: '2.1.0', iconColor: '#006EC7', iconInitials: 'DM', rating: 4, reviewCount: 31, installCount: 88,
-      tags: ['DMP', 'Chroniker', 'Qualitaet'], price: 'lizenzpflichtig', compatibility: ['Portal 2.x'], featured: false, isNew: false,
-    },
-    {
-      id: 'smile-kv', name: 'smile KV', shortDescription: 'KV-Abrechnungsmanagement mit intelligenter Fehlererkennung.',
-      longDescription: 'Spezialisierte Loesung fuer die Bearbeitung und Pruefung von KV-Abrechnungen mit automatisierter Fehlererkennung und Korrekturvorschlaegen.',
-      category: 'ABRECHNUNG', marketSegment: 'KOSTENTRAEGER', appType: 'anwendung', vendor: 'health_portal', vendorName: 'Health Portal',
-      version: '3.0.1', iconColor: '#F566BA', iconInitials: 'SV', rating: 4, reviewCount: 24, installCount: 67,
-      tags: ['KV', 'Abrechnung', 'Pruefung'], price: 'lizenzpflichtig', compatibility: ['Portal 2.x'], featured: false, isNew: false,
-    },
-    {
-      id: 'ki-kodier-assistent', name: 'KI-Kodier-Assistent', shortDescription: 'KI-basierte Unterstuetzung bei der medizinischen Kodierung (ICD, OPS, DRG).',
-      longDescription: 'Intelligenter Assistent zur Unterstuetzung bei der korrekten medizinischen Kodierung. Nutzt KI um passende ICD-, OPS- und DRG-Codes vorzuschlagen.',
-      category: 'KI_AGENTEN', marketSegment: 'ABRECHNUNGSDIENSTLEISTER', appType: 'anwendung', vendor: 'health_portal', vendorName: 'Health Portal',
-      version: '1.2.0', iconColor: '#9333EA', iconInitials: 'KA', rating: 5, reviewCount: 15, installCount: 34,
-      tags: ['KI', 'Kodierung', 'ICD', 'DRG'], price: 'lizenzpflichtig', compatibility: ['Portal 2.x'], featured: true, isNew: true,
-    },
-    {
-      id: 'hzv-portal', name: 'HZV Portal', shortDescription: 'Verwaltungsportal fuer Hausarztzentrierte Versorgung.',
-      longDescription: 'Portal zur vollstaendigen Verwaltung der Hausarztzentrierten Versorgung inklusive Vertragsmanagement und Abrechnungsabwicklung.',
-      category: 'VERWALTUNG', marketSegment: 'KOSTENTRAEGER', appType: 'anwendung', vendor: 'health_portal', vendorName: 'Health Portal',
-      version: '2.3.0', iconColor: '#E5580C', iconInitials: 'HZ', rating: 4, reviewCount: 22, installCount: 56,
-      tags: ['HZV', 'Hausarzt', 'Versorgung'], price: 'lizenzpflichtig', compatibility: ['Portal 2.x'], featured: false, isNew: false,
-    },
-    {
-      id: 'pzm-cockpit', name: 'PZM Cockpit', shortDescription: 'Patientenzentriertes Monitoring mit Echtzeit-Dashboard.',
-      longDescription: 'Echtzeit-Dashboard zur patientenzentrierten Ueberwachung von Versorgungsverlaeufen und Qualitaetsindikatoren.',
-      category: 'ANALYSE', marketSegment: 'LEISTUNGSERBRINGER', appType: 'anwendung', vendor: 'health_portal', vendorName: 'Health Portal',
-      version: '1.5.0', iconColor: '#16A34A', iconInitials: 'PZ', rating: 4, reviewCount: 18, installCount: 41,
-      tags: ['Monitoring', 'Dashboard', 'Echtzeit'], price: 'lizenzpflichtig', compatibility: ['Portal 2.x'], featured: false, isNew: true,
-    },
-    {
-      id: 'epa-connector', name: 'ePA Connector', shortDescription: 'Integration mit der elektronischen Patientenakte (ePA).',
-      longDescription: 'Nahtlose Integration mit der elektronischen Patientenakte. Lesen und Schreiben von Dokumenten in die ePA gemaess gematik-Spezifikation.',
-      category: 'INTEGRATION', marketSegment: 'INFRASTRUKTUR_PLATTFORMEN', appType: 'integration', vendor: 'platform', vendorName: 'Platform',
-      version: '1.0.3', iconColor: '#0891B2', iconInitials: 'eP', rating: 4, reviewCount: 8, installCount: 22,
-      tags: ['ePA', 'gematik', 'Integration'], price: 'lizenzpflichtig', compatibility: ['Portal 2.x'], featured: false, isNew: true,
-    },
-    {
-      id: 'ti-messenger', name: 'TI-Messenger', shortDescription: 'Sichere Kommunikation ueber die Telematikinfrastruktur.',
-      longDescription: 'Integrierter Messenger fuer sichere Kommunikation im Gesundheitswesen ueber die Telematikinfrastruktur (TI).',
-      category: 'KOMMUNIKATION', marketSegment: 'INFRASTRUKTUR_PLATTFORMEN', appType: 'integration', vendor: 'platform', vendorName: 'Platform',
-      version: '1.1.0', iconColor: '#2563EB', iconInitials: 'TI', rating: 3, reviewCount: 6, installCount: 15,
-      tags: ['TI', 'Messenger', 'Kommunikation'], price: 'kostenlos', compatibility: ['Portal 2.x'], featured: false, isNew: false,
-    },
-    {
-      id: 'formular-designer', name: 'Formular-Designer', shortDescription: 'Drag-and-Drop Formularerstellung fuer Gesundheitsanwendungen.',
-      longDescription: 'Visueller Formular-Designer mit Drag-and-Drop-Funktionalitaet. Erstellen Sie komplexe medizinische Formulare ohne Programmierung.',
-      category: 'FORMULARE', marketSegment: 'LEISTUNGSERBRINGER', appType: 'anwendung', vendor: 'health_portal', vendorName: 'Health Portal',
-      version: '2.0.0', iconColor: '#D946EF', iconInitials: 'FD', rating: 4, reviewCount: 14, installCount: 38,
-      tags: ['Formulare', 'Designer', 'Drag-Drop'], price: 'kostenlos', compatibility: ['Portal 2.x'], featured: false, isNew: false,
-    },
-    {
-      id: 'gkv-datenstelle', name: 'GKV-Datenstelle', shortDescription: 'Anbindung an die GKV-Datenstelle fuer den gesetzlichen Datenaustausch.',
-      longDescription: 'Sichere Anbindung an die GKV-Datenstelle fuer alle gesetzlich vorgeschriebenen Datenmeldungen und -abrufe.',
-      category: 'INTEGRATION', marketSegment: 'ABRECHNUNGSDIENSTLEISTER', appType: 'integration', vendor: 'health_portal', vendorName: 'Health Portal',
-      version: '1.4.0', iconColor: '#64748B', iconInitials: 'GK', rating: 4, reviewCount: 11, installCount: 29,
-      tags: ['GKV', 'Datenstelle', 'Meldung'], price: 'lizenzpflichtig', compatibility: ['Portal 2.x'], featured: false, isNew: false,
-    },
-    {
-      id: 'versorgungsanalyse', name: 'Versorgungsanalyse', shortDescription: 'Datenbasierte Analysen zur Versorgungsqualitaet und Bedarfsplanung.',
-      longDescription: 'Umfangreiche Analyseplattform fuer Versorgungsdaten. Unterstuetzt Bedarfsplanung, Qualitaetsmessung und regionale Versorgungsforschung.',
-      category: 'ANALYSE', marketSegment: 'OEFFENTLICHE_HAND_FORSCHUNG', appType: 'anwendung', vendor: 'community', vendorName: 'Community',
-      version: '1.0.0', iconColor: '#F59E0B', iconInitials: 'VA', rating: 4, reviewCount: 5, installCount: 12,
-      tags: ['Analyse', 'Versorgung', 'Forschung'], price: 'lizenzpflichtig', compatibility: ['Portal 2.x'], featured: false, isNew: true,
-    },
-  ];
+  ngOnInit(): void {
+    this.loadApps();
+    this.loadInstalledApps();
+  }
 
-  constructor() {
-    this.applyFilters();
+  private loadApps(): void {
+    this.appService.getAll().subscribe({
+      next: (apps) => {
+        this.allApps = apps;
+        this.updateSegmentCounts();
+        this.applyFilters();
+      },
+      error: () => {
+        this.allApps = [];
+        this.applyFilters();
+      }
+    });
+  }
+
+  private loadInstalledApps(): void {
+    const tenantId = this.portalState.currentTenantSnapshot.id;
+    this.installedAppService.getAll(tenantId).subscribe({
+      next: (installed) => {
+        this.installedAppIds = installed.map(i => i.app?.id).filter((id): id is string => !!id);
+      },
+      error: () => {
+        this.installedAppIds = [];
+      }
+    });
+  }
+
+  private updateSegmentCounts(): void {
+    for (const seg of this.segments) {
+      seg.appCount = this.allApps.filter(a => a.marketSegment === seg.key).length;
+    }
   }
 
   applyFilters(): void {
@@ -330,8 +397,7 @@ export class AppStoreComponent {
       result = result.filter(a =>
         a.name.toLowerCase().includes(q) ||
         a.shortDescription.toLowerCase().includes(q) ||
-        a.vendorName.toLowerCase().includes(q) ||
-        a.tags.some(t => t.toLowerCase().includes(q))
+        a.vendorName.toLowerCase().includes(q)
       );
     }
 
@@ -350,5 +416,50 @@ export class AppStoreComponent {
   getCategoryLabel(category: AppCategory): string {
     const found = this.categories.find(c => c.key === category);
     return found ? found.label : category;
+  }
+
+  createApp(): void {
+    if (!this.newApp.name || !this.newApp.id || !this.newApp.shortDescription) return;
+
+    const app: Partial<PortalApp> = {
+      ...this.newApp,
+      rating: 0,
+      reviewCount: 0,
+      installCount: 0,
+      featured: false,
+      isNew: true,
+      tags: [],
+      compatibility: [],
+    };
+
+    this.appService.create(app).subscribe({
+      next: (created) => {
+        this.allApps.push(created);
+        this.updateSegmentCounts();
+        this.applyFilters();
+        this.showCreateForm = false;
+        this.newApp = this.getEmptyApp();
+      }
+    });
+  }
+
+  private getEmptyApp(): Partial<PortalApp> {
+    return {
+      id: '',
+      name: '',
+      shortDescription: '',
+      longDescription: '',
+      category: 'VERWALTUNG',
+      marketSegment: 'KOSTENTRAEGER',
+      appType: 'ANWENDUNG',
+      vendor: 'HEALTH_PORTAL',
+      vendorName: 'Health Portal',
+      version: '1.0.0',
+      iconColor: '#006EC7',
+      iconInitials: '',
+      price: 'kostenlos',
+      repositoryUrl: '',
+      applicationUrl: '',
+    };
   }
 }

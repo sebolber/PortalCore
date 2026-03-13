@@ -1,18 +1,9 @@
-import { Component } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-
-interface InstalledAppView {
-  id: string;
-  appId: string;
-  name: string;
-  iconColor: string;
-  iconInitials: string;
-  version: string;
-  status: 'aktiv' | 'inaktiv' | 'update_verfuegbar';
-  installedAt: string;
-  vendorName: string;
-}
+import { InstalledApp } from '../../models/app.model';
+import { InstalledAppService } from '../../services/installed-app.service';
+import { PortalStateService } from '../../services/portal-state.service';
 
 @Component({
   selector: 'app-installed-apps',
@@ -33,29 +24,28 @@ interface InstalledAppView {
 
     <!-- App Cards Grid -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      <div *ngFor="let app of apps" class="card">
+      <div *ngFor="let installed of apps" class="card">
         <!-- App Header -->
         <div class="flex items-start gap-3 mb-4">
-          <a [routerLink]="'/appstore/' + app.appId"
+          <a [routerLink]="'/appstore/' + installed.app?.id"
              class="w-12 h-12 rounded-xl flex items-center justify-center text-white text-sm font-bold shrink-0 hover:opacity-80 transition-opacity"
-             [style.background-color]="app.iconColor">
-            {{ app.iconInitials }}
+             [style.background-color]="installed.app?.iconColor || '#006EC7'">
+            {{ installed.app?.iconInitials || '?' }}
           </a>
           <div class="flex-1 min-w-0">
-            <a [routerLink]="'/appstore/' + app.appId"
+            <a [routerLink]="'/appstore/' + installed.app?.id"
                class="text-sm font-semibold text-gray-800 hover:text-[#006EC7] transition-colors truncate block">
-              {{ app.name }}
+              {{ installed.app?.name || 'Unbekannte App' }}
             </a>
-            <p class="text-xs text-gray-400">{{ app.vendorName }}</p>
+            <p class="text-xs text-gray-400">{{ installed.app?.vendorName || '' }}</p>
           </div>
           <!-- Status Badge -->
           <span class="px-2.5 py-0.5 text-[10px] font-medium rounded-full shrink-0"
                 [ngClass]="{
-                  'bg-green-50 text-green-700': app.status === 'aktiv',
-                  'bg-gray-100 text-gray-500': app.status === 'inaktiv',
-                  'bg-blue-50 text-blue-700': app.status === 'update_verfuegbar'
+                  'bg-green-50 text-green-700': installed.status === 'ACTIVE',
+                  'bg-gray-100 text-gray-500': installed.status === 'INACTIVE'
                 }">
-            {{ getStatusLabel(app.status) }}
+            {{ installed.status === 'ACTIVE' ? 'Aktiv' : installed.status }}
           </span>
         </div>
 
@@ -63,31 +53,36 @@ interface InstalledAppView {
         <div class="space-y-2 mb-4">
           <div class="flex justify-between text-xs">
             <span class="text-gray-400">Version</span>
-            <span class="text-gray-700 font-medium">{{ app.version }}</span>
+            <span class="text-gray-700 font-medium">{{ installed.app?.version || '-' }}</span>
           </div>
           <div class="flex justify-between text-xs">
             <span class="text-gray-400">Installiert am</span>
-            <span class="text-gray-700">{{ formatDate(app.installedAt) }}</span>
+            <span class="text-gray-700">{{ formatDate(installed.installedAt) }}</span>
+          </div>
+          <div *ngIf="installed.app?.repositoryUrl" class="flex justify-between text-xs">
+            <span class="text-gray-400">Repository</span>
+            <span class="text-gray-700 truncate ml-4">{{ installed.app?.repositoryUrl }}</span>
           </div>
         </div>
 
         <!-- Actions -->
         <div class="flex gap-2 pt-3 border-t border-gray-100">
-          <button *ngIf="app.status === 'update_verfuegbar'"
-                  (click)="updateApp(app)"
-                  class="flex-1 px-3 py-2 bg-[#006EC7] text-white text-xs font-medium rounded-lg hover:bg-[#005BA3] transition-colors text-center">
-            Aktualisieren
-          </button>
-          <button (click)="uninstall(app)"
-                  class="flex-1 px-3 py-2 bg-white border border-red-200 text-red-600 text-xs font-medium rounded-lg hover:bg-red-50 transition-colors text-center">
-            Deinstallieren
+          <a *ngIf="installed.app?.applicationUrl"
+             [routerLink]="installed.app?.applicationUrl"
+             class="flex-1 px-3 py-2 bg-[#006EC7] text-white text-xs font-medium rounded-lg hover:bg-[#005BA3] transition-colors text-center">
+            Oeffnen
+          </a>
+          <button (click)="uninstall(installed)"
+                  [disabled]="uninstallingId === installed.id"
+                  class="flex-1 px-3 py-2 bg-white border border-red-200 text-red-600 text-xs font-medium rounded-lg hover:bg-red-50 transition-colors text-center disabled:opacity-50">
+            {{ uninstallingId === installed.id ? 'Wird entfernt...' : 'Deinstallieren' }}
           </button>
         </div>
       </div>
     </div>
 
     <!-- Empty State -->
-    <div *ngIf="apps.length === 0" class="text-center py-16">
+    <div *ngIf="apps.length === 0 && !loading" class="text-center py-16">
       <svg class="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
         <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
       </svg>
@@ -99,50 +94,34 @@ interface InstalledAppView {
     </div>
   `,
 })
-export class InstalledAppsComponent {
-  apps: InstalledAppView[] = [
-    {
-      id: 'inst-1', appId: 'kv-ai-abrechnung', name: 'KV AI Abrechnung',
-      iconColor: '#006EC7', iconInitials: 'KV', version: '3.2.1', status: 'aktiv',
-      installedAt: '2025-08-15', vendorName: 'Health Portal',
-    },
-    {
-      id: 'inst-2', appId: 'smile-kh', name: 'smile KH',
-      iconColor: '#28DCAA', iconInitials: 'SK', version: '4.0.2', status: 'update_verfuegbar',
-      installedAt: '2025-06-01', vendorName: 'Health Portal',
-    },
-    {
-      id: 'inst-3', appId: 'arztregister', name: 'Arztregister',
-      iconColor: '#76C800', iconInitials: 'AR', version: '2.5.0', status: 'aktiv',
-      installedAt: '2025-09-10', vendorName: 'Health Portal',
-    },
-    {
-      id: 'inst-4', appId: 'wb-foerderung', name: 'WB-Foerderung',
-      iconColor: '#FF9868', iconInitials: 'WB', version: '1.8.2', status: 'aktiv',
-      installedAt: '2025-10-22', vendorName: 'Health Portal',
-    },
-    {
-      id: 'inst-5', appId: 'dmp-manager', name: 'DMP Manager',
-      iconColor: '#006EC7', iconInitials: 'DM', version: '2.1.0', status: 'aktiv',
-      installedAt: '2025-07-03', vendorName: 'Health Portal',
-    },
-    {
-      id: 'inst-6', appId: 'smile-kv', name: 'smile KV',
-      iconColor: '#F566BA', iconInitials: 'SV', version: '2.9.0', status: 'update_verfuegbar',
-      installedAt: '2025-05-18', vendorName: 'Health Portal',
-    },
-  ];
+export class InstalledAppsComponent implements OnInit {
+  private readonly installedAppService = inject(InstalledAppService);
+  private readonly portalState = inject(PortalStateService);
 
-  getStatusLabel(status: InstalledAppView['status']): string {
-    const labels: Record<string, string> = {
-      'aktiv': 'Aktiv',
-      'inaktiv': 'Inaktiv',
-      'update_verfuegbar': 'Update verfuegbar',
-    };
-    return labels[status] || status;
+  apps: InstalledApp[] = [];
+  loading = true;
+  uninstallingId: string | null = null;
+
+  ngOnInit(): void {
+    this.loadInstalledApps();
+  }
+
+  private loadInstalledApps(): void {
+    const tenantId = this.portalState.currentTenantSnapshot.id;
+    this.installedAppService.getAll(tenantId).subscribe({
+      next: (installed) => {
+        this.apps = installed;
+        this.loading = false;
+      },
+      error: () => {
+        this.apps = [];
+        this.loading = false;
+      }
+    });
   }
 
   formatDate(dateStr: string): string {
+    if (!dateStr) return '-';
     return new Date(dateStr).toLocaleDateString('de-DE', {
       day: '2-digit',
       month: '2-digit',
@@ -150,13 +129,18 @@ export class InstalledAppsComponent {
     });
   }
 
-  updateApp(app: InstalledAppView): void {
-    app.status = 'aktiv';
-    // In a real app, this would call the InstalledAppService
-  }
-
-  uninstall(app: InstalledAppView): void {
-    this.apps = this.apps.filter(a => a.id !== app.id);
-    // In a real app, this would call the InstalledAppService
+  uninstall(installed: InstalledApp): void {
+    if (!installed.app) return;
+    this.uninstallingId = installed.id;
+    const tenantId = this.portalState.currentTenantSnapshot.id;
+    this.installedAppService.uninstall(tenantId, installed.app.id).subscribe({
+      next: () => {
+        this.apps = this.apps.filter(a => a.id !== installed.id);
+        this.uninstallingId = null;
+      },
+      error: () => {
+        this.uninstallingId = null;
+      }
+    });
   }
 }
