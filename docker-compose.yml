@@ -25,6 +25,9 @@ services:
       DB_HOST: postgres
     ports:
       - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp/portal-deployments:/tmp/portal-deployments
     depends_on:
       postgres:
         condition: service_healthy

@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { InstalledApp } from '../../models/app.model';
 import { InstalledAppService } from '../../services/installed-app.service';
+import { DeploymentService } from '../../services/deployment.service';
 import { PortalStateService } from '../../services/portal-state.service';
 
 @Component({
@@ -39,13 +40,10 @@ import { PortalStateService } from '../../services/portal-state.service';
             </a>
             <p class="text-xs text-gray-400">{{ installed.app?.vendorName || '' }}</p>
           </div>
-          <!-- Status Badge -->
+          <!-- Deploy Status Badge -->
           <span class="px-2.5 py-0.5 text-[10px] font-medium rounded-full shrink-0"
-                [ngClass]="{
-                  'bg-green-50 text-green-700': installed.status === 'ACTIVE',
-                  'bg-gray-100 text-gray-500': installed.status === 'INACTIVE'
-                }">
-            {{ installed.status === 'ACTIVE' ? 'Aktiv' : installed.status }}
+                [ngClass]="getDeployBadgeClass(installed)">
+            {{ getDeployLabel(installed) }}
           </span>
         </div>
 
@@ -59,23 +57,67 @@ import { PortalStateService } from '../../services/portal-state.service';
             <span class="text-gray-400">Installiert am</span>
             <span class="text-gray-700">{{ formatDate(installed.installedAt) }}</span>
           </div>
+          <div *ngIf="installed.containerPort" class="flex justify-between text-xs">
+            <span class="text-gray-400">Container-Port</span>
+            <span class="text-gray-700 font-mono">{{ installed.containerPort }}</span>
+          </div>
           <div *ngIf="installed.app?.repositoryUrl" class="flex justify-between text-xs">
             <span class="text-gray-400">Repository</span>
             <span class="text-gray-700 truncate ml-4">{{ installed.app?.repositoryUrl }}</span>
           </div>
+          <div *ngIf="installed.app?.manifestImage" class="flex justify-between text-xs">
+            <span class="text-gray-400">Image</span>
+            <span class="text-gray-700 truncate ml-4 font-mono">{{ installed.app?.manifestImage }}</span>
+          </div>
+        </div>
+
+        <!-- Deploy Log (collapsible) -->
+        <div *ngIf="expandedLogId === installed.id && installed.deployLog"
+             class="mb-4 p-3 bg-gray-900 rounded-lg overflow-x-auto">
+          <pre class="text-[11px] text-green-400 font-mono whitespace-pre-wrap">{{ installed.deployLog }}</pre>
         </div>
 
         <!-- Actions -->
-        <div class="flex gap-2 pt-3 border-t border-gray-100">
-          <a *ngIf="installed.app?.applicationUrl"
-             [routerLink]="installed.app?.applicationUrl"
+        <div class="flex flex-wrap gap-2 pt-3 border-t border-gray-100">
+          <!-- Deploy / Redeploy -->
+          <button *ngIf="canDeploy(installed)"
+                  (click)="deployApp(installed)"
+                  [disabled]="deployingId === installed.id"
+                  class="flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors text-center disabled:opacity-50"
+                  [ngClass]="installed.deployStatus === 'RUNNING'
+                    ? 'bg-white border border-blue-200 text-blue-600 hover:bg-blue-50'
+                    : 'bg-emerald-600 text-white hover:bg-emerald-700'">
+            {{ getDeployButtonLabel(installed) }}
+          </button>
+
+          <!-- Open App -->
+          <a *ngIf="installed.deployStatus === 'RUNNING' && installed.app?.applicationUrl"
+             [href]="installed.app?.applicationUrl"
+             target="_blank"
              class="flex-1 px-3 py-2 bg-[#006EC7] text-white text-xs font-medium rounded-lg hover:bg-[#005BA3] transition-colors text-center">
             Oeffnen
           </a>
+
+          <!-- Stop -->
+          <button *ngIf="installed.deployStatus === 'RUNNING'"
+                  (click)="undeployApp(installed)"
+                  [disabled]="undeployingId === installed.id"
+                  class="px-3 py-2 bg-white border border-orange-200 text-orange-600 text-xs font-medium rounded-lg hover:bg-orange-50 transition-colors disabled:opacity-50">
+            {{ undeployingId === installed.id ? 'Stoppt...' : 'Stoppen' }}
+          </button>
+
+          <!-- Show Log -->
+          <button *ngIf="installed.deployLog"
+                  (click)="toggleLog(installed.id)"
+                  class="px-3 py-2 bg-white border border-gray-200 text-gray-500 text-xs font-medium rounded-lg hover:bg-gray-50 transition-colors">
+            {{ expandedLogId === installed.id ? 'Log ausblenden' : 'Log' }}
+          </button>
+
+          <!-- Uninstall -->
           <button (click)="uninstall(installed)"
                   [disabled]="uninstallingId === installed.id"
-                  class="flex-1 px-3 py-2 bg-white border border-red-200 text-red-600 text-xs font-medium rounded-lg hover:bg-red-50 transition-colors text-center disabled:opacity-50">
-            {{ uninstallingId === installed.id ? 'Wird entfernt...' : 'Deinstallieren' }}
+                  class="px-3 py-2 bg-white border border-red-200 text-red-600 text-xs font-medium rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50">
+            {{ uninstallingId === installed.id ? 'Entfernt...' : 'Deinstallieren' }}
           </button>
         </div>
       </div>
@@ -96,11 +138,15 @@ import { PortalStateService } from '../../services/portal-state.service';
 })
 export class InstalledAppsComponent implements OnInit {
   private readonly installedAppService = inject(InstalledAppService);
+  private readonly deploymentService = inject(DeploymentService);
   private readonly portalState = inject(PortalStateService);
 
   apps: InstalledApp[] = [];
   loading = true;
   uninstallingId: string | null = null;
+  deployingId: string | null = null;
+  undeployingId: string | null = null;
+  expandedLogId: string | null = null;
 
   ngOnInit(): void {
     this.loadInstalledApps();
@@ -120,6 +166,92 @@ export class InstalledAppsComponent implements OnInit {
     });
   }
 
+  canDeploy(installed: InstalledApp): boolean {
+    return !!(installed.app?.repositoryUrl || installed.app?.manifestImage);
+  }
+
+  deployApp(installed: InstalledApp): void {
+    this.deployingId = installed.id;
+    this.deploymentService.deploy(installed.id).subscribe({
+      next: () => {
+        // Async deploy started, poll for status
+        installed.deployStatus = 'DEPLOYING';
+        this.deployingId = null;
+        this.pollDeployStatus(installed);
+      },
+      error: () => {
+        this.deployingId = null;
+      }
+    });
+  }
+
+  private pollDeployStatus(installed: InstalledApp): void {
+    const interval = setInterval(() => {
+      this.deploymentService.getStatus(installed.id).subscribe({
+        next: (status) => {
+          installed.deployStatus = status.deployStatus;
+          installed.deployLog = status.deployLog;
+          installed.containerPort = status.containerPort;
+          if (status.deployStatus !== 'DEPLOYING') {
+            clearInterval(interval);
+            // Reload to get updated applicationUrl
+            this.loadInstalledApps();
+          }
+        },
+        error: () => clearInterval(interval)
+      });
+    }, 3000);
+  }
+
+  undeployApp(installed: InstalledApp): void {
+    this.undeployingId = installed.id;
+    this.deploymentService.undeploy(installed.id).subscribe({
+      next: (result) => {
+        installed.deployStatus = result.deployStatus;
+        installed.containerPort = undefined;
+        this.undeployingId = null;
+      },
+      error: () => {
+        this.undeployingId = null;
+      }
+    });
+  }
+
+  toggleLog(id: string): void {
+    this.expandedLogId = this.expandedLogId === id ? null : id;
+  }
+
+  getDeployBadgeClass(installed: InstalledApp): Record<string, boolean> {
+    const s = installed.deployStatus;
+    return {
+      'bg-green-50 text-green-700': s === 'RUNNING',
+      'bg-blue-50 text-blue-700': s === 'DEPLOYING',
+      'bg-red-50 text-red-700': s === 'FAILED',
+      'bg-orange-50 text-orange-700': s === 'STOPPED',
+      'bg-gray-100 text-gray-500': !s || s === 'PENDING',
+    };
+  }
+
+  getDeployLabel(installed: InstalledApp): string {
+    switch (installed.deployStatus) {
+      case 'RUNNING': return 'Laeuft';
+      case 'DEPLOYING': return 'Deploying...';
+      case 'FAILED': return 'Fehlgeschlagen';
+      case 'STOPPED': return 'Gestoppt';
+      default: return installed.status === 'ACTIVE' ? 'Nicht deployed' : installed.status;
+    }
+  }
+
+  getDeployButtonLabel(installed: InstalledApp): string {
+    if (this.deployingId === installed.id) return 'Deploying...';
+    switch (installed.deployStatus) {
+      case 'RUNNING': return 'Redeploy';
+      case 'FAILED': return 'Erneut deployen';
+      case 'STOPPED': return 'Starten';
+      default: return 'Deployen';
+    }
+  }
+
   formatDate(dateStr: string): string {
     if (!dateStr) return '-';
     return new Date(dateStr).toLocaleDateString('de-DE', {
@@ -130,6 +262,19 @@ export class InstalledAppsComponent implements OnInit {
   }
 
   uninstall(installed: InstalledApp): void {
+    if (!installed.app) return;
+    // Undeploy first if running
+    if (installed.deployStatus === 'RUNNING') {
+      this.deploymentService.undeploy(installed.id).subscribe({
+        next: () => this.doUninstall(installed),
+        error: () => this.doUninstall(installed)
+      });
+    } else {
+      this.doUninstall(installed);
+    }
+  }
+
+  private doUninstall(installed: InstalledApp): void {
     if (!installed.app) return;
     this.uninstallingId = installed.id;
     const tenantId = this.portalState.currentTenantSnapshot.id;

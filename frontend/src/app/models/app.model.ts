@@ -27,7 +27,12 @@ export interface PortalApp {
   route?: string;
   repositoryUrl?: string;
   applicationUrl?: string;
+  manifestImage?: string;
+  manifestPort?: number;
+  manifestDockerfile?: string;
 }
+
+export type DeployStatus = 'PENDING' | 'DEPLOYING' | 'RUNNING' | 'STOPPED' | 'FAILED';
 
 export interface InstalledApp {
   id: string;
@@ -36,4 +41,18 @@ export interface InstalledApp {
   installedAt: string;
   installedBy: string;
   status: string;
+  deployStatus?: DeployStatus;
+  containerName?: string;
+  containerPort?: number;
+  deployLog?: string;
+  deployedAt?: string;
+}
+
+export interface DeploymentStatus {
+  id: string;
+  deployStatus: DeployStatus;
+  containerRunning: boolean;
+  containerName: string;
+  containerPort: number;
+  deployLog: string;
 }

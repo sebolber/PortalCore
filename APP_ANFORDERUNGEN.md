@@ -481,12 +481,128 @@ server:
 
 ---
 
-## 9. Deployment als externe App
+## 9. Automatisches App-Deployment
 
-### 9.1 Eigener Container in docker-compose.yml
+Das Portal unterstuetzt automatisches Deployment externer Apps als Docker-Container. Apps koennen ueber den App-Store installiert und direkt aus der Oberflaeche deployed werden.
+
+### 9.1 Architektur
+
+Das Backend verwaltet Docker-Container ueber den Docker-Socket (Sibling-Container-Pattern):
+
+```
+┌─────────────────────────────────────────────────┐
+│  Host-System                                     │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐       │
+│  │ frontend │  │ backend  │  │ postgres │       │
+│  │ :4200/80 │  │ :8080    │  │ :5432    │       │
+│  └──────────┘  └────┬─────┘  └──────────┘       │
+│                     │ Docker Socket               │
+│                     ▼                             │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐       │
+│  │ App A    │  │ App B    │  │ App C    │       │
+│  │ :49001   │  │ :49002   │  │ :49003   │       │
+│  └──────────┘  └──────────┘  └──────────┘       │
+└─────────────────────────────────────────────────┘
+```
+
+Das Backend hat Zugriff auf `/var/run/docker.sock` und nutzt die Docker CLI (`docker pull`, `docker build`, `docker run`, etc.) um App-Container zu verwalten.
+
+### 9.2 portal-app.yaml Manifest
+
+Jede deploybare App kann eine `portal-app.yaml` im Repository-Root bereitstellen. Das Portal liest diese Datei beim Deployment automatisch aus.
 
 ```yaml
-# In docker-compose.yml ergaenzen:
+# App-Metadaten (optional, ueberschreibt DB-Eintraege wenn gesetzt)
+name: Meine Beispiel-App
+version: 1.0.0
+description: Eine Beispielanwendung fuer das Health Portal
+
+# Option 1: Pre-built Docker Image (empfohlen fuer Produktion)
+# Wenn gesetzt, wird das Image aus der Registry gezogen statt lokal gebaut.
+# image: ghcr.io/meine-firma/meine-app:latest
+
+# Option 2: Lokaler Build aus Dockerfile (Standard wenn kein image gesetzt)
+dockerfile: Dockerfile
+
+# Port auf dem die App im Container lauscht
+port: 80
+
+# Umgebungsvariablen fuer den Container
+env:
+  NODE_ENV: production
+  API_URL: http://portal-backend:8080/api
+
+# Health-Check Endpunkt (optional)
+healthCheck: /health
+```
+
+**Manifest-Felder:**
+
+| Feld          | Typ    | Pflicht | Beschreibung                                        |
+|---------------|--------|---------|-----------------------------------------------------|
+| `name`        | String | Nein    | App-Name (ueberschreibt DB-Wert)                    |
+| `version`     | String | Nein    | App-Version (ueberschreibt DB-Wert)                 |
+| `description` | String | Nein    | App-Beschreibung                                    |
+| `image`       | String | Nein*   | Docker Image aus Registry (z.B. `ghcr.io/...`)      |
+| `dockerfile`  | String | Nein*   | Pfad zum Dockerfile fuer lokalen Build               |
+| `port`        | Number | Nein    | Container-Port (Standard: 80)                        |
+| `env`         | Map    | Nein    | Umgebungsvariablen als Key-Value-Paare               |
+| `healthCheck` | String | Nein    | Health-Check Endpunkt (z.B. `/health`)               |
+
+\* Entweder `image` oder `dockerfile` muss gesetzt sein. Wenn keines angegeben ist, wird `Dockerfile` im Repository-Root gesucht.
+
+### 9.3 Deployment-Ablauf
+
+1. **Benutzer klickt "Deployen"** in der App-Detail-Seite oder unter "Installierte Apps"
+2. **Backend klont das Repository** (wenn `repositoryUrl` gesetzt) nach `/tmp/portal-deployments/`
+3. **Manifest wird gelesen** (`portal-app.yaml` im Repository-Root)
+4. **Docker Image wird bereitgestellt:**
+   - Bei `image`: `docker pull <image>`
+   - Bei `dockerfile`: `docker build -t portal-app-<id> -f <dockerfile> .`
+5. **Container wird gestartet:** `docker run` mit automatischer Port-Zuweisung
+6. **Container wird ins Portal-Netzwerk eingebunden** (`portalcore_default`)
+7. **Status wird aktualisiert:** `applicationUrl`, `containerPort`, `deployStatus`
+
+### 9.4 Deployment-API
+
+```
+POST /api/deployments/{installedAppId}/deploy       -- Asynchrones Deployment
+POST /api/deployments/{installedAppId}/deploy-sync   -- Synchrones Deployment
+POST /api/deployments/{installedAppId}/undeploy      -- Container stoppen/entfernen
+GET  /api/deployments/{installedAppId}/status        -- Deployment-Status abfragen
+```
+
+**Deploy-Status-Werte:**
+
+| Status      | Beschreibung                          |
+|-------------|---------------------------------------|
+| `PENDING`   | Installiert, noch nicht deployed       |
+| `DEPLOYING` | Deployment laeuft (Build/Pull/Start)   |
+| `RUNNING`   | Container laeuft                       |
+| `STOPPED`   | Container gestoppt                     |
+| `FAILED`    | Deployment fehlgeschlagen              |
+
+### 9.5 Docker-Konfiguration
+
+In `docker-compose.yml` muessen folgende Volumes fuer das Backend konfiguriert sein:
+
+```yaml
+backend:
+  volumes:
+    - /var/run/docker.sock:/var/run/docker.sock     # Docker-Socket
+    - /tmp/portal-deployments:/tmp/portal-deployments  # Build-Workspace
+```
+
+Das Backend-Dockerfile installiert Docker CLI und Git:
+```dockerfile
+RUN apk add --no-cache docker-cli git
+```
+
+### 9.6 Manuelles Deployment (Alternative)
+
+Alternativ kann eine App auch manuell als Container in `docker-compose.yml` hinzugefuegt werden:
+
+```yaml
 meine-app:
   build: ./pfad-zum-repo
   container_name: portal-meine-app
@@ -496,7 +612,7 @@ meine-app:
     - backend
 ```
 
-### 9.2 App im Portal registrieren
+### 9.7 App im Portal registrieren
 
 Per REST API:
 ```bash
@@ -516,37 +632,26 @@ curl -X POST http://localhost:8080/api/apps \
     "iconColor": "#006EC7",
     "iconInitials": "MA",
     "price": "kostenlos",
-    "repositoryUrl": "https://github.com/meine-firma/meine-app",
-    "applicationUrl": "http://localhost:4300"
+    "repositoryUrl": "https://github.com/meine-firma/meine-app"
   }'
 ```
 
-Oder per Flyway-Migration (`V4__add_meine_app.sql`):
-```sql
-INSERT INTO portal_apps (
-  id, name, short_description, long_description,
-  category, market_segment, app_type, vendor, vendor_name,
-  version, icon_color, icon_initials, price,
-  repository_url, application_url, featured, is_new
-) VALUES (
-  'meine-neue-app', 'Meine Neue App',
-  'Kurze Beschreibung', 'Ausfuehrliche Beschreibung...',
-  'VERWALTUNG', 'KOSTENTRAEGER', 'ANWENDUNG', 'DRITTANBIETER', 'Meine Firma GmbH',
-  '1.0.0', '#006EC7', 'MA', 'kostenlos',
-  'https://github.com/meine-firma/meine-app', 'http://localhost:4300',
-  false, true
-);
-```
-
-### 9.3 App installieren
+### 9.8 App installieren und deployen
 
 ```bash
+# 1. App fuer Mandant installieren
 curl -X POST http://localhost:8080/api/tenants/t-aok-nw/installed-apps \
   -H "Content-Type: application/json" \
   -d '{ "appId": "meine-neue-app" }'
+
+# 2. App deployen (mit der installedApp-ID aus Schritt 1)
+curl -X POST http://localhost:8080/api/deployments/{installedAppId}/deploy
+
+# 3. Status abfragen
+curl http://localhost:8080/api/deployments/{installedAppId}/status
 ```
 
-Nach Installation erscheint die App automatisch in der Sidebar unter **"Installierte Anwendungen"**.
+Nach Installation erscheint die App automatisch in der Sidebar unter **"Installierte Anwendungen"**. Nach erfolgreichem Deployment kann sie direkt geoeffnet werden.
 
 ---
 
@@ -556,7 +661,7 @@ Nach Installation erscheint die App automatisch in der Sidebar unter **"Installi
 - [ ] App-ID ist eindeutig und im kebab-case Format
 - [ ] Alle Pflichtfelder (name, category, market_segment, app_type, vendor, price) sind gesetzt
 - [ ] `icon_color` (Hex) und `icon_initials` (2 Buchstaben) sind definiert
-- [ ] Entweder `route` (intern) oder `application_url` (extern) ist gesetzt
+- [ ] Entweder `route` (intern) oder `repository_url`/`application_url` (extern) ist gesetzt
 - [ ] Die App ist responsive und auf iPhone nutzbar (Mobile-First)
 - [ ] Schriftarten Fira Sans / Fira Sans Condensed werden verwendet
 - [ ] Das Farbschema des Portals wird eingehalten (Primary: #006EC7)
@@ -570,9 +675,16 @@ Nach Installation erscheint die App automatisch in der Sidebar unter **"Installi
 - [ ] `tags` fuer Suchfunktion im App-Store sind gesetzt
 - [ ] `compatibility` listet unterstuetzte Systeme auf
 - [ ] `repositoryUrl` verweist auf das Git-Repository
+- [ ] `portal-app.yaml` Manifest im Repository-Root vorhanden
 - [ ] Eigene REST-Endpunkte folgen dem bestehenden Controller-Pattern
 - [ ] Flyway-Migration fuer eigene Datenbanktabellen vorhanden
 - [ ] CSS-Klassen `.card`, `.btn-primary`, `.badge` etc. werden genutzt
+
+### Fuer deploybare externe Apps zusaetzlich
+- [ ] `portal-app.yaml` mit `image` oder `dockerfile` konfiguriert
+- [ ] `port` im Manifest entspricht dem tatsaechlichen Container-Port
+- [ ] Container startet ohne manuelle Konfiguration
+- [ ] Health-Check Endpunkt (`healthCheck`) ist definiert
 
 ### Fuer interne Angular-Apps zusaetzlich
 - [ ] Standalone Component mit Inline-Template
@@ -588,15 +700,20 @@ Nach Installation erscheint die App automatisch in der Sidebar unter **"Installi
 | Datei                                              | Inhalt                              |
 |----------------------------------------------------|-------------------------------------|
 | `docker-compose.yml`                               | Container-Konfiguration             |
+| `portal-app.example.yaml`                          | Beispiel-Manifest fuer App-Deployment |
 | `backend/src/main/resources/application.yml`       | Backend-Konfiguration               |
 | `backend/src/main/resources/db/migration/V1__*.sql`| Datenbank-Schema                    |
+| `backend/src/main/resources/db/migration/V4__*.sql`| Deployment-Felder Migration         |
 | `backend/src/main/java/de/portalcore/entity/PortalApp.java` | App-Entity                 |
 | `backend/src/main/java/de/portalcore/entity/InstalledApp.java` | Installation-Entity      |
+| `backend/src/main/java/de/portalcore/service/DeploymentService.java` | Docker-Deployment-Logik |
+| `backend/src/main/java/de/portalcore/controller/DeploymentController.java` | Deployment-API |
 | `backend/src/main/java/de/portalcore/enums/`       | Alle Enum-Werte                     |
 | `backend/src/main/java/de/portalcore/controller/AppController.java` | App-API             |
 | `frontend/src/app/models/app.model.ts`             | TypeScript-Modelle                  |
 | `frontend/src/app/services/app.service.ts`         | App-Service                         |
 | `frontend/src/app/services/installed-app.service.ts`| Installations-Service              |
+| `frontend/src/app/services/deployment.service.ts`  | Deployment-Service (Frontend)       |
 | `frontend/src/app/services/portal-state.service.ts`| Globaler State                      |
 | `frontend/src/app/layout/sidebar.component.*`      | Sidebar mit installierten Apps      |
 | `frontend/src/app/app.routes.ts`                   | Routing-Konfiguration               |

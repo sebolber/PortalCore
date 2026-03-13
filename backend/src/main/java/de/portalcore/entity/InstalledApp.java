@@ -30,4 +30,22 @@ public class InstalledApp {
     private String installedBy;
 
     private String status;
+
+    @Column(name = "container_id")
+    private String containerId;
+
+    @Column(name = "container_name")
+    private String containerName;
+
+    @Column(name = "container_port")
+    private Integer containerPort;
+
+    @Column(name = "deploy_status")
+    private String deployStatus;
+
+    @Column(name = "deploy_log", columnDefinition = "TEXT")
+    private String deployLog;
+
+    @Column(name = "deployed_at")
+    private LocalDateTime deployedAt;
 }

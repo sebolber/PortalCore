@@ -1,9 +1,10 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, ActivatedRoute, Router } from '@angular/router';
-import { PortalApp } from '../../models/app.model';
+import { PortalApp, InstalledApp } from '../../models/app.model';
 import { AppService } from '../../services/app.service';
 import { InstalledAppService } from '../../services/installed-app.service';
+import { DeploymentService } from '../../services/deployment.service';
 import { PortalStateService } from '../../services/portal-state.service';
 
 @Component({
@@ -77,6 +78,17 @@ import { PortalStateService } from '../../services/portal-state.service';
                   </svg>
                   Installiert
                 </div>
+                <button *ngIf="canDeploy()"
+                        (click)="deploy()"
+                        [disabled]="deploying"
+                        class="px-4 py-2.5 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50">
+                  {{ deploying ? 'Wird deployed...' : (deployStatus === 'RUNNING' ? 'Redeploy' : 'Deployen') }}
+                </button>
+                <span *ngIf="deployStatus === 'RUNNING'"
+                      class="inline-flex items-center gap-1.5 px-4 py-2.5 bg-emerald-50 text-emerald-700 text-sm font-medium rounded-lg">
+                  <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  Container laeuft
+                </span>
                 <button (click)="uninstall()"
                         [disabled]="uninstalling"
                         class="px-4 py-2.5 bg-white border border-red-200 text-red-600 text-sm font-medium rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50">
@@ -88,10 +100,18 @@ import { PortalStateService } from '../../services/portal-state.service';
         </div>
       </div>
 
-      <!-- URLs -->
-      <div *ngIf="app.repositoryUrl || app.applicationUrl" class="card mb-6">
-        <h2 class="text-lg font-semibold text-gray-800 mb-3">Links</h2>
+      <!-- URLs & Deployment Info -->
+      <div *ngIf="app.repositoryUrl || app.applicationUrl || app.manifestImage" class="card mb-6">
+        <h2 class="text-lg font-semibold text-gray-800 mb-3">Deployment & Links</h2>
         <div class="space-y-2">
+          <div *ngIf="app.manifestImage" class="flex items-center gap-2 text-sm">
+            <svg class="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+              <rect x="2" y="2" width="20" height="20" rx="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M7 2v20M2 7h5M2 12h5M2 17h5"/>
+            </svg>
+            <span class="text-gray-500">Docker Image:</span>
+            <span class="text-gray-700 font-mono text-xs">{{ app.manifestImage }}</span>
+          </div>
           <div *ngIf="app.repositoryUrl" class="flex items-center gap-2 text-sm">
             <svg class="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
@@ -105,6 +125,9 @@ import { PortalStateService } from '../../services/portal-state.service';
             </svg>
             <span class="text-gray-500">Anwendung:</span>
             <span class="text-gray-700">{{ app.applicationUrl }}</span>
+          </div>
+          <div *ngIf="!app.manifestImage && !app.repositoryUrl" class="text-xs text-gray-400 italic">
+            Kein Docker Image oder Repository konfiguriert -- Deployment nicht moeglich
           </div>
         </div>
       </div>
@@ -173,12 +196,15 @@ export class AppDetailComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly appService = inject(AppService);
   private readonly installedAppService = inject(InstalledAppService);
+  private readonly deploymentService = inject(DeploymentService);
   private readonly portalState = inject(PortalStateService);
 
   app: PortalApp | undefined;
   isInstalled = false;
   installing = false;
   uninstalling = false;
+  deploying = false;
+  deployStatus: string | null = null;
   loading = true;
   changelog: { version: string; date: string; changes: string[] }[] = [];
 
@@ -210,6 +236,7 @@ export class AppDetailComponent implements OnInit {
         const found = installed.find(i => i.app?.id === appId);
         this.isInstalled = !!found;
         this.installedAppId = found?.id ?? null;
+        this.deployStatus = found?.deployStatus ?? null;
       }
     });
   }
@@ -242,6 +269,40 @@ export class AppDetailComponent implements OnInit {
       },
       error: () => {
         this.uninstalling = false;
+      }
+    });
+  }
+
+  canDeploy(): boolean {
+    return this.isInstalled && !!(this.app?.repositoryUrl || this.app?.manifestImage);
+  }
+
+  deploy(): void {
+    if (!this.installedAppId) return;
+    this.deploying = true;
+    this.deploymentService.deploy(this.installedAppId).subscribe({
+      next: () => {
+        this.deployStatus = 'DEPLOYING';
+        this.deploying = false;
+        // Poll for completion
+        const interval = setInterval(() => {
+          this.deploymentService.getStatus(this.installedAppId!).subscribe({
+            next: (status) => {
+              this.deployStatus = status.deployStatus;
+              if (status.deployStatus !== 'DEPLOYING') {
+                clearInterval(interval);
+                // Reload app to get updated applicationUrl
+                if (this.app) {
+                  this.appService.getById(this.app.id).subscribe(a => this.app = a);
+                }
+              }
+            },
+            error: () => clearInterval(interval)
+          });
+        }, 3000);
+      },
+      error: () => {
+        this.deploying = false;
       }
     });
   }
