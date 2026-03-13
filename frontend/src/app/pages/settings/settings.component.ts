@@ -435,7 +435,7 @@ export class SettingsComponent implements OnInit {
   notifications = { email: true, push: false, digest: 'woechentlich' };
   password = { current: '', newPw: '', confirm: '' };
 
-  themeEdit: Record<string, any> = {};
+  themeEdit: any = {};
   showAddMenu = false;
   editingMenuItem: CustomMenuItem | null = null;
   menuForm = { label: '', menuType: 'IFRAME', url: '', icon: 'link', visible: true };
