@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Router, NavigationEnd, RouterModule } from '@angular/router';
 import { PortalStateService } from '../services/portal-state.service';
 import { InstalledAppService } from '../services/installed-app.service';
+import { AuthService } from '../services/auth.service';
 import { filter } from 'rxjs/operators';
 
 @Component({
@@ -14,6 +15,7 @@ import { filter } from 'rxjs/operators';
 export class SidebarComponent implements OnInit {
   private readonly portalState = inject(PortalStateService);
   private readonly installedAppService = inject(InstalledAppService);
+  private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
 
   readonly collapsed = this.portalState.sidebarCollapsed;
@@ -76,5 +78,9 @@ export class SidebarComponent implements OnInit {
       return;
     }
     this.installedAppsExpanded = !this.installedAppsExpanded;
+  }
+
+  doLogout(): void {
+    this.authService.logout();
   }
 }

@@ -194,6 +194,18 @@
             </a>
           </li>
           <li>
+            <a routerLink="/gruppen" routerLinkActive="text-[#006EC7] font-semibold"
+               class="block px-3 py-1.5 text-sm text-gray-500 hover:text-gray-900 rounded transition-colors">
+              Gruppen
+            </a>
+          </li>
+          <li>
+            <a routerLink="/mandanten" routerLinkActive="text-[#006EC7] font-semibold"
+               class="block px-3 py-1.5 text-sm text-gray-500 hover:text-gray-900 rounded transition-colors">
+              Mandanten
+            </a>
+          </li>
+          <li>
             <a routerLink="/aufgaben" routerLinkActive="text-[#006EC7] font-semibold"
                class="block px-3 py-1.5 text-sm text-gray-500 hover:text-gray-900 rounded transition-colors">
               Aufgaben
@@ -266,6 +278,19 @@
       </li>
     </ul>
   </nav>
+
+  <!-- Logout -->
+  <button
+    (click)="doLogout()"
+    class="flex items-center gap-3 px-4 py-3 border-t border-gray-100 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0"
+    [class.justify-center]="collapsed() && !mobileSidebarOpen()"
+    [title]="collapsed() && !mobileSidebarOpen() ? 'Abmelden' : ''"
+  >
+    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+    </svg>
+    <span *ngIf="!collapsed() || mobileSidebarOpen()" class="text-sm font-medium whitespace-nowrap">Abmelden</span>
+  </button>
 
   <!-- Collapse Toggle (desktop only) -->
   <button

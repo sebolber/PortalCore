@@ -890,6 +890,12 @@ VALUES ('p1', 'Allgemein', 'App-Name', 'app.name', 'Demo App', 'Demo App', 'STRI
 | Datum       | Aenderung                                                          |
 |-------------|---------------------------------------------------------------------|
 | 2026-03-13  | Erstversion: Menue-Konfiguration, AppParameter, Deployment-Manifest |
+| 2026-03-13  | Authentifizierung: OTP-basierte Anmeldung (kein Passwort), JWT-Token |
+| 2026-03-13  | Autorisierung: Feingranulare Gruppenberechtigungen pro Use Case     |
+| 2026-03-13  | Multi-Mandant: Benutzer koennen mehreren Mandanten zugeordnet sein  |
+| 2026-03-13  | Mandanten: Erweitert um Adresse, Kontaktdaten, Ansprechpartner     |
+| 2026-03-13  | Benutzer: Erweitert um Personendaten, mehrere Adressen, Hauptadresse|
+| 2026-03-13  | Audit-Log: Sicherheitsrelevante Aktionen werden protokolliert       |
 
 ---
 
@@ -904,3 +910,6 @@ VALUES ('p1', 'Allgemein', 'App-Name', 'app.name', 'Demo App', 'Demo App', 'STRI
 | CORS-Fehler beim Zugriff vom Portal        | `CorsConfig` pruefen -- `allowedOrigins("*")` setzen |
 | Deployment schlaegt fehl                   | Deploy-Log pruefen (`GET /api/deployments/{id}/status`) |
 | Routen funktionieren nicht                  | Angular-Routen muessen mit `portal-app-menu.yaml` uebereinstimmen |
+| 401 Unauthorized bei API-Aufrufen          | JWT-Token fehlt, `Authorization: Bearer <token>` Header setzen    |
+| Benutzer sieht Menuepunkt nicht            | `anzeigen`-Berechtigung fuer den Use Case in der Gruppe pruefen   |
+| Mandantenwechsel schlaegt fehl             | Benutzer muss dem Zielmandanten zugeordnet sein (user_tenants)     |

@@ -1,10 +1,15 @@
 package de.portalcore.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import de.portalcore.enums.UserStatus;
 import jakarta.persistence.*;
 import lombok.*;
+
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @Entity
@@ -29,6 +34,7 @@ public class PortalUser {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "tenant_id", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Tenant tenant;
 
     @Enumerated(EnumType.STRING)
@@ -42,7 +48,23 @@ public class PortalUser {
         inverseJoinColumns = @JoinColumn(name = "role_id")
     )
     @Builder.Default
+    @JsonIgnoreProperties({"berechtigungen"})
     private Set<PortalRolle> rollen = new HashSet<>();
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "user_gruppen",
+        joinColumns = @JoinColumn(name = "user_id"),
+        inverseJoinColumns = @JoinColumn(name = "gruppe_id")
+    )
+    @Builder.Default
+    @JsonIgnoreProperties({"benutzer", "berechtigungen"})
+    private Set<Gruppe> gruppen = new HashSet<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Builder.Default
+    @JsonIgnoreProperties("user")
+    private List<UserAdresse> adressen = new ArrayList<>();
 
     @Column(name = "letzter_login")
     private LocalDateTime letzterLogin;
@@ -56,6 +78,16 @@ public class PortalUser {
     @Column(nullable = false)
     private String initialen;
 
-    @Column(name = "password_hash")
-    private String passwordHash;
+    // Erweiterte Personendaten
+    private String anrede;
+    private String titel;
+    private String telefon;
+    private String mobil;
+    private String abteilung;
+
+    @Column(name = "position_titel")
+    private String positionTitel;
+
+    @Column(name = "geburtsdatum")
+    private LocalDate geburtsdatum;
 }
