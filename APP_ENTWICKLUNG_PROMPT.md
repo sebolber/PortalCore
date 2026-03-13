@@ -1418,7 +1418,133 @@ GAP        = 16px       -- Abstand zwischen Zellen
 
 ---
 
-## 16. Checkliste fuer neue Apps
+## 16. E-Mail-Konfiguration und Authentifizierung
+
+Das Portal verwendet E-Mail-basierte OTP-Authentifizierung (kein Passwort). Die E-Mail-Konfiguration wird in der Datenbank (`portal_parameters`) gespeichert und beim Start aus `portal-init.yml` befuellt.
+
+### 16.1 Erstinstallation
+
+Bei der Erstinstallation muss eine `portal-init.yml` bereitgestellt werden. Das Backend liest diese beim Start und konfiguriert:
+
+1. **Super-User** (wird nur angelegt wenn E-Mail noch nicht existiert)
+2. **E-Mail-Parameter** (werden nur gesetzt wenn der aktuelle Wert leer ist)
+
+**Suchreihenfolge der Konfigurationsdatei:**
+1. `/app/config/portal-init.yml` (Docker-Volume-Mount)
+2. `classpath:portal-init.yml` (im JAR eingebettet)
+
+### 16.2 Vollstaendige portal-init.yml
+
+```yaml
+# Super-User fuer die Erstinstallation
+superUser:
+  vorname: Max
+  nachname: Mustermann
+  email: admin@meine-organisation.de
+  tenantId: t-aok-nw            # Muss als Mandant existieren (V2 Seed-Daten)
+
+# Parameter-Werte (nur leere Werte werden ueberschrieben)
+parameters:
+  # SMTP-Konfiguration (PFLICHT fuer Login)
+  portal.email.smtp.host: smtp.meine-organisation.de
+  portal.email.smtp.port: "587"
+  portal.email.smtp.username: portal@meine-organisation.de
+  portal.email.smtp.password: "geheim"
+  portal.email.smtp.auth: "true"
+  portal.email.smtp.starttls: "true"     # true fuer Port 587
+  portal.email.smtp.ssl: "false"          # true fuer Port 465
+  portal.email.from: portal@meine-organisation.de
+
+  # IMAP-Konfiguration (optional)
+  portal.email.imap.host: imap.meine-organisation.de
+  portal.email.imap.port: "993"
+  portal.email.imap.username: portal@meine-organisation.de
+  portal.email.imap.password: "geheim"
+  portal.email.imap.ssl: "true"
+  portal.email.imap.enabled: "false"
+
+  # POP3-Konfiguration (alternativ zu IMAP, optional)
+  portal.email.pop3.host: pop3.meine-organisation.de
+  portal.email.pop3.port: "995"
+  portal.email.pop3.username: portal@meine-organisation.de
+  portal.email.pop3.password: "geheim"
+  portal.email.pop3.ssl: "true"
+  portal.email.pop3.enabled: "false"
+
+  # OTP-Einstellungen
+  portal.auth.email.enabled: "true"
+  portal.auth.otp.length: "6"
+  portal.auth.otp.expiration-minutes: "10"
+  portal.auth.otp.max-attempts: "5"
+  portal.auth.otp.rate-limit: "5"
+```
+
+### 16.3 Docker-Deployment
+
+In `docker-compose.yml` die Datei als Volume mounten:
+
+```yaml
+backend:
+  volumes:
+    - ./portal-init.yml:/app/config/portal-init.yml:ro
+```
+
+### 16.4 SMTP-Konfigurationsbeispiele
+
+| Anbieter | Host | Port | Auth | STARTTLS | SSL |
+|----------|------|------|------|----------|-----|
+| Microsoft 365 | `smtp.office365.com` | 587 | true | true | false |
+| Google Workspace | `smtp.gmail.com` | 587 | true | true | false |
+| Eigener Server (TLS) | `mail.firma.de` | 465 | true | false | true |
+| MailHog (Entwicklung) | `localhost` | 1025 | false | false | false |
+
+### 16.5 Login-Ablauf
+
+```
+1. Benutzer gibt E-Mail ein      → POST /auth/login { "email": "..." }
+2. Backend generiert OTP-Code    → 6-stellig, 10 Min. gueltig
+3. OTP wird per E-Mail versendet → EmailConfigService liest SMTP aus DB
+4. Benutzer gibt OTP ein         → POST /auth/verify { "email": "...", "otp": "123456" }
+5. JWT-Token wird ausgestellt    → 8 Stunden gueltig
+```
+
+> **Entwicklung ohne Mailserver:** `OTP_SEND_MAIL=false` in Umgebungsvariablen setzen. Der OTP-Code wird dann im Backend-Log ausgegeben.
+
+### 16.6 Alle E-Mail-Parameter
+
+| Parameter-Key | Typ | Standard | Beschreibung |
+|---------------|-----|----------|-------------|
+| `portal.email.smtp.host` | STRING | _(leer)_ | SMTP-Server |
+| `portal.email.smtp.port` | NUMBER | `587` | SMTP-Port |
+| `portal.email.smtp.username` | STRING | _(leer)_ | SMTP-Benutzername |
+| `portal.email.smtp.password` | PASSWORD | _(leer)_ | SMTP-Passwort (sensitiv) |
+| `portal.email.smtp.auth` | BOOLEAN | `false` | Authentifizierung |
+| `portal.email.smtp.starttls` | BOOLEAN | `false` | STARTTLS (Port 587) |
+| `portal.email.smtp.ssl` | BOOLEAN | `false` | SSL/TLS (Port 465) |
+| `portal.email.from` | EMAIL | `noreply@health-portal.de` | Absenderadresse |
+| `portal.email.imap.*` | div. | - | IMAP-Posteingang (optional) |
+| `portal.email.pop3.*` | div. | - | POP3-Posteingang (optional) |
+| `portal.auth.email.enabled` | BOOLEAN | `true` | OTP per E-Mail aktiv |
+| `portal.auth.otp.length` | NUMBER | `6` | OTP-Code-Laenge |
+| `portal.auth.otp.expiration-minutes` | NUMBER | `10` | OTP-Gueltigkeit |
+| `portal.auth.otp.max-attempts` | NUMBER | `5` | Max. Fehlversuche |
+| `portal.auth.otp.rate-limit` | NUMBER | `5` | Max. Anfragen/Stunde |
+
+### 16.7 Nach der Erstinstallation
+
+Alle E-Mail-Parameter koennen spaeter ueber die **Admin-Oberflaeche** geaendert werden:
+
+1. Einloggen als Super-Admin
+2. Navigieren zu **Parameter**
+3. Filtern nach App "Portal", Gruppe "Email"
+4. Werte aendern → Aenderungen sind sofort wirksam
+5. Alle Aenderungen werden im **Audit-Log** protokolliert
+
+> **Sicherheit:** E-Mail-Parameter sind als `admin_only = true` markiert und koennen nur von Super-Admins eingesehen und geaendert werden. Passwoerter werden als `PASSWORD`-Typ gespeichert und in der UI/Audit-Log maskiert (`***`).
+
+---
+
+## 17. Checkliste fuer neue Apps
 
 ### Pflicht -- ohne diese Punkte ist die App nicht im Portal installierbar
 
@@ -1472,7 +1598,7 @@ GAP        = 16px       -- Abstand zwischen Zellen
 
 ---
 
-## 17. Beispiel: Minimale App
+## 18. Beispiel: Minimale App
 
 Eine minimale App die alle Kriterien erfuellt:
 
@@ -1563,7 +1689,7 @@ VALUES ('p1', 'app.name', 'App-Name', 'demo-app', 'Demo App', 'Allgemein', 'STRI
 
 ---
 
-## 18. Aenderungsprotokoll
+## 19. Aenderungsprotokoll
 
 > **Regel:** Jedes Mal wenn neue Anforderungen, Schnittstellen oder Kriterien hinzukommen, die eine App erfuellen muss um im Portal installierbar zu sein, MUSS diese Datei aktualisiert werden.
 
@@ -1593,10 +1719,11 @@ VALUES ('p1', 'app.name', 'App-Name', 'demo-app', 'Demo App', 'Allgemein', 'STRI
 | 2026-03-13  | Widget-Typen: ZAHL, LISTE, BALKEN, TORTE, QUICKLINK, TABELLE (pure CSS, keine Chart-Libs) |
 | 2026-03-13  | Posteingang-Widget: Scrollbare Inbox-Liste auf dem Dashboard |
 | 2026-03-13  | Portal-Dienste: Apps koennen Nachrichtencenter und Dashboard-Widgets nutzen |
+| 2026-03-13  | E-Mail-Konfiguration: Vollstaendige Dokumentation der SMTP/IMAP/POP3-Ersteinrichtung |
 
 ---
 
-## 19. Haeufige Fehler
+## 20. Haeufige Fehler
 
 | Problem                                     | Loesung                                              |
 |---------------------------------------------|------------------------------------------------------|
@@ -1622,3 +1749,8 @@ VALUES ('p1', 'app.name', 'App-Name', 'demo-app', 'Demo App', 'Allgemein', 'STRI
 | Unteraufgabe kann nicht erstellt werden    | Nur fuer `typ = AUFGABE` moeglich, nicht fuer Nachrichten |
 | Widget erscheint nicht im Picker           | `widget_definitionen` Eintrag pruefen, Kategorie korrekt? |
 | Widget zeigt keine Daten                   | `daten_endpunkt` pruefen, CORS konfiguriert? |
+| OTP-E-Mail wird nicht versendet            | SMTP-Host in `portal_parameters` pruefen, `OTP_SEND_MAIL=true`? |
+| Login schlaegt fehl "OTP abgelaufen"       | `portal.auth.otp.expiration-minutes` erhoehen, Uhrzeit pruefen |
+| Login schlaegt fehl "Rate-Limit"           | `portal.auth.otp.rate-limit` erhoehen oder warten |
+| E-Mail-Parameter nicht sichtbar            | Nur Super-Admin kann E-Mail-Parameter sehen (`admin_only=true`) |
+| portal-init.yml wird nicht geladen         | Datei unter `/app/config/portal-init.yml` oder im Classpath? |

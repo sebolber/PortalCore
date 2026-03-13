@@ -152,16 +152,55 @@ Basis-URL: `http://<host>:8080/api`
 
 ---
 
-## 4. Installations- und Navigationsverhalten
+## 4. E-Mail-Konfiguration und Authentifizierung
 
-### 4.1 Installationsablauf
+Das Portal verwendet OTP-basierte Authentifizierung per E-Mail (keine Passwoerter). Die Konfiguration erfolgt bei der Erstinstallation ueber `portal-init.yml`:
+
+### 4.1 Erstinstallation
+
+1. `portal-init.example.yml` kopieren nach `portal-init.yml`
+2. SMTP-Server, Benutzername, Passwort und Absenderadresse eintragen
+3. Super-User Daten konfigurieren (Name, E-Mail, Mandant)
+4. Datei als Docker-Volume mounten: `-v ./portal-init.yml:/app/config/portal-init.yml:ro`
+5. Portal starten -- Parameter werden automatisch befuellt
+
+### 4.2 Pflicht-Parameter fuer SMTP
+
+| Parameter | Beschreibung | Beispiel |
+|-----------|-------------|---------|
+| `portal.email.smtp.host` | SMTP-Server | `smtp.office365.com` |
+| `portal.email.smtp.port` | Port (587 STARTTLS, 465 SSL) | `587` |
+| `portal.email.smtp.username` | SMTP-Benutzername | `portal@firma.de` |
+| `portal.email.smtp.password` | SMTP-Passwort | _(sensitiv)_ |
+| `portal.email.smtp.auth` | Authentifizierung | `true` |
+| `portal.email.smtp.starttls` | STARTTLS (Port 587) | `true` |
+| `portal.email.smtp.ssl` | SSL/TLS (Port 465) | `false` |
+| `portal.email.from` | Absenderadresse | `portal@firma.de` |
+
+### 4.3 Optionale Parameter
+
+- **IMAP** (`portal.email.imap.*`): Posteingang-Konfiguration
+- **POP3** (`portal.email.pop3.*`): Alternativ zu IMAP
+- **OTP** (`portal.auth.otp.*`): Code-Laenge, Gueltigkeit, Rate-Limit
+
+### 4.4 Nach der Installation
+
+Alle Parameter koennen spaeter ueber die **Admin-Oberflaeche** unter "Parameter" geaendert werden. Nur Super-Admins haben Zugriff auf E-Mail-Einstellungen (`admin_only`). Aenderungen werden im Audit-Log protokolliert.
+
+> **Entwicklung:** `OTP_SEND_MAIL=false` als Umgebungsvariable setzen. Der OTP-Code wird dann im Backend-Log ausgegeben statt per E-Mail versendet.
+
+---
+
+## 5. Installations- und Navigationsverhalten
+
+### 5.1 Installationsablauf
 1. Benutzer oeffnet den **App-Store** im Portal
 2. Waehlt eine App aus und klickt **"Installieren"**
 3. Backend erstellt einen `installed_apps`-Eintrag mit Status `ACTIVE`
 4. Die **Sidebar** laedt die installierten Apps neu
 5. Die App erscheint im Navigationsbereich **"Installierte Anwendungen"**
 
-### 4.2 Navigation nach Installation
+### 5.2 Navigation nach Installation
 Die installierte App erscheint in der Sidebar mit:
 - **Farbigem Avatar** (`icon_color` + `icon_initials`)
 - **App-Name** als Link
@@ -171,16 +210,16 @@ Der Link fuehrt zu:
 - `route` (wenn gesetzt) -- fuer interne Angular-Routen
 - `/appstore/{appId}` (Fallback) -- App-Detailseite
 
-### 4.3 Deinstallation
+### 5.3 Deinstallation
 - Entfernt den `installed_apps`-Eintrag
 - Die App verschwindet aus der Sidebar-Navigation
 - Die App bleibt im App-Store-Katalog verfuegbar
 
 ---
 
-## 5. Design-System und Styling
+## 6. Design-System und Styling
 
-### 5.1 Farben
+### 6.1 Farben
 
 **Primaerfarbe:**
 ```
@@ -207,7 +246,7 @@ Pink:     #F566BA     Violett: #461EBE    Gelb:   #FFFF00
 Success: #28A745     Warning: #FFC107     Error: #CC3333     Info: #17A2B8
 ```
 
-### 5.2 Typografie
+### 6.2 Typografie
 
 | Verwendung         | Schriftart             | Gewichte           |
 |--------------------|-----------------------|--------------------|
@@ -219,7 +258,7 @@ Font-Import (im HTML `<head>`):
 <link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@300;400;500;700&family=Fira+Sans+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
 ```
 
-### 5.3 CSS-Klassen (global verfuegbar)
+### 6.3 CSS-Klassen (global verfuegbar)
 
 ```css
 .btn-primary        /* Primaerer Button: blauer Hintergrund, weisser Text, abgerundet */
@@ -233,7 +272,7 @@ Font-Import (im HTML `<head>`):
 .badge-error        /* Roter Badge */
 ```
 
-### 5.4 CSS Custom Properties
+### 6.4 CSS Custom Properties
 
 ```css
 :root {
@@ -243,7 +282,7 @@ Font-Import (im HTML `<head>`):
 }
 ```
 
-### 5.5 Dark Mode
+### 6.5 Dark Mode
 
 - Aktivierung ueber CSS-Klasse `dark` am Root-Element
 - Tailwind-Konfiguration: `darkMode: 'class'`
@@ -252,9 +291,9 @@ Font-Import (im HTML `<head>`):
 
 ---
 
-## 6. Frontend-Architektur (Angular)
+## 7. Frontend-Architektur (Angular)
 
-### 6.1 Technologie-Stack
+### 7.1 Technologie-Stack
 
 | Technologie        | Version   |
 |--------------------|-----------|
@@ -264,7 +303,7 @@ Font-Import (im HTML `<head>`):
 | RxJS               | 7.8       |
 | Node.js (Build)    | 20        |
 
-### 6.2 Component-Pattern
+### 7.2 Component-Pattern
 
 Alle Seiten sind **Standalone Components** mit Inline-Templates:
 
@@ -303,7 +342,7 @@ export class MeineSeiteComponent {
 }
 ```
 
-### 6.3 Routing-Integration
+### 7.3 Routing-Integration
 
 Neue interne Apps muessen in `frontend/src/app/app.routes.ts` registriert werden:
 
@@ -315,7 +354,7 @@ Neue interne Apps muessen in `frontend/src/app/app.routes.ts` registriert werden
 }
 ```
 
-### 6.4 State Management
+### 7.4 State Management
 
 **Lokaler State:** Angular Signals (`signal()`, `computed()`)
 
@@ -331,7 +370,7 @@ portalState.sidebarCollapsed()    // Signal<boolean>  -- Sidebar eingeklappt?
 portalState.mobileSidebarOpen     // Signal<boolean>  -- Mobile Sidebar offen?
 ```
 
-### 6.5 API-Anbindung
+### 7.5 API-Anbindung
 
 Basis-Service (`ApiService`) stellt geschuetzte HTTP-Methoden bereit:
 
@@ -359,9 +398,9 @@ export class MeineAppService {
 
 ---
 
-## 7. Backend-Architektur (Spring Boot)
+## 8. Backend-Architektur (Spring Boot)
 
-### 7.1 Technologie-Stack
+### 8.1 Technologie-Stack
 
 | Technologie   | Version     |
 |---------------|-------------|
@@ -372,7 +411,7 @@ export class MeineAppService {
 | Lombok        | (integriert)|
 | Maven         | 3.9         |
 
-### 7.2 Paketstruktur
+### 8.2 Paketstruktur
 
 ```
 de.portalcore/
@@ -383,7 +422,7 @@ de.portalcore/
   enums/         -- Enum-Typen
 ```
 
-### 7.3 Controller-Pattern
+### 8.3 Controller-Pattern
 
 ```java
 @RestController
@@ -409,7 +448,7 @@ public class MeineAppController {
 }
 ```
 
-### 7.4 Entity-Pattern
+### 8.4 Entity-Pattern
 
 ```java
 @Entity
@@ -427,7 +466,7 @@ public class MeineDaten {
 }
 ```
 
-### 7.5 Datenbank-Migrationen
+### 8.5 Datenbank-Migrationen
 
 Neue Tabellen und Seed-Daten ueber Flyway-Migrationen anlegen:
 
@@ -451,7 +490,7 @@ backend/src/main/resources/db/migration/
 
 **Namenskonvention:** `V{nummer}__{beschreibung}.sql`
 
-### 7.6 Konfiguration
+### 8.6 Konfiguration
 
 ```yaml
 # application.yml
@@ -473,9 +512,9 @@ server:
 
 ---
 
-## 8. Responsive Design
+## 9. Responsive Design
 
-### 8.1 Breakpoints (Tailwind Standard)
+### 9.1 Breakpoints (Tailwind Standard)
 
 | Breakpoint | Mindestbreite | Verwendung              |
 |------------|---------------|-------------------------|
@@ -485,7 +524,7 @@ server:
 | `lg:`      | 1024px        | Desktop                 |
 | `xl:`      | 1280px        | Grosse Bildschirme      |
 
-### 8.2 Mobile-First Regeln
+### 9.2 Mobile-First Regeln
 
 1. **Standard-Layout** ist fuer Mobilgeraete optimiert
 2. Groessere Layouts werden mit `sm:`, `md:`, `lg:` ergaenzt
@@ -494,7 +533,7 @@ server:
 5. **Grids** starten einspalttig: `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4`
 6. **Die Sidebar** ist auf Mobile ein Overlay (ab `md:` fixiert sichtbar)
 
-### 8.3 Beispiel: Responsive Seitenlayout
+### 9.3 Beispiel: Responsive Seitenlayout
 
 ```html
 <!-- Header -->
@@ -522,11 +561,11 @@ server:
 
 ---
 
-## 9. Automatisches App-Deployment
+## 10. Automatisches App-Deployment
 
 Das Portal unterstuetzt automatisches Deployment externer Apps als Docker-Container. Apps koennen ueber den App-Store installiert und direkt aus der Oberflaeche deployed werden.
 
-### 9.1 Architektur
+### 10.1 Architektur
 
 Das Backend verwaltet Docker-Container ueber den Docker-Socket (Sibling-Container-Pattern):
 
@@ -548,7 +587,7 @@ Das Backend verwaltet Docker-Container ueber den Docker-Socket (Sibling-Containe
 
 Das Backend hat Zugriff auf `/var/run/docker.sock` und nutzt die Docker CLI (`docker pull`, `docker build`, `docker run`, etc.) um App-Container zu verwalten.
 
-### 9.2 portal-app.yaml Manifest
+### 10.2 portal-app.yaml Manifest
 
 Jede deploybare App kann eine `portal-app.yaml` im Repository-Root bereitstellen. Das Portal liest diese Datei beim Deployment automatisch aus.
 
@@ -592,7 +631,7 @@ healthCheck: /health
 
 \* Entweder `image` oder `dockerfile` muss gesetzt sein. Wenn keines angegeben ist, wird `Dockerfile` im Repository-Root gesucht.
 
-### 9.3 Deployment-Ablauf
+### 10.3 Deployment-Ablauf
 
 1. **Benutzer klickt "Deployen"** in der App-Detail-Seite oder unter "Installierte Apps"
 2. **Backend klont das Repository** (wenn `repositoryUrl` gesetzt) nach `/tmp/portal-deployments/`
@@ -604,7 +643,7 @@ healthCheck: /health
 6. **Container wird ins Portal-Netzwerk eingebunden** (`portalcore_default`)
 7. **Status wird aktualisiert:** `applicationUrl`, `containerPort`, `deployStatus`
 
-### 9.4 Deployment-API
+### 10.4 Deployment-API
 
 ```
 POST /api/deployments/{installedAppId}/deploy       -- Asynchrones Deployment
@@ -623,7 +662,7 @@ GET  /api/deployments/{installedAppId}/status        -- Deployment-Status abfrag
 | `STOPPED`   | Container gestoppt                     |
 | `FAILED`    | Deployment fehlgeschlagen              |
 
-### 9.5 Docker-Konfiguration
+### 10.5 Docker-Konfiguration
 
 In `docker-compose.yml` muessen folgende Volumes fuer das Backend konfiguriert sein:
 
@@ -639,7 +678,7 @@ Das Backend-Dockerfile installiert Docker CLI und Git:
 RUN apk add --no-cache docker-cli git
 ```
 
-### 9.6 Manuelles Deployment (Alternative)
+### 10.6 Manuelles Deployment (Alternative)
 
 Alternativ kann eine App auch manuell als Container in `docker-compose.yml` hinzugefuegt werden:
 
@@ -653,7 +692,7 @@ meine-app:
     - backend
 ```
 
-### 9.7 App im Portal registrieren
+### 10.7 App im Portal registrieren
 
 Per REST API:
 ```bash
@@ -677,7 +716,7 @@ curl -X POST http://localhost:8080/api/apps \
   }'
 ```
 
-### 9.8 App installieren und deployen
+### 10.8 App installieren und deployen
 
 ```bash
 # 1. App fuer Mandant installieren
@@ -696,7 +735,7 @@ Nach Installation erscheint die App automatisch in der Sidebar unter **"Installi
 
 ---
 
-## 10. Checkliste fuer neue Apps
+## 11. Checkliste fuer neue Apps
 
 ### Pflicht
 - [ ] App-ID ist eindeutig und im kebab-case Format
@@ -736,7 +775,7 @@ Nach Installation erscheint die App automatisch in der Sidebar unter **"Installi
 
 ---
 
-## 11. Referenz-Dateien im Repository
+## 12. Referenz-Dateien im Repository
 
 | Datei                                              | Inhalt                              |
 |----------------------------------------------------|-------------------------------------|
