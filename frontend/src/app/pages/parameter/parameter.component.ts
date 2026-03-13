@@ -61,6 +61,14 @@ import { AuthService } from '../../services/auth.service';
 
         <!-- Filters -->
         <div class="flex flex-wrap gap-3 mb-4">
+          <input
+            type="text"
+            placeholder="Suche nach Schluessel, Label oder Beschreibung..."
+            [ngModel]="searchFilter()"
+            (ngModelChange)="searchFilter.set($event)"
+            class="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary w-72"
+          />
+
           <select
             [ngModel]="appFilter()"
             (ngModelChange)="appFilter.set($event)"
@@ -72,13 +80,16 @@ import { AuthService } from '../../services/auth.service';
             }
           </select>
 
-          <input
-            type="text"
-            placeholder="Suche nach Schluessel, Label oder Beschreibung..."
-            [ngModel]="searchFilter()"
-            (ngModelChange)="searchFilter.set($event)"
-            class="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary w-72"
-          />
+          <select
+            [ngModel]="groupFilter()"
+            (ngModelChange)="groupFilter.set($event)"
+            class="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+          >
+            <option value="">Alle Gruppen</option>
+            @for (group of groupNames(); track group) {
+              <option [value]="group">{{ group }}</option>
+            }
+          </select>
 
           <select
             [ngModel]="typeFilter()"
@@ -106,6 +117,18 @@ import { AuthService } from '../../services/auth.service';
             <option value="global">Nur globale Parameter</option>
             <option value="tenant">Nur mandantenspezifische</option>
           </select>
+
+          <select
+            [ngModel]="booleanFilter()"
+            (ngModelChange)="booleanFilter.set($event)"
+            class="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+          >
+            <option value="">Alle Flags</option>
+            <option value="hotReload">Hot-Reload</option>
+            <option value="sensitive">Sensibel</option>
+            <option value="required">Pflichtfeld</option>
+            <option value="adminOnly">Nur Admin</option>
+          </select>
         </div>
 
         <!-- Error Message -->
@@ -116,175 +139,153 @@ import { AuthService } from '../../services/auth.service';
           </div>
         }
 
-        <!-- Grouped Parameters -->
-        @for (appGroup of groupedParameters(); track appGroup.appName) {
-          <div class="mb-6">
-            <h3 class="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-              <span class="w-2 h-2 rounded-full bg-primary"></span>
-              {{ appGroup.appName }}
-              <span class="text-xs text-gray-400 font-normal">({{ appGroup.count }} Parameter)</span>
-            </h3>
-
-            @for (group of appGroup.groups; track group.groupName) {
-              <div class="ml-4 mb-4">
-                <button
-                  (click)="toggleGroup(appGroup.appName + ':' + group.groupName)"
-                  class="flex items-center gap-2 text-xs font-medium text-gray-500 uppercase tracking-wider mb-2 hover:text-gray-700 cursor-pointer"
-                >
-                  <svg class="w-4 h-4 transition-transform" [class.rotate-90]="expandedGroups().has(appGroup.appName + ':' + group.groupName)" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                  </svg>
-                  {{ group.groupName }}
-                  <span class="text-gray-400">({{ group.params.length }})</span>
-                </button>
-
-                @if (expandedGroups().has(appGroup.appName + ':' + group.groupName)) {
-                  <div class="space-y-2 ml-6">
-                    @for (param of group.params; track param.id) {
-                      <div class="bg-white rounded-lg border border-gray-200 p-4 shadow-card">
-                        <div class="flex items-start justify-between gap-4">
-                          <div class="flex-1 min-w-0">
-                            <div class="flex items-center gap-2 mb-1 flex-wrap">
-                              <code class="text-xs font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{{ param.key }}</code>
-                              <span class="text-xs px-1.5 py-0.5 rounded font-medium"
-                                [class]="typeClass(param.type)">{{ param.type }}</span>
-                              @if (param.hotReload) {
-                                <span class="text-xs px-1.5 py-0.5 rounded bg-warning/10 text-warning font-medium" title="Hot-Reload faehig">Hot</span>
+        <!-- Parameter Table -->
+        <div class="bg-white rounded-lg border border-gray-200 shadow-card overflow-hidden overflow-x-auto">
+          <table class="w-full text-sm min-w-[1100px]">
+            <thead>
+              <tr class="bg-gray-50 border-b border-gray-200">
+                <th class="text-left px-4 py-3 font-medium text-gray-600">Schluessel / Label</th>
+                <th class="text-left px-4 py-3 font-medium text-gray-600">App</th>
+                <th class="text-left px-4 py-3 font-medium text-gray-600">Gruppe</th>
+                <th class="text-left px-4 py-3 font-medium text-gray-600">Typ</th>
+                <th class="text-left px-4 py-3 font-medium text-gray-600">Wert</th>
+                <th class="text-left px-4 py-3 font-medium text-gray-600">Scope</th>
+                <th class="text-left px-4 py-3 font-medium text-gray-600">Flags</th>
+                <th class="text-left px-4 py-3 font-medium text-gray-600 w-24"></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (param of filteredParameters(); track param.id) {
+                <tr class="border-b border-gray-100 hover:bg-gray-50 align-top">
+                  <td class="px-4 py-3">
+                    <code class="text-xs font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{{ param.key }}</code>
+                    <div class="text-sm font-medium text-gray-900 mt-0.5">{{ param.label }}</div>
+                    @if (param.description) {
+                      <div class="text-xs text-gray-400 mt-0.5">{{ param.description }}</div>
+                    }
+                  </td>
+                  <td class="px-4 py-3 text-xs text-gray-600">{{ param.appName }}</td>
+                  <td class="px-4 py-3 text-xs text-gray-600">{{ param.group }}</td>
+                  <td class="px-4 py-3">
+                    <span class="text-xs px-1.5 py-0.5 rounded font-medium" [class]="typeClass(param.type)">{{ param.type }}</span>
+                  </td>
+                  <td class="px-4 py-3">
+                    @if (editingParam() === param.id) {
+                      <div class="flex flex-col gap-2">
+                        <div class="flex items-center gap-2">
+                          @if (param.type === 'BOOLEAN') {
+                            <select
+                              [ngModel]="editValue()"
+                              (ngModelChange)="editValue.set($event)"
+                              class="px-2 py-1 text-sm border border-primary rounded bg-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            >
+                              <option value="true">true</option>
+                              <option value="false">false</option>
+                            </select>
+                          } @else if (param.type === 'SELECT' && param.options) {
+                            <select
+                              [ngModel]="editValue()"
+                              (ngModelChange)="editValue.set($event)"
+                              class="px-2 py-1 text-sm border border-primary rounded bg-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            >
+                              @for (opt of splitOptions(param.options); track opt) {
+                                <option [value]="opt">{{ opt }}</option>
                               }
-                              @if (param.required) {
-                                <span class="text-xs text-error font-bold">*</span>
-                              }
-                              @if (param.sensitive) {
-                                <span class="text-xs px-1.5 py-0.5 rounded bg-error/10 text-error font-medium">Sensibel</span>
-                              }
-                              @if (param.adminOnly) {
-                                <span class="text-xs px-1.5 py-0.5 rounded bg-red-50 text-red-600 font-medium" title="Nur Administratoren duerfen diesen Parameter aendern">Nur Admin</span>
-                              }
-                              @if (param.tenantId) {
-                                <span class="text-xs px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 font-medium" title="Mandantenspezifisch">Mandant: {{ param.tenantId }}</span>
-                              } @else {
-                                <span class="text-xs px-1.5 py-0.5 rounded bg-blue-50 text-blue-500 font-medium" title="Gilt fuer alle Mandanten">Global</span>
-                              }
-                            </div>
-                            <div class="text-sm font-medium text-gray-900">{{ param.label }}</div>
-                            @if (param.description) {
-                              <div class="text-xs text-gray-400 mt-0.5">{{ param.description }}</div>
-                            }
-                            @if (param.gueltigVon || param.gueltigBis) {
-                              <div class="text-xs text-gray-400 mt-1 flex items-center gap-1">
-                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                                @if (param.gueltigVon && param.gueltigVon !== '1970-01-01T00:00:00') {
-                                  <span>ab {{ param.gueltigVon | date:'dd.MM.yyyy' }}</span>
-                                }
-                                @if (param.gueltigBis && param.gueltigBis !== '9999-12-31T23:59:59') {
-                                  <span>bis {{ param.gueltigBis | date:'dd.MM.yyyy' }}</span>
-                                }
-                                @if ((!param.gueltigVon || param.gueltigVon === '1970-01-01T00:00:00') && (!param.gueltigBis || param.gueltigBis === '9999-12-31T23:59:59')) {
-                                  <span>Unbegrenzt gueltig</span>
-                                }
-                              </div>
-                            }
-                          </div>
-
-                          <div class="flex items-center gap-2 shrink-0">
-                            @if (editingParam() === param.id) {
-                              <!-- Edit Mode -->
-                              <div class="flex flex-col gap-2">
-                                <div class="flex items-center gap-2">
-                                  @if (param.type === 'BOOLEAN') {
-                                    <select
-                                      [ngModel]="editValue()"
-                                      (ngModelChange)="editValue.set($event)"
-                                      class="px-2 py-1 text-sm border border-primary rounded bg-white focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                    >
-                                      <option value="true">true</option>
-                                      <option value="false">false</option>
-                                    </select>
-                                  } @else if (param.type === 'SELECT' && param.options) {
-                                    <select
-                                      [ngModel]="editValue()"
-                                      (ngModelChange)="editValue.set($event)"
-                                      class="px-2 py-1 text-sm border border-primary rounded bg-white focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                    >
-                                      @for (opt of splitOptions(param.options); track opt) {
-                                        <option [value]="opt">{{ opt }}</option>
-                                      }
-                                    </select>
-                                  } @else if (param.type === 'TEXTAREA') {
-                                    <textarea
-                                      [ngModel]="editValue()"
-                                      (ngModelChange)="editValue.set($event)"
-                                      class="px-2 py-1 text-sm border border-primary rounded bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 w-64"
-                                      rows="2"
-                                    ></textarea>
-                                  } @else {
-                                    <input
-                                      [type]="param.type === 'NUMBER' ? 'number' : param.type === 'PASSWORD' ? 'password' : param.type === 'EMAIL' ? 'email' : param.type === 'DATE' ? 'date' : 'text'"
-                                      [ngModel]="editValue()"
-                                      (ngModelChange)="editValue.set($event)"
-                                      class="px-2 py-1 text-sm border border-primary rounded bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 w-48"
-                                    />
-                                  }
-                                  @if (param.unit) {
-                                    <span class="text-xs text-gray-400">{{ param.unit }}</span>
-                                  }
-                                </div>
-                                <input
-                                  type="text"
-                                  placeholder="Grund der Aenderung..."
-                                  [ngModel]="editGrund()"
-                                  (ngModelChange)="editGrund.set($event)"
-                                  class="px-2 py-1 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 w-full"
-                                />
-                                <div class="flex gap-1">
-                                  <button (click)="saveEdit(param)" [disabled]="saving()" class="px-2 py-1 text-xs bg-primary text-white rounded hover:bg-primary-dark transition-colors disabled:opacity-50">Speichern</button>
-                                  <button (click)="resetParam(param)" [disabled]="saving()" class="px-2 py-1 text-xs bg-warning/10 text-warning rounded hover:bg-warning/20 transition-colors disabled:opacity-50" title="Auf Standardwert zuruecksetzen">Reset</button>
-                                  <button (click)="cancelEdit()" class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors">Abbrechen</button>
-                                </div>
-                              </div>
-                            } @else {
-                              <!-- Display Mode -->
-                              <div class="flex items-center gap-2">
-                                @if (param.sensitive && !revealedSensitive().has(param.id)) {
-                                  <span class="font-mono text-sm text-gray-400 tracking-widest">********</span>
-                                  <button (click)="toggleSensitive(param.id)" class="text-xs text-primary hover:underline">Anzeigen</button>
-                                } @else {
-                                  <span class="font-mono text-sm text-gray-900 bg-gray-50 px-2 py-0.5 rounded">{{ param.value }}</span>
-                                  @if (param.sensitive) {
-                                    <button (click)="toggleSensitive(param.id)" class="text-xs text-primary hover:underline">Verbergen</button>
-                                  }
-                                }
-                                @if (param.unit) {
-                                  <span class="text-xs text-gray-400">{{ param.unit }}</span>
-                                }
-                                @if (!param.adminOnly || authService.isSuperAdmin()) {
-                                  <button (click)="startEdit(param)" class="ml-2 text-xs text-primary hover:underline">Bearbeiten</button>
-                                }
-                              </div>
-                            }
-                          </div>
+                            </select>
+                          } @else if (param.type === 'TEXTAREA') {
+                            <textarea
+                              [ngModel]="editValue()"
+                              (ngModelChange)="editValue.set($event)"
+                              class="px-2 py-1 text-sm border border-primary rounded bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 w-48"
+                              rows="2"
+                            ></textarea>
+                          } @else {
+                            <input
+                              [type]="param.type === 'NUMBER' ? 'number' : param.type === 'PASSWORD' ? 'password' : param.type === 'EMAIL' ? 'email' : param.type === 'DATE' ? 'date' : 'text'"
+                              [ngModel]="editValue()"
+                              (ngModelChange)="editValue.set($event)"
+                              class="px-2 py-1 text-sm border border-primary rounded bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 w-40"
+                            />
+                          }
+                          @if (param.unit) {
+                            <span class="text-xs text-gray-400">{{ param.unit }}</span>
+                          }
                         </div>
-                        @if (param.lastModifiedBy) {
-                          <div class="mt-2 text-[10px] text-gray-400">
-                            Zuletzt geaendert: {{ param.lastModified | date:'dd.MM.yyyy HH:mm' }} von {{ param.lastModifiedBy }}
-                          </div>
+                        <input
+                          type="text"
+                          placeholder="Grund der Aenderung..."
+                          [ngModel]="editGrund()"
+                          (ngModelChange)="editGrund.set($event)"
+                          class="px-2 py-1 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 w-full"
+                        />
+                        <div class="flex gap-1">
+                          <button (click)="saveEdit(param)" [disabled]="saving()" class="px-2 py-1 text-xs bg-primary text-white rounded hover:bg-primary-dark transition-colors disabled:opacity-50">Speichern</button>
+                          <button (click)="resetParam(param)" [disabled]="saving()" class="px-2 py-1 text-xs bg-warning/10 text-warning rounded hover:bg-warning/20 transition-colors disabled:opacity-50" title="Auf Standardwert zuruecksetzen">Reset</button>
+                          <button (click)="cancelEdit()" class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors">Abbrechen</button>
+                        </div>
+                      </div>
+                    } @else {
+                      <div class="flex items-center gap-2">
+                        @if (param.sensitive && !revealedSensitive().has(param.id)) {
+                          <span class="font-mono text-sm text-gray-400 tracking-widest">********</span>
+                          <button (click)="toggleSensitive(param.id)" class="text-xs text-primary hover:underline">Anzeigen</button>
+                        } @else {
+                          <span class="font-mono text-sm text-gray-900 bg-gray-50 px-2 py-0.5 rounded break-all">{{ param.value }}</span>
+                          @if (param.sensitive) {
+                            <button (click)="toggleSensitive(param.id)" class="text-xs text-primary hover:underline">Verbergen</button>
+                          }
                         }
                       </div>
+                      @if (param.lastModifiedBy) {
+                        <div class="text-[10px] text-gray-400 mt-1">
+                          {{ param.lastModified | date:'dd.MM.yyyy HH:mm' }} von {{ param.lastModifiedBy }}
+                        </div>
+                      }
                     }
-                  </div>
-                }
-              </div>
-            }
-          </div>
-        }
+                  </td>
+                  <td class="px-4 py-3">
+                    @if (param.tenantId) {
+                      <span class="text-xs px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 font-medium" title="Mandantenspezifisch">Mandant: {{ param.tenantId }}</span>
+                    } @else {
+                      <span class="text-xs px-1.5 py-0.5 rounded bg-blue-50 text-blue-500 font-medium" title="Gilt fuer alle Mandanten">Global</span>
+                    }
+                  </td>
+                  <td class="px-4 py-3">
+                    <div class="flex flex-wrap gap-1">
+                      @if (param.hotReload) {
+                        <span class="text-xs px-1.5 py-0.5 rounded bg-warning/10 text-warning font-medium">Hot</span>
+                      }
+                      @if (param.required) {
+                        <span class="text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">Pflicht</span>
+                      }
+                      @if (param.sensitive) {
+                        <span class="text-xs px-1.5 py-0.5 rounded bg-error/10 text-error font-medium">Sensibel</span>
+                      }
+                      @if (param.adminOnly) {
+                        <span class="text-xs px-1.5 py-0.5 rounded bg-red-50 text-red-600 font-medium">Admin</span>
+                      }
+                    </div>
+                  </td>
+                  <td class="px-4 py-3">
+                    @if (editingParam() !== param.id && (!param.adminOnly || authService.isSuperAdmin())) {
+                      <button (click)="startEdit(param)" class="text-xs text-primary hover:underline">Bearbeiten</button>
+                    }
+                  </td>
+                </tr>
+              }
+              @if (filteredParameters().length === 0 && !loading()) {
+                <tr><td colspan="8" class="px-4 py-12 text-center text-gray-400">Keine Parameter gefunden.</td></tr>
+              }
+              @if (loading()) {
+                <tr><td colspan="8" class="px-4 py-12 text-center text-gray-400">Lade Parameter...</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
 
-        @if (groupedParameters().length === 0 && !loading()) {
-          <div class="text-center text-gray-400 py-12">Keine Parameter gefunden.</div>
-        }
-
-        @if (loading()) {
-          <div class="text-center text-gray-400 py-12">Lade Parameter...</div>
-        }
+        <div class="mt-2 text-xs text-gray-400">
+          {{ filteredParameters().length }} von {{ parameters().length }} Parametern
+        </div>
       }
 
       <!-- Tab 2: Aenderungsprotokoll -->
@@ -354,7 +355,8 @@ export class ParameterComponent implements OnInit {
   readonly typeFilter = signal('');
   readonly scopeFilter = signal('');
   readonly auditAppFilter = signal('');
-  readonly expandedGroups = signal<Set<string>>(new Set());
+  readonly groupFilter = signal('');
+  readonly booleanFilter = signal('');
   readonly editingParam = signal<string | null>(null);
   readonly editValue = signal('');
   readonly editGrund = signal('');
@@ -396,38 +398,44 @@ export class ParameterComponent implements OnInit {
     return Array.from(names).sort();
   });
 
-  readonly groupedParameters = computed(() => {
+  readonly groupNames = computed(() => {
     let params = this.parameters();
     const appF = this.appFilter();
+    if (appF) params = params.filter(p => p.appName === appF);
+    const names = new Set(params.map(p => p.group));
+    return Array.from(names).sort();
+  });
+
+  readonly filteredParameters = computed(() => {
+    let params = this.parameters();
+    const appF = this.appFilter();
+    const groupF = this.groupFilter();
     const search = this.searchFilter().toLowerCase();
     const typeF = this.typeFilter();
     const scopeF = this.scopeFilter();
+    const boolF = this.booleanFilter();
 
     if (appF) params = params.filter(p => p.appName === appF);
+    if (groupF) params = params.filter(p => p.group === groupF);
     if (typeF) params = params.filter(p => p.type === typeF);
     if (scopeF === 'global') params = params.filter(p => !p.tenantId);
     if (scopeF === 'tenant') params = params.filter(p => !!p.tenantId);
+    if (boolF === 'hotReload') params = params.filter(p => p.hotReload);
+    if (boolF === 'sensitive') params = params.filter(p => p.sensitive);
+    if (boolF === 'required') params = params.filter(p => p.required);
+    if (boolF === 'adminOnly') params = params.filter(p => p.adminOnly);
     if (search) {
       params = params.filter(p =>
         p.key.toLowerCase().includes(search) ||
         p.label.toLowerCase().includes(search) ||
-        (p.description && p.description.toLowerCase().includes(search))
+        (p.description && p.description.toLowerCase().includes(search)) ||
+        p.appName.toLowerCase().includes(search) ||
+        p.group.toLowerCase().includes(search) ||
+        p.value.toLowerCase().includes(search)
       );
     }
 
-    const byApp = new Map<string, Map<string, PortalParameter[]>>();
-    for (const p of params) {
-      if (!byApp.has(p.appName)) byApp.set(p.appName, new Map());
-      const appMap = byApp.get(p.appName)!;
-      if (!appMap.has(p.group)) appMap.set(p.group, []);
-      appMap.get(p.group)!.push(p);
-    }
-
-    return Array.from(byApp.entries()).map(([appName, groups]) => ({
-      appName,
-      count: Array.from(groups.values()).reduce((sum, g) => sum + g.length, 0),
-      groups: Array.from(groups.entries()).map(([groupName, params]) => ({ groupName, params })),
-    }));
+    return params;
   });
 
   loadParameters(): void {
@@ -463,16 +471,6 @@ export class ParameterComponent implements OnInit {
     if (this.auditLog().length === 0) {
       this.loadAuditLog();
     }
-  }
-
-  toggleGroup(key: string): void {
-    const current = new Set(this.expandedGroups());
-    if (current.has(key)) {
-      current.delete(key);
-    } else {
-      current.add(key);
-    }
-    this.expandedGroups.set(current);
   }
 
   startEdit(param: PortalParameter): void {
