@@ -1,120 +1,67 @@
 # CLAUDE.md - Health Portal (PortalCore)
+## Code Standards (Clean Code)
 
-## Projekt-Ueberblick
+### Naming
+- Klassen: PascalCase, fachlich sprechend — NICHT Manager, Helper, Utils, Data, Info
+- Methoden: Verb-Prefix (calculate, validate, fetch, resolve), max 20 Zeilen
+- Variablen: Intention-Revealing, KEINE Abkürzungen (versichertenNummer NICHT vsnr, arbeitgeberKonto NICHT agKto)
+- Booleans: is/has/can/should-Prefix (isVersichert, hasRueckstand, canMeldungSend)
+- Konstanten: UPPER_SNAKE_CASE mit fachlichem Kontext (MAX_MELDUNG_RETRY_COUNT, DEFAULT_BEITRAGSSATZ)
+- Packages: Fachliche Schnitte (meldung, beitrag, arbeitgeber), NICHT technische (util, helper, common)
 
-Multi-Tenant Health Portal fuer deutsche Gesundheitsorganisationen.
+### Methoden & Funktionen
+- Max 3 Parameter. Mehr → Parameter-Objekt / Record einführen
+- Eine Methode = eine Aufgabe. Wenn du "und" brauchst, splitten
+- Max 2 Ebenen Verschachtelung — Early Return statt tiefer if/else
+- Keine Flag-Parameter (boolean als Steuerung). Stattdessen: zwei klar benannte Methoden
+- Keine Seiteneffekte: Methode tut was der Name sagt, nicht mehr
 
-| Layer    | Technologie                         | Verzeichnis  |
-|----------|-------------------------------------|--------------|
-| Frontend | Angular 18 + Tailwind CSS 3         | `frontend/`  |
-| Backend  | Spring Boot 3 + Java 21 + Maven     | `backend/`   |
-| DB       | PostgreSQL 16                        | via Docker   |
+### Klassen & Struktur
+- Single Responsibility: Eine Klasse = eine Verantwortung
+- Favor Composition over Inheritance
+- Interfaces für Connector-Anbindungen, konkrete Implementierung pro Kassensystem
+- DTOs sind reine Datenträger — keine Logik, keine Vererbungshierarchien
+- Records für immutable DTOs bevorzugen (Java 16+)
+- Kein auskommentierter Code. Gelöschter Code lebt im Git
+- Keine Wildcard-Imports (import java.util.*)
 
----
+### Error Handling
+- Keine leeren catch-Blöcke — NIEMALS
+- Fachliche Exceptions mit Kontext: MeldungVerarbeitungException("Meldung {id} konnte nicht an {kasse} übermittelt werden: {grund}")
+- Keine generischen RuntimeExceptions werfen
+- Checked Exceptions nur an Systemgrenzen (Connector-Schicht)
+- Fehler so nah wie möglich am Entstehungsort behandeln
+- Logging bei jedem catch: mindestens WARN mit Kontext
+
+### Logging
+- SLF4J mit strukturierten Parametern: log.info("Meldung verarbeitet: meldungId={}, kasse={}", id, kasse)
+- NICHT: log.info("Meldung " + id + " verarbeitet für " + kasse)
+- Log-Level korrekt verwenden: ERROR = Systemfehler, WARN = fachlicher Fehler, INFO = relevante Geschäftsvorgänge, DEBUG = technische Details
+
+### Tests
+- Jede öffentliche Methode hat mindestens einen Unit-Test
+- Testname: should_ExpectedBehavior_When_StateUnderTest (should_RejectMeldung_When_BetriebsnummerInvalid)
+- Arrange-Act-Assert Struktur, mit Leerzeilen getrennt
+- Ein Assert pro Test (logisch zusammenhängende Asserts sind OK)
+- Mocking nur an Systemgrenzen (Connector, Repository), NICHT innerhalb der eigenen Service-Schicht
+- Testdaten über Builder-Pattern oder ObjectMother, NICHT inline-Konstruktion mit 15 Parametern
+
+### Kommentare
+- Code soll sich selbst erklären. Kommentare nur für das WARUM, nie für das WAS
+- Javadoc für öffentliche API-Methoden der Service-Schicht
+- TODO-Kommentare immer mit Ticket-Referenz: // TODO PORTAL-1234: Retry-Logik für Oscare-Timeout implementieren
 
 ## Befehle
 
-```bash
-# Frontend
-cd frontend && npm install && npm start       # Dev-Server (Port 4200)
-cd frontend && npm run build                  # Prod-Build
-cd frontend && npm test                       # Unit-Tests
+- `mvn clean verify`: Build + Tests
+- `mvn test -pl <modul>`: Einzelnes Modul testen
+- `mvn spotless:apply`: Code formatieren
+- `mvn checkstyle:check`: Style prüfen
 
-# Backend
-cd backend && ./mvnw spring-boot:run          # Dev-Server (Port 8080)
-cd backend && ./mvnw test                     # Unit-Tests
-cd backend && ./mvnw package                  # JAR bauen
+## Regeln für Claude
 
-# Docker
-docker-compose up -d                          # Alle Services starten
-```
-
----
-
-## Projektstruktur
-
-```
-frontend/src/app/
-  layout/           # Header, Sidebar, Portal-Layout
-  pages/            # Feature-Seiten (je ein Standalone Component)
-  models/           # TypeScript Interfaces
-  services/         # Angular Services (HTTP-Kommunikation)
-  interceptors/     # Auth-Interceptor
-  app.routes.ts     # Routing-Konfiguration
-  app.config.ts     # App-Konfiguration
-
-backend/src/main/java/de/portalcore/
-  controller/       # REST-Controller
-  repository/       # JPA Repositories
-  config/           # Security, CORS, JWT
-```
-
----
-
-## Code-Konventionen
-
-### Allgemein
-
-- Sprache im Code: Deutsch fuer Fachbegriffe und UI-Texte, Englisch fuer technische Konstrukte
-- Keine Umlaute in Bezeichnern: `ue` statt `ue`, `ae` statt `ae`, `oe` statt `oe`, `ss` statt `ss`
-- Kein toter Code, keine auskommentierten Bloecke
-- Keine Dateien erstellen, wenn bestehende erweitert werden koennen
-- Keine ueberfluessigen Abstraktionen oder Wrapper fuer einmalige Operationen
-
-### Frontend (Angular + TypeScript)
-
-- **Standalone Components** verwenden (keine NgModules)
-- **Angular Signals** fuer reaktiven State (`signal()`, `computed()`)
-- **Inline Templates** fuer Components (kein separates HTML-File)
-- Imports: `CommonModule`, `FormsModule` direkt im Component
-- Styling: **Tailwind CSS Utility-Klassen**, keine separaten CSS-Dateien
-- Design-System-Farben aus `tailwind.config.ts` verwenden:
-  - Primary: `primary`, `primary-dark`, `primary-light`
-  - Status: `success`, `warning`, `error`, `info`
-  - Grau: `gray-50` bis `gray-950`
-  - Akzent: `accent-turquoise`, `accent-orange`, `accent-pink`, `accent-violet`
-- Shadow: `shadow-card` fuer Karten, `shadow-modal` fuer Modals
-- Schrift: `font-sans` (Fira Sans), `font-condensed` (Fira Sans Condensed) fuer Ueberschriften
-- Dark Mode: via `darkMode: 'class'` in Tailwind-Config
-- Interfaces in `models/`-Verzeichnis definieren
-- Services in `services/`-Verzeichnis, ein Service pro Fachbereich
-- Kein `any` verwenden - immer typisierte Interfaces
-- Control Flow: `@if`, `@for`, `@switch` (neue Angular-Syntax, kein `*ngIf`/`*ngFor`)
-
-### Backend (Java + Spring Boot)
-
-- **Java 21** Features nutzen (Records, Pattern Matching, Text Blocks)
-- REST-Controller unter `/api` Praefix
-- DTOs fuer Request/Response, keine Entities direkt exponieren
-- JPA Repositories im `repository/`-Paket
-- Validierung mit `spring-boot-starter-validation` Annotationen
-- Security via JWT (`JwtAuthenticationFilter`)
-- Flyway fuer Datenbank-Migrationen
-- Keine Business-Logik in Controllern - Services nutzen
-
-### Datenbank
-
-- Tabellennamen: `snake_case` (z.B. `portal_apps`)
-- Migrationen: Flyway im Backend (`db/migration/`)
-- Multi-Tenant: Daten immer mit `tenant_id` filtern
-
----
-
-## Git-Konventionen
-
-- Commit-Messages: kurz, auf Deutsch oder Englisch, im Imperativ
-- Feature-Branches: `claude/<feature>-<id>` oder `feature/<name>`
-- Keine Secrets committen (`.env`, Credentials)
-- `.gitignore` beachten
-
----
-
-## Architektur-Regeln
-
-1. **Frontend-Backend-Trennung**: Frontend kommuniziert ausschliesslich ueber REST API (`/api`)
-2. **Multi-Tenant**: Jede Datenanfrage muss Mandant-bezogen sein
-3. **Keine externen UI-Libraries** ausser Tailwind CSS und Lucide Icons (`lucide-angular`)
-4. **Standalone Components**: Jede Seite ist ein eigenstaendiger Angular Standalone Component
-5. **Lazy Loading**: Seiten-Components werden per Route lazy geladen
-6. **Mock-Daten** sind erlaubt fuer Prototyping, muessen aber klar als solche erkennbar sein
-7. **Kein Over-Engineering**: Minimale Loesung bevorzugen, keine hypothetischen Erweiterungen einbauen
+- IMMER nach Änderungen `mvn compile` laufen lassen um Compile-Fehler früh zu finden
+- NIEMALS Credentials, Tokens oder Passwörter in Code oder Konfiguration hartcoden
+- Bei neuen Klassen: prüfe ob es schon eine ähnliche Abstraktion gibt bevor du eine neue erstellst
+- Bei Connector-Änderungen: alle Kassensystem-Implementierungen konsistent anpassen
+- Commit-Messages: Konventionelle Commits (feat:, fix:, refactor:, docs:, test:)
