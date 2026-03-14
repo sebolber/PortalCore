@@ -1,7 +1,13 @@
 import { Routes } from '@angular/router';
 import { authGuard, loginGuard } from './guards/auth.guard';
+import { setupGuard } from './guards/setup.guard';
 
 export const routes: Routes = [
+  {
+    path: 'setup',
+    loadComponent: () => import('./pages/setup/setup.component').then(m => m.SetupComponent),
+    canActivate: [setupGuard]
+  },
   {
     path: 'login',
     loadComponent: () => import('./pages/login/login.component').then(m => m.LoginComponent),
