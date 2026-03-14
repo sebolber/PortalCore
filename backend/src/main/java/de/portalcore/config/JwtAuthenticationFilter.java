@@ -49,7 +49,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         try {
             if (!jwtService.isTokenValid(token)) {
-                rejectUnauthorized(response, "Token ungueltig oder abgelaufen");
+                log.debug("Token ungueltig oder abgelaufen - lasse SecurityFilterChain entscheiden");
+                filterChain.doFilter(request, response);
                 return;
             }
 
@@ -58,7 +59,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             // Session-Validierung: ungueltige Session ablehnen
             if (sessionId != null && !authService.isSessionActive(sessionId)) {
-                rejectUnauthorized(response, "Session ungueltig oder abgelaufen");
+                log.debug("Session ungueltig oder abgelaufen - lasse SecurityFilterChain entscheiden");
+                filterChain.doFilter(request, response);
                 return;
             }
 
@@ -75,23 +77,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         } catch (JwtException e) {
             log.warn("JWT-Validierung fehlgeschlagen: {}, remoteAddr={}", e.getClass().getSimpleName(), request.getRemoteAddr());
-            rejectUnauthorized(response, "Token ungueltig");
-            return;
         } catch (Exception e) {
             log.warn("JWT-Authentifizierung fehlgeschlagen: {}", e.getMessage());
-            rejectUnauthorized(response, "Authentifizierung fehlgeschlagen");
-            return;
         }
 
         filterChain.doFilter(request, response);
     }
-
-    private void rejectUnauthorized(HttpServletResponse response, String logReason) throws IOException {
-        log.debug("Anfrage abgelehnt: {}", logReason);
-        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-        response.setContentType("application/json");
-        response.getWriter().write("{\"error\":\"Nicht authentifiziert\",\"status\":401}");
-    }
-
     public record AuthDetails(String userId, String tenantId, String sessionId, String email) {}
 }

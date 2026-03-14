@@ -51,7 +51,7 @@ public class SecurityConfig {
             )
             .authorizeHttpRequests(auth -> auth
                 // Auth-Endpunkte: oeffentlich
-                .requestMatchers("/auth/login", "/auth/verify").permitAll()
+                .requestMatchers("/auth/login", "/auth/verify", "/auth/logout").permitAll()
                 // Setup-Endpunkte: nur vor der Initialisierung erreichbar
                 .requestMatchers("/setup/**").access((authentication, context) ->
                         new org.springframework.security.authorization.AuthorizationDecision(
