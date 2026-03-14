@@ -4,6 +4,7 @@ import de.portalcore.entity.PortalUser;
 import de.portalcore.entity.UserAdresse;
 import de.portalcore.enums.UserStatus;
 import de.portalcore.service.GruppenService;
+import de.portalcore.service.UserAdresseService;
 import de.portalcore.service.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,10 +16,13 @@ import java.util.List;
 public class UserController {
 
     private final UserService userService;
+    private final UserAdresseService adresseService;
     private final GruppenService gruppenService;
 
-    public UserController(UserService userService, GruppenService gruppenService) {
+    public UserController(UserService userService, UserAdresseService adresseService,
+                           GruppenService gruppenService) {
         this.userService = userService;
+        this.adresseService = adresseService;
         this.gruppenService = gruppenService;
     }
 
@@ -53,24 +57,24 @@ public class UserController {
 
     @GetMapping("/{userId}/adressen")
     public ResponseEntity<List<UserAdresse>> getAdressen(@PathVariable String userId) {
-        return ResponseEntity.ok(userService.getAdressen(userId));
+        return ResponseEntity.ok(adresseService.findByUserId(userId));
     }
 
     @PostMapping("/{userId}/adressen")
     public ResponseEntity<UserAdresse> addAdresse(@PathVariable String userId, @RequestBody UserAdresse adresse) {
-        return ResponseEntity.ok(userService.addAdresse(userId, adresse));
+        return ResponseEntity.ok(adresseService.create(userId, adresse));
     }
 
     @PutMapping("/{userId}/adressen/{adresseId}")
     public ResponseEntity<UserAdresse> updateAdresse(@PathVariable String userId,
                                                       @PathVariable String adresseId,
                                                       @RequestBody UserAdresse adresse) {
-        return ResponseEntity.ok(userService.updateAdresse(adresseId, adresse));
+        return ResponseEntity.ok(adresseService.update(adresseId, adresse));
     }
 
     @DeleteMapping("/{userId}/adressen/{adresseId}")
     public ResponseEntity<Void> deleteAdresse(@PathVariable String userId, @PathVariable String adresseId) {
-        userService.deleteAdresse(adresseId);
+        adresseService.delete(adresseId);
         return ResponseEntity.noContent().build();
     }
 

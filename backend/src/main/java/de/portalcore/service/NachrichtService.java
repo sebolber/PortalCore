@@ -107,21 +107,7 @@ public class NachrichtService {
                 .build();
 
         nachricht = nachrichtRepo.save(nachricht);
-
-        for (String empfId : empfaengerIds) {
-            PortalUser empf = userRepo.findById(empfId)
-                    .orElseThrow(() -> new EntityNotFoundException("User not found: " + empfId));
-            NachrichtEmpfaenger ne = NachrichtEmpfaenger.builder()
-                    .id(UUID.randomUUID().toString())
-                    .nachricht(nachricht)
-                    .empfaenger(empf)
-                    .gelesen(false)
-                    .archiviert(false)
-                    .erledigt(false)
-                    .build();
-            empfaengerRepo.save(ne);
-        }
-
+        createEmpfaenger(nachricht, empfaengerIds);
         return nachricht;
     }
 
@@ -273,21 +259,7 @@ public class NachrichtService {
                 .build();
 
         unteraufgabe = nachrichtRepo.save(unteraufgabe);
-
-        for (String empfId : empfaengerIds) {
-            PortalUser empf = userRepo.findById(empfId)
-                    .orElseThrow(() -> new EntityNotFoundException("User not found: " + empfId));
-            NachrichtEmpfaenger ne = NachrichtEmpfaenger.builder()
-                    .id(UUID.randomUUID().toString())
-                    .nachricht(unteraufgabe)
-                    .empfaenger(empf)
-                    .gelesen(false)
-                    .archiviert(false)
-                    .erledigt(false)
-                    .build();
-            empfaengerRepo.save(ne);
-        }
-
+        createEmpfaenger(unteraufgabe, empfaengerIds);
         return unteraufgabe;
     }
 
@@ -301,6 +273,22 @@ public class NachrichtService {
 
     public long countErledigteUnteraufgaben(String parentId) {
         return nachrichtRepo.countErledigteUnteraufgaben(parentId);
+    }
+
+    private void createEmpfaenger(NachrichtItem nachricht, List<String> empfaengerIds) {
+        for (String empfId : empfaengerIds) {
+            PortalUser empf = userRepo.findById(empfId)
+                    .orElseThrow(() -> new EntityNotFoundException("User not found: " + empfId));
+            NachrichtEmpfaenger ne = NachrichtEmpfaenger.builder()
+                    .id(UUID.randomUUID().toString())
+                    .nachricht(nachricht)
+                    .empfaenger(empf)
+                    .gelesen(false)
+                    .archiviert(false)
+                    .erledigt(false)
+                    .build();
+            empfaengerRepo.save(ne);
+        }
     }
 
     // ===== Empfänger-Status für UI =====
