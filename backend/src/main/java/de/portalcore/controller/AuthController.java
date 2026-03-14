@@ -4,6 +4,7 @@ import de.portalcore.config.JwtAuthenticationFilter;
 import de.portalcore.entity.PortalUser;
 import de.portalcore.repository.PortalUserRepository;
 import de.portalcore.service.AuthService;
+import de.portalcore.service.SetupService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -20,11 +21,14 @@ public class AuthController {
 
     private final AuthService authService;
     private final PortalUserRepository userRepository;
+    private final SetupService setupService;
 
     public AuthController(AuthService authService,
-                          PortalUserRepository userRepository) {
+                          PortalUserRepository userRepository,
+                          SetupService setupService) {
         this.authService = authService;
         this.userRepository = userRepository;
+        this.setupService = setupService;
     }
 
     /**
@@ -33,6 +37,11 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<Map<String, Object>> login(@RequestBody Map<String, String> body,
                                                       HttpServletRequest request) {
+        if (!setupService.istInitialisiert()) {
+            return ResponseEntity.status(503)
+                    .body(Map.of("error", "System ist noch nicht eingerichtet. Bitte Ersteinrichtung durchfuehren."));
+        }
+
         String email = body.get("email");
         if (email == null || email.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "E-Mail-Adresse erforderlich."));
