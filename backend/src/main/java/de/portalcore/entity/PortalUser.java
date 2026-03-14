@@ -69,6 +69,11 @@ public class PortalUser {
     @JsonIgnoreProperties("user")
     private List<UserAdresse> adressen = new ArrayList<>();
 
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Builder.Default
+    @JsonIgnoreProperties("user")
+    private List<DashboardWidget> dashboardWidgets = new ArrayList<>();
+
     @Column(name = "letzter_login")
     private LocalDateTime letzterLogin;
 
