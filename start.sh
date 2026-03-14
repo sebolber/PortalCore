@@ -12,3 +12,6 @@ echo ""
 echo "=== Fertig ==="
 echo "Frontend: http://localhost:4200"
 echo "Backend:  http://localhost:8080"
+echo ""
+echo "=== Logs ==="
+docker compose logs -f
