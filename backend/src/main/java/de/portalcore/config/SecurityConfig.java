@@ -4,6 +4,7 @@ import de.portalcore.service.SetupService;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -22,7 +23,7 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtFilter;
     private final SetupService setupService;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtFilter, SetupService setupService) {
+    public SecurityConfig(JwtAuthenticationFilter jwtFilter, @Lazy SetupService setupService) {
         this.jwtFilter = jwtFilter;
         this.setupService = setupService;
     }
