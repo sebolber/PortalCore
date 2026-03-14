@@ -22,6 +22,24 @@ export interface PortalUser {
   abteilung?: string;
   positionTitel?: string;
   geburtsdatum?: string;
+  // Neue Felder
+  fehlgeschlageneLogins?: number;
+  letzteLoginIp?: string;
+  sprache?: string;
+  zeitzone?: string;
+  darkMode?: boolean;
+  standardDashboard?: string;
+  emailBenachrichtigungen?: boolean;
+  pushBenachrichtigungen?: boolean;
+  smsBenachrichtigungen?: boolean;
+  newsletterEinwilligung?: boolean;
+  letzteAenderungAm?: string;
+  erstelltVon?: string;
+  zuletztGeaendertVon?: string;
+  auditTrailId?: string;
+  delegationsrechte?: boolean;
+  stellvertreterIds?: string[];
+  adressen?: UserAdresse[];
 }
 
 export interface PortalRolle {

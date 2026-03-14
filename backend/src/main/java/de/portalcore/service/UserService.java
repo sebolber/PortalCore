@@ -9,6 +9,7 @@ import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -40,6 +41,17 @@ public class UserService {
 
     @Transactional
     public PortalUser create(PortalUser user) {
+        if (user.getId() == null || user.getId().isBlank()) {
+            user.setId("u-" + UUID.randomUUID().toString().substring(0, 8));
+        }
+        if (user.getInitialen() == null || user.getInitialen().isBlank()) {
+            user.setInitialen(
+                (user.getVorname() != null && !user.getVorname().isEmpty() ? user.getVorname().substring(0, 1) : "") +
+                (user.getNachname() != null && !user.getNachname().isEmpty() ? user.getNachname().substring(0, 1) : "")
+            );
+        }
+        user.setErstelltAm(LocalDateTime.now());
+        user.setLetzteAenderungAm(LocalDateTime.now());
         return portalUserRepository.save(user);
     }
 
@@ -64,6 +76,21 @@ public class UserService {
         existing.setAbteilung(updatedUser.getAbteilung());
         existing.setPositionTitel(updatedUser.getPositionTitel());
         existing.setGeburtsdatum(updatedUser.getGeburtsdatum());
+        // Neue Felder
+        existing.setFehlgeschlageneLogins(updatedUser.getFehlgeschlageneLogins());
+        existing.setLetzteLoginIp(updatedUser.getLetzteLoginIp());
+        existing.setSprache(updatedUser.getSprache());
+        existing.setZeitzone(updatedUser.getZeitzone());
+        existing.setDarkMode(updatedUser.isDarkMode());
+        existing.setStandardDashboard(updatedUser.getStandardDashboard());
+        existing.setEmailBenachrichtigungen(updatedUser.isEmailBenachrichtigungen());
+        existing.setPushBenachrichtigungen(updatedUser.isPushBenachrichtigungen());
+        existing.setSmsBenachrichtigungen(updatedUser.isSmsBenachrichtigungen());
+        existing.setNewsletterEinwilligung(updatedUser.isNewsletterEinwilligung());
+        existing.setDelegationsrechte(updatedUser.isDelegationsrechte());
+        existing.setZuletztGeaendertVon(updatedUser.getZuletztGeaendertVon());
+        existing.setLetzteAenderungAm(LocalDateTime.now());
+        existing.setStellvertreter(updatedUser.getStellvertreter());
         return portalUserRepository.save(existing);
     }
 

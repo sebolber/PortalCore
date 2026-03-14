@@ -46,4 +46,12 @@ public interface NachrichtItemRepository extends JpaRepository<NachrichtItem, St
     @Query("SELECT COUNT(n) FROM NachrichtItem n JOIN n.empfaenger e " +
            "WHERE e.empfaenger.id = :userId AND e.gelesen = false AND e.archiviert = false")
     long countUngelesen(@Param("userId") String userId);
+
+    List<NachrichtItem> findByParentIdOrderByErstelltAmAsc(String parentId);
+
+    @Query("SELECT COUNT(n) FROM NachrichtItem n WHERE n.parent.id = :parentId")
+    long countUnteraufgaben(@Param("parentId") String parentId);
+
+    @Query("SELECT COUNT(n) FROM NachrichtItem n WHERE n.parent.id = :parentId AND n.status = 'ERLEDIGT'")
+    long countErledigteUnteraufgaben(@Param("parentId") String parentId);
 }

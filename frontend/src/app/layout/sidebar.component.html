@@ -64,21 +64,26 @@
         </a>
       </li>
 
-      <!-- Nachrichten -->
+      <!-- Nachrichten / Aufgaben -->
       <li>
         <a
           routerLink="/nachrichten"
           routerLinkActive="bg-blue-50 text-[#006EC7]"
           class="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
           [class.justify-center]="collapsed() && !mobileSidebarOpen()"
-          [title]="collapsed() && !mobileSidebarOpen() ? 'Nachrichten' : ''"
+          [title]="collapsed() && !mobileSidebarOpen() ? 'Nachrichten / Aufgaben' : ''"
         >
           <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
             <path stroke-linecap="round" stroke-linejoin="round" d="M13.73 21a2 2 0 01-3.46 0"/>
           </svg>
-          <span *ngIf="!collapsed() || mobileSidebarOpen()" class="text-sm font-medium whitespace-nowrap">Nachrichten</span>
+          <span *ngIf="!collapsed() || mobileSidebarOpen()" class="text-sm font-medium whitespace-nowrap">Nachrichten / Aufgaben</span>
         </a>
+      </li>
+
+      <!-- Trennlinie -->
+      <li *ngIf="!collapsed() || mobileSidebarOpen()" class="px-3">
+        <hr class="border-gray-200"/>
       </li>
 
       <!-- Installierte Anwendungen (expandable) -->
@@ -135,20 +140,20 @@
         </li>
       </ng-container>
 
-      <!-- Plattform (expandable) -->
+      <!-- Administration (vorher Plattform) -->
       <li>
         <button
           (click)="togglePlattform()"
           class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
           [class.justify-center]="collapsed() && !mobileSidebarOpen()"
-          [title]="collapsed() && !mobileSidebarOpen() ? 'Plattform' : ''"
+          [title]="collapsed() && !mobileSidebarOpen() ? 'Administration' : ''"
         >
           <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 2L2 7l10 5 10-5-10-5z"/>
             <path stroke-linecap="round" stroke-linejoin="round" d="M2 17l10 5 10-5"/>
             <path stroke-linecap="round" stroke-linejoin="round" d="M2 12l10 5 10-5"/>
           </svg>
-          <span *ngIf="!collapsed() || mobileSidebarOpen()" class="text-sm font-medium whitespace-nowrap flex-1 text-left">Plattform</span>
+          <span *ngIf="!collapsed() || mobileSidebarOpen()" class="text-sm font-medium whitespace-nowrap flex-1 text-left">Administration</span>
           <svg
             *ngIf="!collapsed() || mobileSidebarOpen()"
             class="w-4 h-4 shrink-0 transition-transform duration-200"
@@ -164,6 +169,15 @@
           *ngIf="plattformExpanded && (!collapsed() || mobileSidebarOpen())"
           class="mt-1 ml-5 space-y-1 border-l border-gray-200 pl-3"
         >
+          <li>
+            <a routerLink="/admin" routerLinkActive="text-[#006EC7] font-semibold"
+               class="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-500 hover:text-gray-900 rounded transition-colors">
+              <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+              Plattformkonfiguration
+            </a>
+          </li>
           <li>
             <a routerLink="/appstore" routerLinkActive="text-[#006EC7] font-semibold"
                class="block px-3 py-1.5 text-sm text-gray-500 hover:text-gray-900 rounded transition-colors">
@@ -210,15 +224,6 @@
             <a routerLink="/aufgaben" routerLinkActive="text-[#006EC7] font-semibold"
                class="block px-3 py-1.5 text-sm text-gray-500 hover:text-gray-900 rounded transition-colors">
               Aufgaben
-            </a>
-          </li>
-          <li *ngIf="isAdmin()">
-            <a routerLink="/admin" routerLinkActive="text-[#006EC7] font-semibold"
-               class="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-500 hover:text-gray-900 rounded transition-colors">
-              <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-              </svg>
-              Admin
             </a>
           </li>
         </ul>
@@ -294,37 +299,8 @@
         </ul>
       </li>
 
-      <!-- Einstellungen -->
-      <li>
-        <a
-          routerLink="/einstellungen"
-          routerLinkActive="bg-blue-50 text-[#006EC7]"
-          class="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
-          [class.justify-center]="collapsed() && !mobileSidebarOpen()"
-          [title]="collapsed() && !mobileSidebarOpen() ? 'Einstellungen' : ''"
-        >
-          <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-            <circle cx="12" cy="12" r="3" stroke-linecap="round" stroke-linejoin="round"/>
-            <path stroke-linecap="round" stroke-linejoin="round" d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
-          </svg>
-          <span *ngIf="!collapsed() || mobileSidebarOpen()" class="text-sm font-medium whitespace-nowrap">Einstellungen</span>
-        </a>
-      </li>
     </ul>
   </nav>
-
-  <!-- Logout -->
-  <button
-    (click)="doLogout()"
-    class="flex items-center gap-3 px-4 py-3 border-t border-gray-100 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0"
-    [class.justify-center]="collapsed() && !mobileSidebarOpen()"
-    [title]="collapsed() && !mobileSidebarOpen() ? 'Abmelden' : ''"
-  >
-    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
-    </svg>
-    <span *ngIf="!collapsed() || mobileSidebarOpen()" class="text-sm font-medium whitespace-nowrap">Abmelden</span>
-  </button>
 
   <!-- Collapse Toggle (desktop only) -->
   <button

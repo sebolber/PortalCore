@@ -38,12 +38,12 @@ public class SecurityConfig {
             )
             .authorizeHttpRequests(auth -> auth
                 // Auth-Endpunkte: oeffentlich
-                .requestMatchers("/api/auth/login", "/api/auth/verify").permitAll()
+                .requestMatchers("/auth/login", "/auth/verify").permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 // Actuator / Health
-                .requestMatchers("/api/actuator/**").permitAll()
-                // Alle anderen API-Endpunkte: authentifiziert
-                .requestMatchers("/api/**").authenticated()
+                .requestMatchers("/actuator/**").permitAll()
+                // Alle anderen Endpunkte: authentifiziert
+                .requestMatchers("/**").authenticated()
                 .anyRequest().permitAll()
             )
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);

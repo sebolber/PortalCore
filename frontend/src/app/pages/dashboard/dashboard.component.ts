@@ -5,6 +5,7 @@ import { Router, RouterModule } from '@angular/router';
 import { DashboardWidget, WidgetDefinition, PortalSeite } from '../../models/dashboard.model';
 import { DashboardService } from '../../services/dashboard.service';
 import { NachrichtService } from '../../services/nachricht.service';
+import { NachrichtItem } from '../../models/nachricht.model';
 
 const GRID_COLS = 4;
 const CELL_HEIGHT = 180;
@@ -145,8 +146,46 @@ const GAP = 16;
                 </div>
               </ng-container>
 
-              <!-- LISTE -->
-              <ng-container *ngIf="w.definition.widgetTyp === 'LISTE'">
+              <!-- LISTE (Posteingang widget) -->
+              <ng-container *ngIf="w.definition.widgetTyp === 'LISTE' && w.definition.widgetKey === 'portal.posteingang'">
+                <div class="h-full overflow-y-auto -mx-4 -mt-4 -mb-4">
+                  <div *ngFor="let item of posteingangsItems()"
+                       class="flex items-start gap-2.5 px-4 py-2.5 border-b border-gray-50 hover:bg-gray-50 cursor-pointer transition-colors"
+                       (click)="router.navigateByUrl('/nachrichten'); $event.stopPropagation()">
+                    <div class="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0 mt-0.5"
+                         [ngClass]="item.typ === 'AUFGABE' ? 'bg-amber-500' : 'bg-[#006EC7]'">
+                      {{ item.erstellerInitialen }}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-1.5">
+                        <span *ngIf="item.typ === 'AUFGABE'"
+                              class="inline-block px-1 py-0 text-[8px] font-bold rounded bg-amber-100 text-amber-700 shrink-0">
+                          AUFGABE
+                        </span>
+                        <span *ngIf="item.prioritaet === 'HOCH' || item.prioritaet === 'DRINGEND'"
+                              class="inline-block px-1 py-0 text-[8px] font-bold rounded shrink-0"
+                              [ngClass]="item.prioritaet === 'DRINGEND' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'">
+                          {{ item.prioritaet === 'DRINGEND' ? '!!' : '!' }}
+                        </span>
+                        <span class="text-xs truncate" [ngClass]="item.gelesen ? 'text-gray-600' : 'text-gray-900 font-semibold'">
+                          {{ item.betreff }}
+                        </span>
+                      </div>
+                      <div class="flex items-center gap-2 mt-0.5">
+                        <span class="text-[10px] text-gray-400 truncate">{{ item.erstellerName }}</span>
+                        <span *ngIf="item.frist" class="text-[10px] text-gray-400">{{ formatWidgetDatum(item.frist) }}</span>
+                      </div>
+                    </div>
+                    <div *ngIf="!item.gelesen" class="w-1.5 h-1.5 rounded-full bg-[#006EC7] shrink-0 mt-2"></div>
+                  </div>
+                  <div *ngIf="posteingangsItems().length === 0" class="flex items-center justify-center h-full text-xs text-gray-400 py-8">
+                    Keine offenen Eintraege
+                  </div>
+                </div>
+              </ng-container>
+
+              <!-- LISTE (generic) -->
+              <ng-container *ngIf="w.definition.widgetTyp === 'LISTE' && w.definition.widgetKey !== 'portal.posteingang'">
                 <div class="space-y-2 h-full">
                   <div *ngFor="let app of recentApps"
                        class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer"
@@ -291,6 +330,7 @@ export class DashboardComponent implements OnInit {
   readonly editMode = signal(false);
   readonly showWidgetPicker = signal(false);
   readonly widgetData = signal<Record<string, any>>({});
+  readonly posteingangsItems = signal<NachrichtItem[]>([]);
 
   pickerTab = 'ALLE';
   private dragging = false;
@@ -371,6 +411,10 @@ export class DashboardComponent implements OnInit {
     this.nachrichtService.getUngelesenAnzahl().subscribe({
       next: r => this.widgetData.update(d => ({ ...d, 'portal.offene-aufgaben': r.anzahl, 'portal.ungelesene-nachrichten': r.anzahl })),
       error: () => this.widgetData.update(d => ({ ...d, 'portal.offene-aufgaben': 7, 'portal.ungelesene-nachrichten': 3, 'portal.installierte-apps': 6 }))
+    });
+    this.nachrichtService.getPosteingang().subscribe({
+      next: items => this.posteingangsItems.set(items),
+      error: () => this.posteingangsItems.set([])
     });
   }
 
@@ -476,5 +520,11 @@ export class DashboardComponent implements OnInit {
   getLabel(w: DashboardWidget): string {
     if (w.konfiguration) { try { return JSON.parse(w.konfiguration).titel || w.definition.titel; } catch {} }
     return w.definition.titel;
+  }
+
+  formatWidgetDatum(iso: string): string {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
   }
 }

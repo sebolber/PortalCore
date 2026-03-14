@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { PortalUser } from '../models/user.model';
+import { PortalUser, UserAdresse } from '../models/user.model';
 import { API_URL } from './api.service';
 
 @Injectable({ providedIn: 'root' })
@@ -43,5 +43,22 @@ export class UserService {
 
   assignRoles(id: string, rollenIds: string[]): Observable<PortalUser> {
     return this.http.patch<PortalUser>(`${this.basePath}/${id}/roles`, { rollenIds });
+  }
+
+  // Adressen
+  getAdressen(userId: string): Observable<UserAdresse[]> {
+    return this.http.get<UserAdresse[]>(`${this.basePath}/${userId}/adressen`);
+  }
+
+  addAdresse(userId: string, adresse: Partial<UserAdresse>): Observable<UserAdresse> {
+    return this.http.post<UserAdresse>(`${this.basePath}/${userId}/adressen`, adresse);
+  }
+
+  updateAdresse(userId: string, adresseId: string, adresse: Partial<UserAdresse>): Observable<UserAdresse> {
+    return this.http.put<UserAdresse>(`${this.basePath}/${userId}/adressen/${adresseId}`, adresse);
+  }
+
+  deleteAdresse(userId: string, adresseId: string): Observable<void> {
+    return this.http.delete<void>(`${this.basePath}/${userId}/adressen/${adresseId}`);
   }
 }
