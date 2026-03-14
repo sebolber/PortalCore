@@ -1,6 +1,7 @@
 package de.portalcore.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 import java.time.LocalDateTime;
 
@@ -17,9 +18,11 @@ public class AppUseCase {
     @Column(name = "app_id", nullable = false)
     private String appId;
 
+    @NotBlank(message = "Use-Case ist erforderlich")
     @Column(name = "use_case", nullable = false)
     private String useCase;
 
+    @NotBlank(message = "Use-Case-Label ist erforderlich")
     @Column(name = "use_case_label", nullable = false)
     private String useCaseLabel;
 

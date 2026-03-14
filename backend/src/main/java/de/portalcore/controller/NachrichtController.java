@@ -1,29 +1,22 @@
 package de.portalcore.controller;
 
-import de.portalcore.config.JwtAuthenticationFilter.AuthDetails;
+import de.portalcore.config.SecurityHelper;
 import de.portalcore.entity.NachrichtAnhang;
 import de.portalcore.entity.NachrichtEmpfaenger;
 import de.portalcore.entity.NachrichtItem;
 import de.portalcore.enums.NachrichtPrioritaet;
 import de.portalcore.enums.NachrichtTyp;
+import de.portalcore.service.AuditService;
 import de.portalcore.service.NachrichtService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -35,130 +28,127 @@ import java.util.Map;
 public class NachrichtController {
 
     private final NachrichtService nachrichtService;
+    private final SecurityHelper securityHelper;
+    private final AuditService auditService;
 
-    public NachrichtController(NachrichtService nachrichtService) {
+    public NachrichtController(NachrichtService nachrichtService, SecurityHelper securityHelper,
+                               AuditService auditService) {
         this.nachrichtService = nachrichtService;
+        this.securityHelper = securityHelper;
+        this.auditService = auditService;
     }
-
-    // ===== Posteingang =====
 
     @GetMapping("/posteingang")
     public ResponseEntity<List<NachrichtItemDto>> getPosteingang(
             @RequestParam(required = false) NachrichtTyp typ) {
-        AuthDetails auth = getAuth();
+        String userId = securityHelper.getCurrentUserId();
         List<NachrichtItem> items;
         if (typ != null) {
-            items = nachrichtService.getByTyp(auth.userId(), typ);
+            items = nachrichtService.getByTyp(userId, typ);
         } else {
-            items = nachrichtService.getPosteingang(auth.userId());
+            items = nachrichtService.getPosteingang(userId);
         }
-        return ResponseEntity.ok(items.stream().map(n -> toDto(n, auth.userId())).toList());
+        return ResponseEntity.ok(items.stream().map(n -> toDto(n, userId)).toList());
     }
 
     @GetMapping("/gesendet")
     public ResponseEntity<List<NachrichtItemDto>> getGesendet() {
-        AuthDetails auth = getAuth();
-        List<NachrichtItem> items = nachrichtService.getGesendet(auth.userId());
-        return ResponseEntity.ok(items.stream().map(n -> toDto(n, auth.userId())).toList());
+        String userId = securityHelper.getCurrentUserId();
+        return ResponseEntity.ok(nachrichtService.getGesendet(userId).stream()
+                .map(n -> toDto(n, userId)).toList());
     }
 
     @GetMapping("/archiv")
     public ResponseEntity<List<NachrichtItemDto>> getArchiv() {
-        AuthDetails auth = getAuth();
-        List<NachrichtItem> items = nachrichtService.getArchiv(auth.userId());
-        return ResponseEntity.ok(items.stream().map(n -> toDto(n, auth.userId())).toList());
+        String userId = securityHelper.getCurrentUserId();
+        return ResponseEntity.ok(nachrichtService.getArchiv(userId).stream()
+                .map(n -> toDto(n, userId)).toList());
     }
 
     @GetMapping("/ungelesen-anzahl")
     public ResponseEntity<Map<String, Long>> getUngelesenAnzahl() {
-        AuthDetails auth = getAuth();
-        long count = nachrichtService.getUngeleseneAnzahl(auth.userId());
-        return ResponseEntity.ok(Map.of("anzahl", count));
+        String userId = securityHelper.getCurrentUserId();
+        return ResponseEntity.ok(Map.of("anzahl", nachrichtService.getUngeleseneAnzahl(userId)));
     }
-
-    // ===== Detail =====
 
     @GetMapping("/{id}")
     public ResponseEntity<NachrichtItemDto> getById(@PathVariable String id) {
-        AuthDetails auth = getAuth();
+        String userId = securityHelper.getCurrentUserId();
         NachrichtItem item = nachrichtService.findById(id);
-        nachrichtService.alsGelesenMarkieren(id, auth.userId());
-        return ResponseEntity.ok(toDto(item, auth.userId()));
+        nachrichtService.alsGelesenMarkieren(id, userId);
+        return ResponseEntity.ok(toDto(item, userId));
     }
 
-    // ===== Erstellen =====
-
     @PostMapping
-    public ResponseEntity<NachrichtItemDto> erstellen(@RequestBody ErstellenRequest request) {
-        AuthDetails auth = getAuth();
+    public ResponseEntity<NachrichtItemDto> erstellen(@Valid @RequestBody ErstellenRequest request) {
+        String userId = securityHelper.getCurrentUserId();
+        String tenantId = securityHelper.getCurrentTenantId();
         NachrichtItem item = nachrichtService.erstellen(
-                auth.userId(), auth.tenantId(),
+                userId, tenantId,
                 request.typ != null ? request.typ : NachrichtTyp.NACHRICHT,
                 request.betreff, request.inhalt,
                 request.prioritaet, request.frist, request.erinnerungAm,
                 request.empfaengerIds, false, request.referenzTyp, request.referenzId);
-        return ResponseEntity.status(HttpStatus.CREATED).body(toDto(item, auth.userId()));
+        return ResponseEntity.status(HttpStatus.CREATED).body(toDto(item, userId));
     }
-
-    // ===== Aktionen =====
 
     @PutMapping("/{id}/gelesen")
     public ResponseEntity<Void> alsGelesen(@PathVariable String id) {
-        nachrichtService.alsGelesenMarkieren(id, getAuth().userId());
+        nachrichtService.alsGelesenMarkieren(id, securityHelper.getCurrentUserId());
         return ResponseEntity.noContent().build();
     }
 
     @PutMapping("/{id}/ungelesen")
     public ResponseEntity<Void> alsUngelesen(@PathVariable String id) {
-        nachrichtService.alsUngelesenMarkieren(id, getAuth().userId());
+        nachrichtService.alsUngelesenMarkieren(id, securityHelper.getCurrentUserId());
         return ResponseEntity.noContent().build();
     }
 
     @PutMapping("/{id}/archivieren")
     public ResponseEntity<Void> archivieren(@PathVariable String id) {
-        nachrichtService.archivieren(id, getAuth().userId());
+        nachrichtService.archivieren(id, securityHelper.getCurrentUserId());
         return ResponseEntity.noContent().build();
     }
 
     @PutMapping("/{id}/erledigt")
     public ResponseEntity<Void> alsErledigt(@PathVariable String id) {
-        nachrichtService.alsErledigtMarkieren(id, getAuth().userId());
+        nachrichtService.alsErledigtMarkieren(id, securityHelper.getCurrentUserId());
         return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> loeschen(@PathVariable String id) {
-        nachrichtService.loeschen(id, getAuth().userId());
+        String userId = securityHelper.getCurrentUserId();
+        auditService.log(userId, securityHelper.getCurrentTenantId(),
+                "NACHRICHT_GELOESCHT", "Nachricht geloescht: " + id);
+        nachrichtService.loeschen(id, userId);
         return ResponseEntity.noContent().build();
     }
 
     @PutMapping("/alle-gelesen")
     public ResponseEntity<Map<String, Integer>> alleAlsGelesen() {
-        int count = nachrichtService.alleAlsGelesenMarkieren(getAuth().userId());
+        int count = nachrichtService.alleAlsGelesenMarkieren(securityHelper.getCurrentUserId());
         return ResponseEntity.ok(Map.of("markiert", count));
     }
 
-    // ===== Unteraufgaben =====
-
     @PostMapping("/{id}/unteraufgaben")
     public ResponseEntity<NachrichtItemDto> unteraufgabeErstellen(
-            @PathVariable String id, @RequestBody UnteraufgabeRequest request) {
-        AuthDetails auth = getAuth();
+            @PathVariable String id, @Valid @RequestBody UnteraufgabeRequest request) {
+        String userId = securityHelper.getCurrentUserId();
+        String tenantId = securityHelper.getCurrentTenantId();
         NachrichtItem item = nachrichtService.unteraufgabeErstellen(
-                id, auth.userId(), auth.tenantId(),
+                id, userId, tenantId,
                 request.betreff, request.inhalt,
                 request.prioritaet, request.frist, request.empfaengerIds);
-        return ResponseEntity.status(HttpStatus.CREATED).body(toDto(item, auth.userId()));
+        return ResponseEntity.status(HttpStatus.CREATED).body(toDto(item, userId));
     }
 
     @GetMapping("/{id}/unteraufgaben")
     public ResponseEntity<List<NachrichtItemDto>> getUnteraufgaben(@PathVariable String id) {
-        AuthDetails auth = getAuth();
-        List<NachrichtItem> items = nachrichtService.getUnteraufgaben(id);
-        return ResponseEntity.ok(items.stream().map(n -> toDto(n, auth.userId())).toList());
+        String userId = securityHelper.getCurrentUserId();
+        return ResponseEntity.ok(nachrichtService.getUnteraufgaben(id).stream()
+                .map(n -> toDto(n, userId)).toList());
     }
-
-    // ===== Anhänge =====
 
     @PostMapping("/{id}/anhaenge")
     public ResponseEntity<AnhangDto> anhangHochladen(
@@ -180,18 +170,6 @@ public class NachrichtController {
                 .contentLength(anhang.getDateigroesse())
                 .body(anhang.getDaten());
     }
-
-    // ===== Auth Helper =====
-
-    private AuthDetails getAuth() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.getDetails() instanceof AuthDetails details) {
-            return details;
-        }
-        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Nicht authentifiziert");
-    }
-
-    // ===== DTO Mapping =====
 
     private NachrichtItemDto toDto(NachrichtItem item, String currentUserId) {
         NachrichtEmpfaenger empfStatus = nachrichtService.getEmpfaengerStatus(item.getId(), currentUserId);
@@ -231,11 +209,12 @@ public class NachrichtController {
         return new AnhangDto(a.getId(), a.getDateiname(), a.getDateityp(), a.getDateigroesse(), a.getErstelltAm());
     }
 
-    // ===== Records =====
-
-    record ErstellenRequest(NachrichtTyp typ, String betreff, String inhalt,
+    record ErstellenRequest(NachrichtTyp typ,
+                            @NotBlank(message = "Betreff ist erforderlich") String betreff,
+                            String inhalt,
                             NachrichtPrioritaet prioritaet, LocalDateTime frist,
-                            LocalDateTime erinnerungAm, List<String> empfaengerIds,
+                            LocalDateTime erinnerungAm,
+                            @NotEmpty(message = "Mindestens ein Empfaenger ist erforderlich") List<String> empfaengerIds,
                             String referenzTyp, String referenzId) {}
 
     record NachrichtItemDto(String id, String typ, String betreff, String inhalt,
@@ -247,7 +226,8 @@ public class NachrichtController {
                             boolean gelesen, boolean archiviert, boolean erledigt,
                             String parentId, long unteraufgabenGesamt, long unteraufgabenErledigt) {}
 
-    record UnteraufgabeRequest(String betreff, String inhalt, NachrichtPrioritaet prioritaet,
+    record UnteraufgabeRequest(@NotBlank(message = "Betreff ist erforderlich") String betreff,
+                               String inhalt, NachrichtPrioritaet prioritaet,
                                LocalDateTime frist, List<String> empfaengerIds) {}
 
     record EmpfaengerDto(String id, String name, String initialen,

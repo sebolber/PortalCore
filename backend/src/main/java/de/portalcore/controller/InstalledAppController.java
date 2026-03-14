@@ -1,13 +1,12 @@
 package de.portalcore.controller;
 
-import de.portalcore.config.JwtAuthenticationFilter.AuthDetails;
+import de.portalcore.config.SecurityHelper;
 import de.portalcore.entity.InstalledApp;
+import de.portalcore.service.AuditService;
 import de.portalcore.service.AuthService;
 import de.portalcore.service.InstalledAppService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -19,31 +18,35 @@ import java.util.Map;
 public class InstalledAppController {
 
     private final InstalledAppService installedAppService;
-    private final AuthService authService;
+    private final SecurityHelper securityHelper;
+    private final AuditService auditService;
 
     public InstalledAppController(InstalledAppService installedAppService,
-                                   AuthService authService) {
+                                   SecurityHelper securityHelper, AuditService auditService) {
         this.installedAppService = installedAppService;
-        this.authService = authService;
+        this.securityHelper = securityHelper;
+        this.auditService = auditService;
     }
 
     @GetMapping
     public ResponseEntity<List<InstalledApp>> listInstalledApps(@PathVariable String tenantId) {
-        List<InstalledApp> apps = installedAppService.getInstalledApps(tenantId);
-        return ResponseEntity.ok(apps);
+        securityHelper.requireTenantAccess(tenantId);
+        return ResponseEntity.ok(installedAppService.getInstalledApps(tenantId));
     }
 
     @PostMapping
     public ResponseEntity<InstalledApp> installApp(
             @PathVariable String tenantId,
             @RequestBody Map<String, String> body) {
-        requireAppstoreAdmin();
-        String userId = getCurrentUserId();
+        securityHelper.requireBerechtigung("appstore-admin", "schreiben");
+        securityHelper.requireTenantAccess(tenantId);
         String appId = body.get("appId");
         if (appId == null || appId.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "appId ist erforderlich.");
         }
-        InstalledApp installedApp = installedAppService.installApp(tenantId, appId, userId);
+        InstalledApp installedApp = installedAppService.installApp(tenantId, appId, securityHelper.getCurrentUserId());
+        auditService.log(securityHelper.getCurrentUserId(), tenantId,
+                "APP_INSTALLIERT", "App " + appId + " in Mandant " + tenantId + " installiert");
         return ResponseEntity.ok(installedApp);
     }
 
@@ -51,28 +54,11 @@ public class InstalledAppController {
     public ResponseEntity<Void> uninstallApp(
             @PathVariable String tenantId,
             @PathVariable String appId) {
-        requireAppstoreAdmin();
+        securityHelper.requireBerechtigung("appstore-admin", "loeschen");
+        securityHelper.requireTenantAccess(tenantId);
+        auditService.log(securityHelper.getCurrentUserId(), tenantId,
+                "APP_DEINSTALLIERT", "App " + appId + " aus Mandant " + tenantId + " deinstalliert");
         installedAppService.uninstallApp(tenantId, appId);
         return ResponseEntity.noContent().build();
-    }
-
-    private void requireAppstoreAdmin() {
-        String userId = getCurrentUserId();
-        if (userId == null) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Nicht authentifiziert");
-        }
-        boolean canInstall = authService.hatBerechtigung(userId, "appstore-admin", "schreiben");
-        if (!canInstall) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                    "Nur Administratoren duerfen Apps installieren oder deinstallieren.");
-        }
-    }
-
-    private String getCurrentUserId() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.getDetails() instanceof AuthDetails details) {
-            return details.userId();
-        }
-        return auth != null ? (String) auth.getPrincipal() : null;
     }
 }

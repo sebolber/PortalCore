@@ -2,6 +2,8 @@ package de.portalcore.entity;
 
 import de.portalcore.enums.*;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -14,9 +16,11 @@ public class AufgabenZuweisung {
     @Id
     private String id;
 
+    @NotBlank(message = "Bezeichnung ist erforderlich")
     @Column(nullable = false)
     private String bezeichnung;
 
+    @NotNull(message = "Kriterium ist erforderlich")
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private KriteriumTyp kriterium;

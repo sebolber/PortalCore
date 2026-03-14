@@ -2,6 +2,7 @@ package de.portalcore.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -16,6 +17,7 @@ public class Gruppe {
     @Id
     private String id;
 
+    @NotBlank(message = "Gruppenname ist erforderlich")
     @Column(nullable = false)
     private String name;
 

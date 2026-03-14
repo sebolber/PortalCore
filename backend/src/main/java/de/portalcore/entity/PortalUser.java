@@ -4,6 +4,9 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import de.portalcore.enums.UserStatus;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
 import java.time.LocalDate;
@@ -21,12 +24,16 @@ public class PortalUser {
     @Id
     private String id;
 
+    @NotBlank(message = "Vorname ist erforderlich")
     @Column(nullable = false)
     private String vorname;
 
+    @NotBlank(message = "Nachname ist erforderlich")
     @Column(nullable = false)
     private String nachname;
 
+    @NotBlank(message = "E-Mail ist erforderlich")
+    @Email(message = "E-Mail-Adresse muss gueltig sein")
     @Column(nullable = false, unique = true)
     private String email;
 
@@ -42,6 +49,7 @@ public class PortalUser {
     @Transient
     private String mandantId;
 
+    @NotNull(message = "Status ist erforderlich")
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private UserStatus status;

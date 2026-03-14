@@ -2,6 +2,7 @@ package de.portalcore.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 
 @Entity
@@ -19,9 +20,11 @@ public class GruppenBerechtigung {
     @JsonIgnoreProperties({"berechtigungen", "benutzer"})
     private Gruppe gruppe;
 
+    @NotBlank(message = "Use-Case ist erforderlich")
     @Column(name = "use_case", nullable = false)
     private String useCase;
 
+    @NotBlank(message = "Use-Case-Label ist erforderlich")
     @Column(name = "use_case_label", nullable = false)
     private String useCaseLabel;
 

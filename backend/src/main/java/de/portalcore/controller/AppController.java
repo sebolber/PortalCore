@@ -1,11 +1,14 @@
 package de.portalcore.controller;
 
+import de.portalcore.config.SecurityHelper;
 import de.portalcore.entity.PortalApp;
 import de.portalcore.enums.AppCategory;
 import de.portalcore.enums.AppType;
 import de.portalcore.enums.AppVendor;
 import de.portalcore.enums.MarketSegment;
 import de.portalcore.service.AppService;
+import de.portalcore.service.AuditService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,9 +20,13 @@ import java.util.Map;
 public class AppController {
 
     private final AppService appService;
+    private final SecurityHelper securityHelper;
+    private final AuditService auditService;
 
-    public AppController(AppService appService) {
+    public AppController(AppService appService, SecurityHelper securityHelper, AuditService auditService) {
         this.appService = appService;
+        this.securityHelper = securityHelper;
+        this.auditService = auditService;
     }
 
     @GetMapping
@@ -35,36 +42,42 @@ public class AppController {
 
     @GetMapping("/{id}")
     public ResponseEntity<PortalApp> getAppById(@PathVariable String id) {
-        PortalApp app = appService.findById(id);
-        return ResponseEntity.ok(app);
+        return ResponseEntity.ok(appService.findById(id));
     }
 
     @GetMapping("/featured")
     public ResponseEntity<List<PortalApp>> getFeaturedApps() {
-        List<PortalApp> apps = appService.findFeatured();
-        return ResponseEntity.ok(apps);
+        return ResponseEntity.ok(appService.findFeatured());
     }
 
     @GetMapping("/segments")
     public ResponseEntity<Map<MarketSegment, Long>> getAppCountPerSegment() {
-        Map<MarketSegment, Long> counts = appService.getAppCountPerSegment();
-        return ResponseEntity.ok(counts);
+        return ResponseEntity.ok(appService.getAppCountPerSegment());
     }
 
     @PostMapping
-    public ResponseEntity<PortalApp> createApp(@RequestBody PortalApp app) {
+    public ResponseEntity<PortalApp> createApp(@Valid @RequestBody PortalApp app) {
+        securityHelper.requireSuperAdmin();
         PortalApp created = appService.create(app);
+        auditService.log(securityHelper.getCurrentUserId(), securityHelper.getCurrentTenantId(),
+                "APP_ERSTELLT", "App erstellt: " + created.getName());
         return ResponseEntity.ok(created);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<PortalApp> updateApp(@PathVariable String id, @RequestBody PortalApp app) {
+    public ResponseEntity<PortalApp> updateApp(@PathVariable String id, @Valid @RequestBody PortalApp app) {
+        securityHelper.requireSuperAdmin();
         PortalApp updated = appService.update(id, app);
+        auditService.log(securityHelper.getCurrentUserId(), securityHelper.getCurrentTenantId(),
+                "APP_AKTUALISIERT", "App aktualisiert: " + id);
         return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteApp(@PathVariable String id) {
+        securityHelper.requireSuperAdmin();
+        auditService.log(securityHelper.getCurrentUserId(), securityHelper.getCurrentTenantId(),
+                "APP_GELOESCHT", "App geloescht: " + id);
         appService.delete(id);
         return ResponseEntity.noContent().build();
     }

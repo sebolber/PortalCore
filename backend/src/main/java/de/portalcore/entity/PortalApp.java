@@ -2,6 +2,8 @@ package de.portalcore.entity;
 
 import de.portalcore.enums.*;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
 @Entity
@@ -12,6 +14,7 @@ public class PortalApp {
     @Id
     private String id;
 
+    @NotBlank(message = "App-Name ist erforderlich")
     @Column(nullable = false)
     private String name;
 
@@ -21,18 +24,22 @@ public class PortalApp {
     @Column(name = "long_description", columnDefinition = "TEXT")
     private String longDescription;
 
+    @NotNull(message = "Kategorie ist erforderlich")
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private AppCategory category;
 
+    @NotNull(message = "Marktsegment ist erforderlich")
     @Enumerated(EnumType.STRING)
     @Column(name = "market_segment", nullable = false)
     private MarketSegment marketSegment;
 
+    @NotNull(message = "App-Typ ist erforderlich")
     @Enumerated(EnumType.STRING)
     @Column(name = "app_type", nullable = false)
     private AppType appType;
 
+    @NotNull(message = "Hersteller ist erforderlich")
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private AppVendor vendor;
@@ -58,6 +65,7 @@ public class PortalApp {
 
     private String tags;
 
+    @NotBlank(message = "Preis ist erforderlich")
     @Column(nullable = false)
     private String price;
 

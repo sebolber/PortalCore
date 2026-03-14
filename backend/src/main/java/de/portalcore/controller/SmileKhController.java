@@ -1,5 +1,6 @@
 package de.portalcore.controller;
 
+import de.portalcore.config.SecurityHelper;
 import de.portalcore.entity.EingereichterFall;
 import de.portalcore.entity.OffeneRechnung;
 import de.portalcore.enums.AmpelStatus;
@@ -15,26 +16,28 @@ import java.util.Map;
 public class SmileKhController {
 
     private final SmileKhService smileKhService;
+    private final SecurityHelper securityHelper;
 
-    public SmileKhController(SmileKhService smileKhService) {
+    public SmileKhController(SmileKhService smileKhService, SecurityHelper securityHelper) {
         this.smileKhService = smileKhService;
+        this.securityHelper = securityHelper;
     }
 
     @GetMapping("/faelle")
     public ResponseEntity<List<EingereichterFall>> listFaelle() {
-        List<EingereichterFall> faelle = smileKhService.getEingereichteFaelle();
-        return ResponseEntity.ok(faelle);
+        securityHelper.requireBerechtigung("smile-kh", "lesen");
+        return ResponseEntity.ok(smileKhService.getEingereichteFaelle());
     }
 
     @GetMapping("/faelle/stats")
     public ResponseEntity<Map<AmpelStatus, Long>> getFaelleStats() {
-        Map<AmpelStatus, Long> stats = smileKhService.getAmpelStats();
-        return ResponseEntity.ok(stats);
+        securityHelper.requireBerechtigung("smile-kh", "lesen");
+        return ResponseEntity.ok(smileKhService.getAmpelStats());
     }
 
     @GetMapping("/rechnungen")
     public ResponseEntity<List<OffeneRechnung>> listRechnungen() {
-        List<OffeneRechnung> rechnungen = smileKhService.getOffeneRechnungen();
-        return ResponseEntity.ok(rechnungen);
+        securityHelper.requireBerechtigung("smile-kh", "lesen");
+        return ResponseEntity.ok(smileKhService.getOffeneRechnungen());
     }
 }

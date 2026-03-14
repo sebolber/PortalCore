@@ -2,6 +2,8 @@ package de.portalcore.entity;
 
 import de.portalcore.enums.ParameterType;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.*;
 import java.time.LocalDateTime;
 
@@ -13,9 +15,11 @@ public class PortalParameter {
     @Id
     private String id;
 
+    @NotBlank(message = "Parameter-Key ist erforderlich")
     @Column(name = "param_key", nullable = false)
     private String key;
 
+    @NotBlank(message = "Label ist erforderlich")
     @Column(nullable = false)
     private String label;
 
@@ -30,6 +34,7 @@ public class PortalParameter {
     @Column(name = "param_group")
     private String group;
 
+    @NotNull(message = "Parameter-Typ ist erforderlich")
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ParameterType type;

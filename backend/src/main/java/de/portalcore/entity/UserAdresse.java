@@ -2,6 +2,7 @@ package de.portalcore.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -19,6 +20,7 @@ public class UserAdresse {
     @JsonIgnoreProperties({"adressen", "gruppen", "rollen", "tenant"})
     private PortalUser user;
 
+    @NotBlank(message = "Adresstyp ist erforderlich")
     @Column(nullable = false)
     private String typ;
 

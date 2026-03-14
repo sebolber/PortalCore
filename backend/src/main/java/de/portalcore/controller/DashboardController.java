@@ -1,24 +1,16 @@
 package de.portalcore.controller;
 
-import de.portalcore.config.JwtAuthenticationFilter.AuthDetails;
+import de.portalcore.config.SecurityHelper;
 import de.portalcore.entity.DashboardWidget;
 import de.portalcore.entity.PortalSeite;
 import de.portalcore.entity.WidgetDefinition;
+import de.portalcore.service.AuditService;
 import de.portalcore.service.DashboardService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -27,12 +19,15 @@ import java.util.List;
 public class DashboardController {
 
     private final DashboardService dashboardService;
+    private final SecurityHelper securityHelper;
+    private final AuditService auditService;
 
-    public DashboardController(DashboardService dashboardService) {
+    public DashboardController(DashboardService dashboardService, SecurityHelper securityHelper,
+                               AuditService auditService) {
         this.dashboardService = dashboardService;
+        this.securityHelper = securityHelper;
+        this.auditService = auditService;
     }
-
-    // ===== Widget-Katalog =====
 
     @GetMapping("/widget-definitionen")
     public ResponseEntity<List<WidgetDefDto>> getWidgetDefinitionen(
@@ -46,20 +41,21 @@ public class DashboardController {
         return ResponseEntity.ok(defs.stream().map(this::toDefDto).toList());
     }
 
-    // ===== User Dashboard =====
-
     @GetMapping("/widgets")
     public ResponseEntity<List<DashboardWidgetDto>> getUserWidgets() {
-        AuthDetails auth = getAuth();
-        List<DashboardWidget> widgets = dashboardService.getUserDashboard(auth.userId(), auth.tenantId());
+        String userId = securityHelper.getCurrentUserId();
+        String tenantId = securityHelper.getCurrentTenantId();
+        List<DashboardWidget> widgets = dashboardService.getUserDashboard(userId, tenantId);
         return ResponseEntity.ok(widgets.stream().map(this::toWidgetDto).toList());
     }
 
     @PostMapping("/widgets")
-    public ResponseEntity<DashboardWidgetDto> widgetHinzufuegen(@RequestBody WidgetHinzufuegenRequest req) {
-        AuthDetails auth = getAuth();
+    public ResponseEntity<DashboardWidgetDto> widgetHinzufuegen(
+            @Valid @RequestBody WidgetHinzufuegenRequest req) {
+        String userId = securityHelper.getCurrentUserId();
+        String tenantId = securityHelper.getCurrentTenantId();
         DashboardWidget widget = dashboardService.widgetHinzufuegen(
-                auth.userId(), auth.tenantId(), req.widgetDefinitionId(),
+                userId, tenantId, req.widgetDefinitionId(),
                 req.positionX(), req.positionY(), req.breite(), req.hoehe(),
                 req.konfiguration());
         return ResponseEntity.status(HttpStatus.CREATED).body(toWidgetDto(widget));
@@ -81,30 +77,17 @@ public class DashboardController {
 
     @PutMapping("/layout")
     public ResponseEntity<Void> layoutSpeichern(@RequestBody List<DashboardService.LayoutItem> items) {
-        AuthDetails auth = getAuth();
-        dashboardService.layoutSpeichern(auth.userId(), auth.tenantId(), items);
+        String userId = securityHelper.getCurrentUserId();
+        String tenantId = securityHelper.getCurrentTenantId();
+        dashboardService.layoutSpeichern(userId, tenantId, items);
         return ResponseEntity.noContent().build();
     }
-
-    // ===== Portal-Seiten =====
 
     @GetMapping("/seiten")
     public ResponseEntity<List<SeiteDto>> getSeiten() {
         List<PortalSeite> seiten = dashboardService.getAlleSeiten();
         return ResponseEntity.ok(seiten.stream().map(this::toSeiteDto).toList());
     }
-
-    // ===== Auth Helper =====
-
-    private AuthDetails getAuth() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.getDetails() instanceof AuthDetails details) {
-            return details;
-        }
-        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Nicht authentifiziert");
-    }
-
-    // ===== DTO Mapping =====
 
     private WidgetDefDto toDefDto(WidgetDefinition d) {
         return new WidgetDefDto(d.getId(), d.getWidgetKey(), d.getTitel(), d.getBeschreibung(),
@@ -126,8 +109,6 @@ public class DashboardController {
                 s.getRoute(), s.getIconPath(), s.getKategorie(), s.getAppId());
     }
 
-    // ===== Records =====
-
     record WidgetDefDto(String id, String widgetKey, String titel, String beschreibung,
                         String kategorie, String widgetTyp, String appId, String appName,
                         String iconPath, int standardBreite, int standardHoehe,
@@ -141,8 +122,10 @@ public class DashboardController {
     record SeiteDto(String id, String seitenKey, String titel, String beschreibung,
                     String route, String iconPath, String kategorie, String appId) {}
 
-    record WidgetHinzufuegenRequest(String widgetDefinitionId, int positionX, int positionY,
-                                    int breite, int hoehe, String konfiguration) {}
+    record WidgetHinzufuegenRequest(
+            @NotBlank(message = "Widget-Definition-ID ist erforderlich")
+            String widgetDefinitionId,
+            int positionX, int positionY, int breite, int hoehe, String konfiguration) {}
 
     record WidgetAktualisierenRequest(int positionX, int positionY, int breite, int hoehe,
                                       String konfiguration) {}

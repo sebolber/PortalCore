@@ -1,6 +1,7 @@
 package de.portalcore.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 import java.time.LocalDateTime;
 
@@ -18,6 +19,7 @@ public class CustomMenuItem {
     @Column(name = "parent_id")
     private String parentId;
 
+    @NotBlank(message = "Label ist erforderlich")
     @Column(nullable = false)
     private String label;
 

@@ -1,5 +1,6 @@
 package de.portalcore.controller;
 
+import de.portalcore.config.SecurityHelper;
 import de.portalcore.entity.Berechtigung;
 import de.portalcore.service.PermissionService;
 import org.springframework.http.ResponseEntity;
@@ -12,15 +13,17 @@ import java.util.List;
 public class PermissionController {
 
     private final PermissionService permissionService;
+    private final SecurityHelper securityHelper;
 
-    public PermissionController(PermissionService permissionService) {
+    public PermissionController(PermissionService permissionService, SecurityHelper securityHelper) {
         this.permissionService = permissionService;
+        this.securityHelper = securityHelper;
     }
 
     @GetMapping
     public ResponseEntity<List<Berechtigung>> listPermissions(
             @RequestParam(required = false) String appId) {
-        List<Berechtigung> permissions = permissionService.listPermissions(appId);
-        return ResponseEntity.ok(permissions);
+        securityHelper.requireBerechtigung("gruppenverwaltung", "lesen");
+        return ResponseEntity.ok(permissionService.listPermissions(appId));
     }
 }
