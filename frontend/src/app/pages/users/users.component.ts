@@ -17,6 +17,317 @@ import { ROLLEN, BERECHTIGUNGEN, AUDIT_TRAIL } from './users-stammdaten';
   imports: [CommonModule, FormsModule, RollenTabComponent, BerechtigungenTabComponent, AuditTabComponent],
   template: `
     <div class="max-w-[1400px] mx-auto">
+
+      <!-- ==================== BEARBEITUNGSSEITE ==================== -->
+      @if (formMode()) {
+        <div class="mb-6">
+          <button (click)="cancelForm()" class="flex items-center gap-1 text-sm text-gray-500 hover:text-primary transition-colors mb-3">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+            </svg>
+            Zurueck zur Benutzerliste
+          </button>
+          <h1 class="text-2xl font-condensed font-semibold text-gray-900">
+            {{ formMode() === 'create' ? 'Neuen Benutzer anlegen' : 'Benutzer bearbeiten' }}
+          </h1>
+          @if (formMode() === 'edit') {
+            <p class="text-sm text-gray-500 mt-1">{{ formData.vorname }} {{ formData.nachname }} &middot; {{ formData.email }}</p>
+          }
+        </div>
+
+        <div class="bg-white rounded-lg border border-gray-200 shadow-card p-6">
+
+          <!-- Persoenliche Daten -->
+          <fieldset class="mb-6">
+            <legend class="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-primary"></span>
+              Persoenliche Daten
+            </legend>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Anrede</label>
+                <select [(ngModel)]="formData.anrede" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                  <option value="">Keine Angabe</option>
+                  <option value="Herr">Herr</option>
+                  <option value="Frau">Frau</option>
+                  <option value="Divers">Divers</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Vorname *</label>
+                <input type="text" [(ngModel)]="formData.vorname" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Nachname *</label>
+                <input type="text" [(ngModel)]="formData.nachname" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">E-Mail *</label>
+                <input type="email" [(ngModel)]="formData.email" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Telefon</label>
+                <input type="tel" [(ngModel)]="formData.telefon" placeholder="+49 123 4567890" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Abteilung</label>
+                <input type="text" [(ngModel)]="formData.abteilung" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Position / Funktion</label>
+                <input type="text" [(ngModel)]="formData.positionTitel" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+              </div>
+            </div>
+          </fieldset>
+
+          <!-- Mandant & Konto -->
+          <fieldset class="mb-6">
+            <legend class="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-accent-violet"></span>
+              Mandant & Konto
+            </legend>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Mandant *</label>
+                <select [(ngModel)]="formData.mandantId" (ngModelChange)="onMandantChange($event)" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                  <option value="">Bitte waehlen</option>
+                  @for (t of availableTenants(); track t.id) {
+                    <option [value]="t.id">{{ t.name }}</option>
+                  }
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Kontostatus</label>
+                <select [(ngModel)]="formData.status" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                  <option value="aktiv">Aktiv</option>
+                  <option value="inaktiv">Inaktiv</option>
+                  <option value="gesperrt">Gesperrt</option>
+                </select>
+              </div>
+              @if (formMode() === 'edit') {
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Fehlgeschlagene Logins</label>
+                  <input type="number" [ngModel]="formData.fehlgeschlageneLogins" readonly class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 text-gray-500" />
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Letzter Login</label>
+                  <input type="text" [ngModel]="formData.letzterLogin" readonly class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 text-gray-500" />
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Letzte Login-IP</label>
+                  <input type="text" [ngModel]="formData.letzteLoginIp" readonly class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 text-gray-500" />
+                </div>
+              }
+            </div>
+          </fieldset>
+
+          <!-- Einstellungen -->
+          <fieldset class="mb-6">
+            <legend class="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-accent-turquoise"></span>
+              Einstellungen
+            </legend>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Sprache</label>
+                <select [(ngModel)]="formData.sprache" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                  @for (s of sprachen; track s.code) {
+                    <option [value]="s.code">{{ s.label }}</option>
+                  }
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Zeitzone</label>
+                <select [(ngModel)]="formData.zeitzone" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                  @for (tz of zeitzonen; track tz) {
+                    <option [value]="tz">{{ tz }}</option>
+                  }
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Design</label>
+                <select [(ngModel)]="formData.darkMode" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                  <option [ngValue]="false">Hell</option>
+                  <option [ngValue]="true">Dunkel</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Standard-Dashboard</label>
+                <input type="text" [(ngModel)]="formData.standardDashboard" placeholder="z.B. Uebersicht" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+              </div>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" [(ngModel)]="formData.emailBenachrichtigungen" class="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary" />
+                <span class="text-sm text-gray-700">E-Mail-Benachrichtigungen</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" [(ngModel)]="formData.pushBenachrichtigungen" class="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary" />
+                <span class="text-sm text-gray-700">Push-Benachrichtigungen</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" [(ngModel)]="formData.smsBenachrichtigungen" class="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary" />
+                <span class="text-sm text-gray-700">SMS-Benachrichtigungen</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" [(ngModel)]="formData.newsletterEinwilligung" class="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary" />
+                <span class="text-sm text-gray-700">Newsletter-Einwilligung</span>
+              </label>
+            </div>
+          </fieldset>
+
+          <!-- Delegationsrechte & Stellvertretung -->
+          <fieldset class="mb-6">
+            <legend class="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-accent-orange"></span>
+              Delegationsrechte & Stellvertretung
+            </legend>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" [(ngModel)]="formData.delegationsrechte" class="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary" />
+                <span class="text-sm text-gray-700">Delegationsrechte aktiviert</span>
+              </label>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Stellvertreter</label>
+                <select multiple [(ngModel)]="formData.stellvertreterIds" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary h-20">
+                  @for (u of users(); track u.id) {
+                    @if (u.id !== formData.id) {
+                      <option [value]="u.id">{{ u.vorname }} {{ u.nachname }}</option>
+                    }
+                  }
+                </select>
+                <p class="text-[10px] text-gray-400 mt-1">Strg/Cmd gehalten fuer Mehrfachauswahl</p>
+              </div>
+            </div>
+          </fieldset>
+
+          <!-- Meta-Info (nur bei Bearbeiten) -->
+          @if (formMode() === 'edit') {
+            <fieldset class="mb-6">
+              <legend class="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-gray-400"></span>
+                Meta-Info (nur lesen)
+              </legend>
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Erstellt am</label>
+                  <div class="text-sm text-gray-700 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">{{ formData.erstelltAm || '-' }}</div>
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Letzte Aenderung</label>
+                  <div class="text-sm text-gray-700 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">{{ formData.letzteAenderungAm || '-' }}</div>
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Erstellt von</label>
+                  <div class="text-sm text-gray-700 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">{{ formData.erstelltVon || '-' }}</div>
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Zuletzt geaendert von</label>
+                  <div class="text-sm text-gray-700 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">{{ formData.zuletztGeaendertVon || '-' }}</div>
+                </div>
+              </div>
+            </fieldset>
+          }
+
+          <!-- Adressen -->
+          <fieldset class="mb-6">
+            <legend class="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-accent-pink"></span>
+              Adressen
+            </legend>
+
+            @if (formData.adressen && formData.adressen.length > 0) {
+              <div class="space-y-3 mb-4">
+                @for (adr of formData.adressen; track adr.id; let i = $index) {
+                  <div class="border border-gray-200 rounded-lg p-4 relative" [class.border-primary]="adr.istHauptadresse">
+                    @if (adr.istHauptadresse) {
+                      <span class="absolute top-2 right-12 text-[10px] px-2 py-0.5 bg-primary/10 text-primary rounded-full font-medium">Hauptadresse</span>
+                    }
+                    <button (click)="removeAdresse(i)" class="absolute top-2 right-2 text-gray-400 hover:text-error text-lg">&times;</button>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                      <div>
+                        <label class="block text-xs text-gray-500 mb-1">Typ</label>
+                        <select [(ngModel)]="adr.typ" class="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20">
+                          <option value="Hauptadresse">Hauptadresse</option>
+                          <option value="Zustelladresse">Zustelladresse</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label class="block text-xs text-gray-500 mb-1">Bezeichnung</label>
+                        <input type="text" [(ngModel)]="adr.bezeichnung" placeholder="z.B. Buero" class="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                      </div>
+                      <div>
+                        <label class="block text-xs text-gray-500 mb-1">Strasse</label>
+                        <input type="text" [(ngModel)]="adr.strasse" class="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                      </div>
+                      <div>
+                        <label class="block text-xs text-gray-500 mb-1">Hausnummer</label>
+                        <input type="text" [(ngModel)]="adr.hausnummer" class="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                      </div>
+                      <div>
+                        <label class="block text-xs text-gray-500 mb-1">PLZ</label>
+                        <input type="text" [(ngModel)]="adr.plz" class="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                      </div>
+                      <div>
+                        <label class="block text-xs text-gray-500 mb-1">Ort</label>
+                        <input type="text" [(ngModel)]="adr.ort" class="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                      </div>
+                      <div>
+                        <label class="block text-xs text-gray-500 mb-1">Land</label>
+                        <input type="text" [(ngModel)]="adr.land" value="Deutschland" class="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                      </div>
+                      <div>
+                        <label class="block text-xs text-gray-500 mb-1">Zusatz</label>
+                        <input type="text" [(ngModel)]="adr.zusatz" class="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                      </div>
+                    </div>
+                    <label class="flex items-center gap-2 mt-3 cursor-pointer">
+                      <input type="checkbox" [(ngModel)]="adr.istHauptadresse" (ngModelChange)="onHauptadresseChange(i)" class="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary" />
+                      <span class="text-xs text-gray-600">Als Hauptadresse markieren</span>
+                    </label>
+                  </div>
+                }
+              </div>
+            }
+
+            <button (click)="addAdresse()" class="px-3 py-1.5 text-sm text-primary hover:bg-primary/10 rounded-lg border border-dashed border-primary/40 transition-colors flex items-center gap-1">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+              </svg>
+              Adresse hinzufuegen
+            </button>
+          </fieldset>
+
+          <!-- Validierungsfehler -->
+          @if (formError()) {
+            <div class="mb-4 p-3 bg-error/10 border border-error/20 rounded-lg text-sm text-error">{{ formError() }}</div>
+          }
+
+          <!-- Aktionen -->
+          <div class="flex justify-end gap-3 pt-4 border-t border-gray-200">
+            <button (click)="cancelForm()" class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+              </svg>
+              Zurueck
+            </button>
+            <button (click)="saveUser()" [disabled]="saving()" class="px-6 py-2 text-sm font-medium text-white bg-primary hover:bg-primary-dark rounded-lg transition-colors disabled:opacity-50">
+              @if (saving()) {
+                <span class="flex items-center gap-2">
+                  <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  Speichere...
+                </span>
+              } @else {
+                {{ formMode() === 'create' ? 'Anlegen' : 'Speichern' }}
+              }
+            </button>
+          </div>
+        </div>
+
+      } @else {
+
+      <!-- ==================== LISTENANSICHT ==================== -->
+
       <!-- Header -->
       <div class="mb-6">
         <h1 class="text-2xl font-condensed font-semibold text-gray-900">Benutzerverwaltung</h1>
@@ -268,303 +579,6 @@ import { ROLLEN, BERECHTIGUNGEN, AUDIT_TRAIL } from './users-stammdaten';
           </div>
         }
 
-        <!-- Erstellen / Bearbeiten Formular -->
-        @if (formMode()) {
-          <div class="mt-4 bg-white rounded-lg border border-gray-200 shadow-card p-6">
-            <div class="flex items-center justify-between mb-6">
-              <h3 class="text-lg font-condensed font-semibold text-gray-900">
-                {{ formMode() === 'create' ? 'Neuen Benutzer anlegen' : 'Benutzer bearbeiten' }}
-              </h3>
-              <button (click)="cancelForm()" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
-            </div>
-
-            <!-- Persoenliche Daten -->
-            <fieldset class="mb-6">
-              <legend class="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
-                <span class="w-2 h-2 rounded-full bg-primary"></span>
-                Persoenliche Daten
-              </legend>
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label class="block text-xs text-gray-500 mb-1">Anrede</label>
-                  <select [(ngModel)]="formData.anrede" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                    <option value="">Keine Angabe</option>
-                    <option value="Herr">Herr</option>
-                    <option value="Frau">Frau</option>
-                    <option value="Divers">Divers</option>
-                  </select>
-                </div>
-                <div>
-                  <label class="block text-xs text-gray-500 mb-1">Vorname *</label>
-                  <input type="text" [(ngModel)]="formData.vorname" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
-                </div>
-                <div>
-                  <label class="block text-xs text-gray-500 mb-1">Nachname *</label>
-                  <input type="text" [(ngModel)]="formData.nachname" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
-                </div>
-                <div>
-                  <label class="block text-xs text-gray-500 mb-1">E-Mail *</label>
-                  <input type="email" [(ngModel)]="formData.email" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
-                </div>
-                <div>
-                  <label class="block text-xs text-gray-500 mb-1">Telefon</label>
-                  <input type="tel" [(ngModel)]="formData.telefon" placeholder="+49 123 4567890" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
-                </div>
-                <div>
-                  <label class="block text-xs text-gray-500 mb-1">Abteilung</label>
-                  <input type="text" [(ngModel)]="formData.abteilung" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
-                </div>
-                <div>
-                  <label class="block text-xs text-gray-500 mb-1">Position / Funktion</label>
-                  <input type="text" [(ngModel)]="formData.positionTitel" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
-                </div>
-              </div>
-            </fieldset>
-
-            <!-- Mandant & Konto -->
-            <fieldset class="mb-6">
-              <legend class="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
-                <span class="w-2 h-2 rounded-full bg-accent-violet"></span>
-                Mandant & Konto
-              </legend>
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label class="block text-xs text-gray-500 mb-1">Mandant *</label>
-                  <select [(ngModel)]="formData.mandantId" (ngModelChange)="onMandantChange($event)" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                    <option value="">Bitte waehlen</option>
-                    @for (t of availableTenants(); track t.id) {
-                      <option [value]="t.id">{{ t.name }}</option>
-                    }
-                  </select>
-                </div>
-                <div>
-                  <label class="block text-xs text-gray-500 mb-1">Kontostatus</label>
-                  <select [(ngModel)]="formData.status" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                    <option value="aktiv">Aktiv</option>
-                    <option value="inaktiv">Inaktiv</option>
-                    <option value="gesperrt">Gesperrt</option>
-                  </select>
-                </div>
-                @if (formMode() === 'edit') {
-                  <div>
-                    <label class="block text-xs text-gray-500 mb-1">Fehlgeschlagene Logins</label>
-                    <input type="number" [ngModel]="formData.fehlgeschlageneLogins" readonly class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 text-gray-500" />
-                  </div>
-                  <div>
-                    <label class="block text-xs text-gray-500 mb-1">Letzter Login</label>
-                    <input type="text" [ngModel]="formData.letzterLogin" readonly class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 text-gray-500" />
-                  </div>
-                  <div>
-                    <label class="block text-xs text-gray-500 mb-1">Letzte Login-IP</label>
-                    <input type="text" [ngModel]="formData.letzteLoginIp" readonly class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 text-gray-500" />
-                  </div>
-                }
-              </div>
-            </fieldset>
-
-            <!-- Einstellungen -->
-            <fieldset class="mb-6">
-              <legend class="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
-                <span class="w-2 h-2 rounded-full bg-accent-turquoise"></span>
-                Einstellungen
-              </legend>
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label class="block text-xs text-gray-500 mb-1">Sprache</label>
-                  <select [(ngModel)]="formData.sprache" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                    @for (s of sprachen; track s.code) {
-                      <option [value]="s.code">{{ s.label }}</option>
-                    }
-                  </select>
-                </div>
-                <div>
-                  <label class="block text-xs text-gray-500 mb-1">Zeitzone</label>
-                  <select [(ngModel)]="formData.zeitzone" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                    @for (tz of zeitzonen; track tz) {
-                      <option [value]="tz">{{ tz }}</option>
-                    }
-                  </select>
-                </div>
-                <div>
-                  <label class="block text-xs text-gray-500 mb-1">Design</label>
-                  <select [(ngModel)]="formData.darkMode" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                    <option [ngValue]="false">Hell</option>
-                    <option [ngValue]="true">Dunkel</option>
-                  </select>
-                </div>
-                <div>
-                  <label class="block text-xs text-gray-500 mb-1">Standard-Dashboard</label>
-                  <input type="text" [(ngModel)]="formData.standardDashboard" placeholder="z.B. Uebersicht" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
-                </div>
-              </div>
-              <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-                <label class="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" [(ngModel)]="formData.emailBenachrichtigungen" class="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary" />
-                  <span class="text-sm text-gray-700">E-Mail-Benachrichtigungen</span>
-                </label>
-                <label class="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" [(ngModel)]="formData.pushBenachrichtigungen" class="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary" />
-                  <span class="text-sm text-gray-700">Push-Benachrichtigungen</span>
-                </label>
-                <label class="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" [(ngModel)]="formData.smsBenachrichtigungen" class="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary" />
-                  <span class="text-sm text-gray-700">SMS-Benachrichtigungen</span>
-                </label>
-                <label class="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" [(ngModel)]="formData.newsletterEinwilligung" class="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary" />
-                  <span class="text-sm text-gray-700">Newsletter-Einwilligung</span>
-                </label>
-              </div>
-            </fieldset>
-
-            <!-- Delegationsrechte & Stellvertretung -->
-            <fieldset class="mb-6">
-              <legend class="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
-                <span class="w-2 h-2 rounded-full bg-accent-orange"></span>
-                Delegationsrechte & Stellvertretung
-              </legend>
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <label class="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" [(ngModel)]="formData.delegationsrechte" class="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary" />
-                  <span class="text-sm text-gray-700">Delegationsrechte aktiviert</span>
-                </label>
-                <div>
-                  <label class="block text-xs text-gray-500 mb-1">Stellvertreter</label>
-                  <select multiple [(ngModel)]="formData.stellvertreterIds" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary h-20">
-                    @for (u of users(); track u.id) {
-                      @if (u.id !== formData.id) {
-                        <option [value]="u.id">{{ u.vorname }} {{ u.nachname }}</option>
-                      }
-                    }
-                  </select>
-                  <p class="text-[10px] text-gray-400 mt-1">Strg/Cmd gehalten fuer Mehrfachauswahl</p>
-                </div>
-              </div>
-            </fieldset>
-
-            <!-- Meta-Info (nur bei Bearbeiten) -->
-            @if (formMode() === 'edit') {
-              <fieldset class="mb-6">
-                <legend class="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <span class="w-2 h-2 rounded-full bg-gray-400"></span>
-                  Meta-Info (nur lesen)
-                </legend>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div>
-                    <label class="block text-xs text-gray-500 mb-1">Erstellt am</label>
-                    <div class="text-sm text-gray-700 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">{{ formData.erstelltAm || '-' }}</div>
-                  </div>
-                  <div>
-                    <label class="block text-xs text-gray-500 mb-1">Letzte Aenderung</label>
-                    <div class="text-sm text-gray-700 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">{{ formData.letzteAenderungAm || '-' }}</div>
-                  </div>
-                  <div>
-                    <label class="block text-xs text-gray-500 mb-1">Erstellt von</label>
-                    <div class="text-sm text-gray-700 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">{{ formData.erstelltVon || '-' }}</div>
-                  </div>
-                  <div>
-                    <label class="block text-xs text-gray-500 mb-1">Zuletzt geaendert von</label>
-                    <div class="text-sm text-gray-700 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">{{ formData.zuletztGeaendertVon || '-' }}</div>
-                  </div>
-                </div>
-              </fieldset>
-            }
-
-            <!-- Adressen -->
-            <fieldset class="mb-6">
-              <legend class="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
-                <span class="w-2 h-2 rounded-full bg-accent-pink"></span>
-                Adressen
-              </legend>
-
-              @if (formData.adressen && formData.adressen.length > 0) {
-                <div class="space-y-3 mb-4">
-                  @for (adr of formData.adressen; track adr.id; let i = $index) {
-                    <div class="border border-gray-200 rounded-lg p-4 relative" [class.border-primary]="adr.istHauptadresse">
-                      @if (adr.istHauptadresse) {
-                        <span class="absolute top-2 right-12 text-[10px] px-2 py-0.5 bg-primary/10 text-primary rounded-full font-medium">Hauptadresse</span>
-                      }
-                      <button (click)="removeAdresse(i)" class="absolute top-2 right-2 text-gray-400 hover:text-error text-lg">&times;</button>
-                      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
-                        <div>
-                          <label class="block text-xs text-gray-500 mb-1">Typ</label>
-                          <select [(ngModel)]="adr.typ" class="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20">
-                            <option value="Hauptadresse">Hauptadresse</option>
-                            <option value="Zustelladresse">Zustelladresse</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label class="block text-xs text-gray-500 mb-1">Bezeichnung</label>
-                          <input type="text" [(ngModel)]="adr.bezeichnung" placeholder="z.B. Buero" class="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20" />
-                        </div>
-                        <div>
-                          <label class="block text-xs text-gray-500 mb-1">Strasse</label>
-                          <input type="text" [(ngModel)]="adr.strasse" class="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20" />
-                        </div>
-                        <div>
-                          <label class="block text-xs text-gray-500 mb-1">Hausnummer</label>
-                          <input type="text" [(ngModel)]="adr.hausnummer" class="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20" />
-                        </div>
-                        <div>
-                          <label class="block text-xs text-gray-500 mb-1">PLZ</label>
-                          <input type="text" [(ngModel)]="adr.plz" class="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20" />
-                        </div>
-                        <div>
-                          <label class="block text-xs text-gray-500 mb-1">Ort</label>
-                          <input type="text" [(ngModel)]="adr.ort" class="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20" />
-                        </div>
-                        <div>
-                          <label class="block text-xs text-gray-500 mb-1">Land</label>
-                          <input type="text" [(ngModel)]="adr.land" value="Deutschland" class="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20" />
-                        </div>
-                        <div>
-                          <label class="block text-xs text-gray-500 mb-1">Zusatz</label>
-                          <input type="text" [(ngModel)]="adr.zusatz" class="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20" />
-                        </div>
-                      </div>
-                      <label class="flex items-center gap-2 mt-3 cursor-pointer">
-                        <input type="checkbox" [(ngModel)]="adr.istHauptadresse" (ngModelChange)="onHauptadresseChange(i)" class="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary" />
-                        <span class="text-xs text-gray-600">Als Hauptadresse markieren</span>
-                      </label>
-                    </div>
-                  }
-                </div>
-              }
-
-              <button (click)="addAdresse()" class="px-3 py-1.5 text-sm text-primary hover:bg-primary/10 rounded-lg border border-dashed border-primary/40 transition-colors flex items-center gap-1">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
-                </svg>
-                Adresse hinzufuegen
-              </button>
-            </fieldset>
-
-            <!-- Validierungsfehler -->
-            @if (formError()) {
-              <div class="mb-4 p-3 bg-error/10 border border-error/20 rounded-lg text-sm text-error">{{ formError() }}</div>
-            }
-
-            <!-- Aktionen -->
-            <div class="flex justify-end gap-3 pt-4 border-t border-gray-200">
-              <button (click)="cancelForm()" class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
-                </svg>
-                Zurueck
-              </button>
-              <button (click)="saveUser()" [disabled]="saving()" class="px-6 py-2 text-sm font-medium text-white bg-primary hover:bg-primary-dark rounded-lg transition-colors disabled:opacity-50">
-                @if (saving()) {
-                  <span class="flex items-center gap-2">
-                    <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Speichere...
-                  </span>
-                } @else {
-                  {{ formMode() === 'create' ? 'Anlegen' : 'Speichern' }}
-                }
-              </button>
-            </div>
-          </div>
-        }
       }
 
       <!-- Tab 2: Rollen -->
@@ -581,6 +595,8 @@ import { ROLLEN, BERECHTIGUNGEN, AUDIT_TRAIL } from './users-stammdaten';
       @if (activeTab() === 'audit') {
         <app-audit-tab [auditTrail]="auditTrail"></app-audit-tab>
       }
+
+      } <!-- Ende @else (Listenansicht) -->
     </div>
   `,
 })
