@@ -81,8 +81,8 @@ export class SetupMandantComponent {
   readonly saving = signal(false);
 
   mandant: SetupMandant = {
-    name: '',
-    kuerzel: '',
+    name: 'Lokal',
+    kuerzel: 'DE',
     strasse: '',
     hausnummer: '',
     plz: '',
