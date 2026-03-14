@@ -30,4 +30,13 @@ public class SystemInitialisierung {
 
     @Column(name = "initialisiert_von")
     private String initialisiertVon;
+
+    @Column(name = "setup_smtp_abgeschlossen", nullable = false)
+    private boolean setupSmtpAbgeschlossen;
+
+    @Column(name = "setup_mandant_abgeschlossen", nullable = false)
+    private boolean setupMandantAbgeschlossen;
+
+    @Column(name = "setup_superuser_abgeschlossen", nullable = false)
+    private boolean setupSuperuserAbgeschlossen;
 }

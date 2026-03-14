@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 @Service
 public class SetupService {
@@ -55,10 +56,11 @@ public class SetupService {
     }
 
     public SetupStatusResponse getSetupStatus() {
-        boolean isInit = istInitialisiert();
-        boolean hasSmtp = smtpRepo.existsById(SmtpKonfiguration.DEFAULT_ID);
-        boolean hasTenant = tenantRepo.count() > 0;
-        boolean hasSuperuser = userRepo.findAll().stream().anyMatch(PortalUser::isSuperAdmin);
+        SystemInitialisierung system = findSystemRecord();
+        boolean isInit = system.isIstInitialisiert();
+        boolean hasSmtp = system.isSetupSmtpAbgeschlossen();
+        boolean hasTenant = system.isSetupMandantAbgeschlossen();
+        boolean hasSuperuser = system.isSetupSuperuserAbgeschlossen();
         return new SetupStatusResponse(isInit, hasSmtp, hasTenant, hasSuperuser);
     }
 
@@ -80,6 +82,7 @@ public class SetupService {
                 .build();
 
         smtpRepo.save(config);
+        markiereSetupSchritt(s -> s.setSetupSmtpAbgeschlossen(true));
         log.info("SMTP-Konfiguration gespeichert: host={}, port={}", request.host(), request.port());
     }
 
@@ -106,6 +109,7 @@ public class SetupService {
                 .build();
 
         tenant = tenantRepo.save(tenant);
+        markiereSetupSchritt(s -> s.setSetupMandantAbgeschlossen(true));
         log.info("Default-Mandant angelegt: id={}, name={}", tenant.getId(), tenant.getName());
         return tenant;
     }
@@ -137,13 +141,24 @@ public class SetupService {
                 .build();
 
         userRepo.save(superuser);
+        markiereSetupSchritt(s -> s.setSetupSuperuserAbgeschlossen(true));
         markiereAlsInitialisiert(request.email());
         log.info("Superuser angelegt und System als initialisiert markiert");
     }
 
-    private void markiereAlsInitialisiert(String initialisiertVon) {
-        SystemInitialisierung system = systemRepo.findById(SystemInitialisierung.SYSTEM_ID)
+    private SystemInitialisierung findSystemRecord() {
+        return systemRepo.findById(SystemInitialisierung.SYSTEM_ID)
                 .orElseThrow(() -> new IllegalStateException("Systeminitialisierungs-Datensatz fehlt"));
+    }
+
+    private void markiereSetupSchritt(Consumer<SystemInitialisierung> updater) {
+        SystemInitialisierung system = findSystemRecord();
+        updater.accept(system);
+        systemRepo.save(system);
+    }
+
+    private void markiereAlsInitialisiert(String initialisiertVon) {
+        SystemInitialisierung system = findSystemRecord();
         system.setIstInitialisiert(true);
         system.setInitialisiertAm(LocalDateTime.now());
         system.setInitialisiertVon(initialisiertVon);
@@ -157,13 +172,13 @@ public class SetupService {
     }
 
     private void validateSmtpVorhanden() {
-        if (!smtpRepo.existsById(SmtpKonfiguration.DEFAULT_ID)) {
+        if (!findSystemRecord().isSetupSmtpAbgeschlossen()) {
             throw new IllegalStateException("SMTP-Konfiguration muss zuerst abgeschlossen werden.");
         }
     }
 
     private void validateMandantVorhanden() {
-        if (tenantRepo.count() == 0) {
+        if (!findSystemRecord().isSetupMandantAbgeschlossen()) {
             throw new IllegalStateException("Default-Mandant muss zuerst angelegt werden.");
         }
     }

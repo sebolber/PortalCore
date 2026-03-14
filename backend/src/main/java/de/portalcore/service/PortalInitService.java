@@ -4,11 +4,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import de.portalcore.entity.PortalParameter;
 import de.portalcore.entity.PortalUser;
+import de.portalcore.entity.SystemInitialisierung;
 import de.portalcore.entity.Tenant;
 import de.portalcore.enums.ParameterType;
 import de.portalcore.enums.UserStatus;
 import de.portalcore.repository.PortalParameterRepository;
 import de.portalcore.repository.PortalUserRepository;
+import de.portalcore.repository.SystemInitialisierungRepository;
 import de.portalcore.repository.TenantRepository;
 import de.portalcore.repository.UserTenantRepository;
 import de.portalcore.entity.UserTenant;
@@ -46,20 +48,28 @@ public class PortalInitService implements ApplicationRunner {
     private final TenantRepository tenantRepository;
     private final UserTenantRepository userTenantRepository;
     private final PortalParameterRepository parameterRepository;
+    private final SystemInitialisierungRepository systemRepo;
 
     public PortalInitService(PortalUserRepository userRepository,
                              TenantRepository tenantRepository,
                              UserTenantRepository userTenantRepository,
-                             PortalParameterRepository parameterRepository) {
+                             PortalParameterRepository parameterRepository,
+                             SystemInitialisierungRepository systemRepo) {
         this.userRepository = userRepository;
         this.tenantRepository = tenantRepository;
         this.userTenantRepository = userTenantRepository;
         this.parameterRepository = parameterRepository;
+        this.systemRepo = systemRepo;
     }
 
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
+        if (!isSystemInitialisiert()) {
+            log.info("System noch nicht ueber Setup-Wizard initialisiert. Portal-Init uebersprungen.");
+            return;
+        }
+
         Resource configResource = findConfigFile();
         if (configResource == null || !configResource.exists()) {
             log.info("Keine portal-init.yml gefunden. Erstinstallation uebersprungen.");
@@ -78,6 +88,12 @@ public class PortalInitService implements ApplicationRunner {
         } catch (Exception e) {
             log.warn("Fehler beim Lesen der portal-init.yml: {}. Erstinstallation uebersprungen.", e.getMessage());
         }
+    }
+
+    private boolean isSystemInitialisiert() {
+        return systemRepo.findById(SystemInitialisierung.SYSTEM_ID)
+                .map(SystemInitialisierung::isIstInitialisiert)
+                .orElse(false);
     }
 
     private Resource findConfigFile() {
