@@ -25,9 +25,22 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<Map<String, String>> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
-        log.warn("Datenintegritaetsfehler: {}", ex.getMostSpecificCause().getMessage());
+        String dbMessage = ex.getMostSpecificCause().getMessage();
+        log.warn("Datenintegritaetsfehler: {}", dbMessage);
+
+        String message = resolveIntegrityViolationMessage(dbMessage);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(Map.of("error", "Datenintegritaetsfehler: " + ex.getMostSpecificCause().getMessage()));
+                .body(Map.of("error", message, "message", message));
+    }
+
+    private String resolveIntegrityViolationMessage(String dbMessage) {
+        if (dbMessage != null && dbMessage.contains("foreign key")) {
+            if (dbMessage.contains("portal_users")) {
+                return "Loeschen nicht moeglich: Es sind noch Benutzer zugeordnet.";
+            }
+            return "Loeschen nicht moeglich: Es existieren noch abhaengige Datensaetze.";
+        }
+        return "Datenintegritaetsfehler: Die Aenderung verletzt eine Integritaetsbedingung.";
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
