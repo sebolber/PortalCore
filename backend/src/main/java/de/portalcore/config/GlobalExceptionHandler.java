@@ -10,6 +10,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -33,14 +35,36 @@ public class GlobalExceptionHandler {
                 .body(Map.of("error", message, "message", message));
     }
 
+    private static final Pattern REFERENCED_TABLE_PATTERN =
+            Pattern.compile("is still referenced from table \"(\\w+)\"");
+
+    private static final Map<String, String> TABLE_LABELS = Map.ofEntries(
+            Map.entry("portal_users", "Benutzer"),
+            Map.entry("dashboard_widgets", "Dashboard-Widgets"),
+            Map.entry("nachricht_items", "Nachrichten"),
+            Map.entry("nachricht_empfaenger", "Nachrichten-Empfaenger"),
+            Map.entry("nachricht_anhaenge", "Nachrichten-Anhaenge"),
+            Map.entry("user_roles", "Rollenzuordnungen"),
+            Map.entry("user_gruppen", "Gruppenzuordnungen"),
+            Map.entry("user_stellvertreter", "Stellvertretungen"),
+            Map.entry("user_adressen", "Adressen"),
+            Map.entry("installed_apps", "installierte Apps"),
+            Map.entry("sessions", "aktive Sitzungen")
+    );
+
     private String resolveIntegrityViolationMessage(String dbMessage) {
-        if (dbMessage != null && dbMessage.contains("foreign key")) {
-            if (dbMessage.contains("portal_users")) {
-                return "Loeschen nicht moeglich: Es sind noch Benutzer zugeordnet.";
-            }
-            return "Loeschen nicht moeglich: Es existieren noch abhaengige Datensaetze.";
+        if (dbMessage == null || !dbMessage.contains("foreign key")) {
+            return "Datenintegritaetsfehler: Die Aenderung verletzt eine Integritaetsbedingung.";
         }
-        return "Datenintegritaetsfehler: Die Aenderung verletzt eine Integritaetsbedingung.";
+
+        Matcher matcher = REFERENCED_TABLE_PATTERN.matcher(dbMessage);
+        if (matcher.find()) {
+            String referencingTable = matcher.group(1);
+            String label = TABLE_LABELS.getOrDefault(referencingTable, referencingTable);
+            return "Loeschen nicht moeglich: Es existieren noch zugeordnete " + label + ".";
+        }
+
+        return "Loeschen nicht moeglich: Es existieren noch abhaengige Datensaetze.";
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
