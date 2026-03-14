@@ -4,11 +4,13 @@ import de.portalcore.dto.SetupMandantRequest;
 import de.portalcore.dto.SetupStatusResponse;
 import de.portalcore.dto.SetupSuperuserRequest;
 import de.portalcore.dto.SmtpKonfigurationRequest;
+import de.portalcore.entity.PortalParameter;
 import de.portalcore.entity.SmtpKonfiguration;
 import de.portalcore.entity.SystemInitialisierung;
 import de.portalcore.entity.Tenant;
 import de.portalcore.entity.PortalUser;
 import de.portalcore.enums.UserStatus;
+import de.portalcore.repository.PortalParameterRepository;
 import de.portalcore.repository.SmtpKonfigurationRepository;
 import de.portalcore.repository.SystemInitialisierungRepository;
 import de.portalcore.repository.PortalUserRepository;
@@ -20,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
 
@@ -32,6 +35,7 @@ public class SetupService {
     private final SmtpKonfigurationRepository smtpRepo;
     private final TenantRepository tenantRepo;
     private final PortalUserRepository userRepo;
+    private final PortalParameterRepository parameterRepo;
     private final SmtpValidierungService smtpValidierung;
     private final PasswordEncoder passwordEncoder;
 
@@ -39,12 +43,14 @@ public class SetupService {
                         SmtpKonfigurationRepository smtpRepo,
                         TenantRepository tenantRepo,
                         PortalUserRepository userRepo,
+                        PortalParameterRepository parameterRepo,
                         SmtpValidierungService smtpValidierung,
                         PasswordEncoder passwordEncoder) {
         this.systemRepo = systemRepo;
         this.smtpRepo = smtpRepo;
         this.tenantRepo = tenantRepo;
         this.userRepo = userRepo;
+        this.parameterRepo = parameterRepo;
         this.smtpValidierung = smtpValidierung;
         this.passwordEncoder = passwordEncoder;
     }
@@ -82,6 +88,7 @@ public class SetupService {
                 .build();
 
         smtpRepo.save(config);
+        synchronisiereSmtpParameter(request);
         markiereSetupSchritt(s -> s.setSetupSmtpAbgeschlossen(true));
         log.info("SMTP-Konfiguration gespeichert: host={}, port={}", request.host(), request.port());
     }
@@ -198,6 +205,33 @@ public class SetupService {
     private Tenant findDefaultTenant() {
         return tenantRepo.findAll().stream().findFirst()
                 .orElseThrow(() -> new IllegalStateException("Kein Mandant vorhanden."));
+    }
+
+    private void synchronisiereSmtpParameter(SmtpKonfigurationRequest request) {
+        boolean isSsl = "SSL".equals(request.verschluesselung());
+        boolean isTls = "TLS".equals(request.verschluesselung());
+
+        Map<String, String> params = Map.of(
+                "portal.email.smtp.host", request.host(),
+                "portal.email.smtp.port", String.valueOf(request.port()),
+                "portal.email.smtp.username", request.benutzername() != null ? request.benutzername() : "",
+                "portal.email.smtp.password", request.passwort() != null ? request.passwort() : "",
+                "portal.email.smtp.auth", String.valueOf(request.authentifizierungAktiv()),
+                "portal.email.smtp.starttls", String.valueOf(isTls),
+                "portal.email.smtp.ssl", String.valueOf(isSsl),
+                "portal.email.from", request.absenderEmail()
+        );
+
+        for (Map.Entry<String, String> entry : params.entrySet()) {
+            parameterRepo.findGlobalByKey(entry.getKey()).ifPresent(param -> {
+                param.setValue(entry.getValue());
+                param.setLastModified(LocalDateTime.now());
+                param.setLastModifiedBy("setup-wizard");
+                parameterRepo.save(param);
+            });
+        }
+
+        log.info("SMTP-Parameter in portal_parameters synchronisiert");
     }
 
     private String verschluesselPasswort(String passwort) {
