@@ -12,22 +12,18 @@ export const authGuard: CanActivateFn = () => {
   return setupService.getStatus().pipe(
     map(status => {
       if (!status.istInitialisiert) {
-        router.navigate(['/setup']);
-        return false;
+        return router.createUrlTree(['/setup']);
       }
       if (authService.isAuthenticated()) {
         return true;
       }
-      router.navigate(['/login']);
-      return false;
+      return router.createUrlTree(['/login']);
     }),
     catchError(() => {
       if (authService.isAuthenticated()) {
         return of(true);
       }
-      // Bei API-Fehler ohne Authentifizierung: Setup koennte noch ausstehen
-      router.navigate(['/setup']);
-      return of(false);
+      return of(router.createUrlTree(['/setup']));
     })
   );
 };
@@ -40,23 +36,18 @@ export const loginGuard: CanActivateFn = () => {
   return setupService.getStatus().pipe(
     map(status => {
       if (!status.istInitialisiert) {
-        router.navigate(['/setup']);
-        return false;
+        return router.createUrlTree(['/setup']);
       }
       if (!authService.isAuthenticated()) {
         return true;
       }
-      router.navigate(['/']);
-      return false;
+      return router.createUrlTree(['/']);
     }),
     catchError(() => {
       if (!authService.isAuthenticated()) {
-        // Bei API-Fehler ohne Authentifizierung: Setup koennte noch ausstehen
-        router.navigate(['/setup']);
-        return of(false);
+        return of(router.createUrlTree(['/setup']));
       }
-      router.navigate(['/']);
-      return of(false);
+      return of(router.createUrlTree(['/']));
     })
   );
 };

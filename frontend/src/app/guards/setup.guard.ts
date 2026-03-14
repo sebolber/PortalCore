@@ -14,14 +14,12 @@ export const setupGuard: CanActivateFn = () => {
   return setupService.getStatus().pipe(
     map(status => {
       if (status.istInitialisiert) {
-        router.navigate(['/login']);
-        return false;
+        return router.createUrlTree(['/login']);
       }
       return true;
     }),
     catchError(() => {
       // Bei API-Fehler Setup-Seite trotzdem anzeigen — POST-Endpoints sind serverseitig geschuetzt.
-      // Fail-closed (Redirect zu /login) wuerde auf frischen Systemen den Setup-Wizard blockieren.
       return of(true);
     })
   );
