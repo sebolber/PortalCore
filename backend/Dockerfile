@@ -17,5 +17,10 @@ COPY --from=build /app/target/*.jar app.jar
 # Verzeichnis fuer externe Konfiguration (portal-init.yml)
 RUN mkdir -p /app/config
 
+# Non-root User fuer den Betrieb
+RUN addgroup -g 1000 portal && adduser -u 1000 -G portal -D -s /sbin/nologin portal \
+    && chown -R portal:portal /app
+USER portal
+
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]

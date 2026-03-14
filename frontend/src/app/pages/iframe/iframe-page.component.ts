@@ -51,6 +51,16 @@ export class IframePageComponent implements OnInit {
     });
   }
 
+  private isAllowedUrl(url: string): boolean {
+    try {
+      const parsed = new URL(url, window.location.origin);
+      const allowedProtocols = ['http:', 'https:'];
+      return allowedProtocols.includes(parsed.protocol);
+    } catch {
+      return false;
+    }
+  }
+
   private loadMenuItem(id: string): void {
     this.loading.set(true);
     this.error.set(null);
@@ -58,8 +68,10 @@ export class IframePageComponent implements OnInit {
     this.menuService['http'].get<CustomMenuItem>(`/api/custom-menu-items/${id}`).subscribe({
       next: (item) => {
         this.menuItem.set(item);
-        if (item.url) {
+        if (item.url && this.isAllowedUrl(item.url)) {
           this.safeUrl.set(this.sanitizer.bypassSecurityTrustResourceUrl(item.url));
+        } else if (item.url) {
+          this.error.set('URL ist nicht zulaessig');
         } else {
           this.error.set('Keine URL konfiguriert');
         }

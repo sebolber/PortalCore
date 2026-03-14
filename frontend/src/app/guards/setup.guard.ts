@@ -20,7 +20,9 @@ export const setupGuard: CanActivateFn = () => {
       return true;
     }),
     catchError(() => {
-      return of(true);
+      // Fail-closed: Bei Fehler Zugriff verweigern und auf Login umleiten
+      router.navigate(['/login']);
+      return of(false);
     })
   );
 };
