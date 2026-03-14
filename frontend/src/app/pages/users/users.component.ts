@@ -1,7 +1,9 @@
-import { Component, computed, signal } from '@angular/core';
+import { Component, computed, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { PortalUser, PortalRolle, Berechtigung } from '../../models/user.model';
+import { PortalUser, PortalRolle, Berechtigung, UserAdresse } from '../../models/user.model';
+import { UserService } from '../../services/user.service';
+import { Tenant } from '../../models/tenant.model';
 
 interface AuditEntry {
   id: string;
@@ -37,7 +39,7 @@ interface AuditEntry {
             {{ tab.label }}
             <span class="ml-1.5 text-xs px-1.5 py-0.5 rounded-full"
               [class]="activeTab() === tab.key ? 'bg-primary/10 text-primary' : 'bg-gray-100 text-gray-500'">
-              {{ tab.count }}
+              {{ tab.key === 'benutzer' ? users().length : tab.count }}
             </span>
           </button>
         }
@@ -47,7 +49,7 @@ interface AuditEntry {
       @if (activeTab() === 'benutzer') {
         <!-- Stats Cards -->
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-          @for (stat of userStats; track stat.label) {
+          @for (stat of computedStats(); track stat.label) {
             <div class="bg-white rounded-lg border border-gray-200 p-4 shadow-card">
               <div class="text-2xl font-semibold" [style.color]="stat.color">{{ stat.value }}</div>
               <div class="text-xs text-gray-500 mt-1">{{ stat.label }}</div>
@@ -55,8 +57,8 @@ interface AuditEntry {
           }
         </div>
 
-        <!-- Filters -->
-        <div class="flex flex-wrap gap-3 mb-4">
+        <!-- Filters + Benutzer anlegen -->
+        <div class="flex flex-wrap gap-3 mb-4 items-center">
           <input
             type="text"
             placeholder="Benutzer suchen..."
@@ -80,104 +82,472 @@ interface AuditEntry {
             class="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
           >
             <option value="">Alle Mandanten</option>
-            @for (t of tenants; track t) {
+            @for (t of tenantNames(); track t) {
               <option [value]="t">{{ t }}</option>
             }
           </select>
+          <div class="flex-1"></div>
+          <button
+            (click)="openCreateForm()"
+            class="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary-dark rounded-lg transition-colors flex items-center gap-2"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+            </svg>
+            Benutzer anlegen
+          </button>
         </div>
+
+        <!-- Fehlermeldung -->
+        @if (errorMessage()) {
+          <div class="mb-4 p-3 bg-error/10 border border-error/20 rounded-lg text-sm text-error flex items-center justify-between">
+            <span>{{ errorMessage() }}</span>
+            <button (click)="errorMessage.set('')" class="text-error hover:text-error/80">&times;</button>
+          </div>
+        }
+
+        <!-- Erfolgsmeldung -->
+        @if (successMessage()) {
+          <div class="mb-4 p-3 bg-success/10 border border-success/20 rounded-lg text-sm text-success flex items-center justify-between">
+            <span>{{ successMessage() }}</span>
+            <button (click)="successMessage.set('')" class="text-success hover:text-success/80">&times;</button>
+          </div>
+        }
+
+        <!-- Loading -->
+        @if (loading()) {
+          <div class="flex items-center justify-center py-12">
+            <div class="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+            <span class="ml-3 text-sm text-gray-500">Lade Benutzer...</span>
+          </div>
+        }
 
         <!-- Users Table -->
-        <div class="bg-white rounded-lg border border-gray-200 shadow-card overflow-hidden overflow-x-auto">
-          <table class="w-full text-sm min-w-[800px]">
-            <thead>
-              <tr class="bg-gray-50 border-b border-gray-200">
-                <th class="text-left px-4 py-3 font-medium text-gray-600">Name</th>
-                <th class="text-left px-4 py-3 font-medium text-gray-600">Email</th>
-                <th class="text-left px-4 py-3 font-medium text-gray-600">Status</th>
-                <th class="text-left px-4 py-3 font-medium text-gray-600">Mandant</th>
-                <th class="text-left px-4 py-3 font-medium text-gray-600">Rollen</th>
-                <th class="text-left px-4 py-3 font-medium text-gray-600">Letzter Login</th>
-                <th class="text-left px-4 py-3 font-medium text-gray-600">IAM</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (user of filteredUsers(); track user.id) {
-                <tr
-                  class="border-b border-gray-100 hover:bg-primary-light/30 cursor-pointer transition-colors"
-                  (click)="selectUser(user)"
-                  [class.bg-primary-light]="selectedUser()?.id === user.id"
-                >
-                  <td class="px-4 py-3">
-                    <div class="flex items-center gap-3">
-                      <div class="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-semibold shrink-0">
-                        {{ user.initialen }}
-                      </div>
-                      <span class="font-medium text-gray-900">{{ user.vorname }} {{ user.nachname }}</span>
-                    </div>
-                  </td>
-                  <td class="px-4 py-3 text-gray-600">{{ user.email }}</td>
-                  <td class="px-4 py-3">
-                    <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium"
-                      [class]="statusClass(user.status)">
-                      {{ user.status }}
-                    </span>
-                  </td>
-                  <td class="px-4 py-3 text-gray-600">{{ user.mandant }}</td>
-                  <td class="px-4 py-3">
-                    <div class="flex flex-wrap gap-1">
-                      @for (rolleId of user.rollenIds; track rolleId) {
-                        <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700"
-                          [style.border-left]="'3px solid ' + getRolleColor(rolleId)">
-                          {{ getRolleName(rolleId) }}
-                        </span>
-                      }
-                    </div>
-                  </td>
-                  <td class="px-4 py-3 text-gray-500 text-xs">{{ user.letzterLogin }}</td>
-                  <td class="px-4 py-3">
-                    <span class="w-2.5 h-2.5 rounded-full inline-block"
-                      [class]="user.iamSync ? 'bg-success' : 'bg-gray-300'"
-                      [title]="user.iamSync ? 'Synchronisiert' : 'Nicht synchronisiert'">
-                    </span>
-                  </td>
+        @if (!loading()) {
+          <div class="bg-white rounded-lg border border-gray-200 shadow-card overflow-hidden overflow-x-auto">
+            <table class="w-full text-sm min-w-[800px]">
+              <thead>
+                <tr class="bg-gray-50 border-b border-gray-200">
+                  <th class="text-left px-4 py-3 font-medium text-gray-600">Name</th>
+                  <th class="text-left px-4 py-3 font-medium text-gray-600">Email</th>
+                  <th class="text-left px-4 py-3 font-medium text-gray-600">Status</th>
+                  <th class="text-left px-4 py-3 font-medium text-gray-600">Mandant</th>
+                  <th class="text-left px-4 py-3 font-medium text-gray-600">Abteilung</th>
+                  <th class="text-left px-4 py-3 font-medium text-gray-600">Letzter Login</th>
+                  <th class="text-left px-4 py-3 font-medium text-gray-600">IAM</th>
                 </tr>
-              }
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                @for (user of filteredUsers(); track user.id) {
+                  <tr
+                    class="border-b border-gray-100 hover:bg-primary-light/30 cursor-pointer transition-colors"
+                    (click)="selectUser(user)"
+                    [class.bg-primary-light]="selectedUser()?.id === user.id"
+                  >
+                    <td class="px-4 py-3">
+                      <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-semibold shrink-0">
+                          {{ user.initialen }}
+                        </div>
+                        <span class="font-medium text-gray-900">{{ user.vorname }} {{ user.nachname }}</span>
+                      </div>
+                    </td>
+                    <td class="px-4 py-3 text-gray-600">{{ user.email }}</td>
+                    <td class="px-4 py-3">
+                      <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium"
+                        [class]="statusClass(user.status)">
+                        {{ user.status }}
+                      </span>
+                    </td>
+                    <td class="px-4 py-3 text-gray-600">{{ user.mandant }}</td>
+                    <td class="px-4 py-3 text-gray-500 text-xs">{{ user.abteilung || '-' }}</td>
+                    <td class="px-4 py-3 text-gray-500 text-xs">{{ user.letzterLogin || '-' }}</td>
+                    <td class="px-4 py-3">
+                      <span class="w-2.5 h-2.5 rounded-full inline-block"
+                        [class]="user.iamSync ? 'bg-success' : 'bg-gray-300'"
+                        [title]="user.iamSync ? 'Synchronisiert' : 'Nicht synchronisiert'">
+                      </span>
+                    </td>
+                  </tr>
+                }
+                @if (filteredUsers().length === 0) {
+                  <tr>
+                    <td colspan="7" class="px-4 py-8 text-center text-gray-400 text-sm">Keine Benutzer gefunden</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
 
-        <!-- Detail Panel -->
-        @if (selectedUser(); as user) {
+        <!-- Detail Panel (Anzeige) -->
+        @if (selectedUser() && !formMode()) {
           <div class="mt-4 bg-white rounded-lg border border-gray-200 shadow-card p-6">
             <div class="flex items-start justify-between mb-4">
               <div class="flex items-center gap-4">
                 <div class="w-14 h-14 rounded-full bg-primary/10 text-primary flex items-center justify-center text-lg font-semibold">
-                  {{ user.initialen }}
+                  {{ selectedUser()!.initialen }}
                 </div>
                 <div>
-                  <h3 class="text-lg font-semibold text-gray-900">{{ user.vorname }} {{ user.nachname }}</h3>
-                  <p class="text-sm text-gray-500">{{ user.email }}</p>
+                  <h3 class="text-lg font-semibold text-gray-900">{{ selectedUser()!.vorname }} {{ selectedUser()!.nachname }}</h3>
+                  <p class="text-sm text-gray-500">{{ selectedUser()!.email }}</p>
+                  @if (selectedUser()!.positionTitel) {
+                    <p class="text-xs text-gray-400 mt-0.5">{{ selectedUser()!.positionTitel }} · {{ selectedUser()!.abteilung }}</p>
+                  }
                 </div>
               </div>
-              <button (click)="selectedUser.set(null)" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+              <div class="flex items-center gap-2">
+                <button (click)="openEditForm(selectedUser()!)" class="px-3 py-1.5 text-sm font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors">
+                  Bearbeiten
+                </button>
+                <button (click)="confirmDelete(selectedUser()!)" class="px-3 py-1.5 text-sm font-medium text-error bg-error/10 hover:bg-error/20 rounded-lg transition-colors">
+                  Loeschen
+                </button>
+                <button (click)="selectedUser.set(null)" class="text-gray-400 hover:text-gray-600 text-xl ml-2">&times;</button>
+              </div>
             </div>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
                 <div class="text-gray-500 text-xs mb-1">Status</div>
-                <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium" [class]="statusClass(user.status)">{{ user.status }}</span>
+                <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium" [class]="statusClass(selectedUser()!.status)">{{ selectedUser()!.status }}</span>
               </div>
               <div>
                 <div class="text-gray-500 text-xs mb-1">Mandant</div>
-                <div class="text-gray-900">{{ user.mandant }}</div>
+                <div class="text-gray-900">{{ selectedUser()!.mandant }}</div>
               </div>
               <div>
-                <div class="text-gray-500 text-xs mb-1">IAM ID</div>
-                <div class="text-gray-900 font-mono text-xs">{{ user.iamId }}</div>
+                <div class="text-gray-500 text-xs mb-1">Telefon</div>
+                <div class="text-gray-900">{{ selectedUser()!.telefon || '-' }}</div>
+              </div>
+              <div>
+                <div class="text-gray-500 text-xs mb-1">Letzter Login</div>
+                <div class="text-gray-900">{{ selectedUser()!.letzterLogin || '-' }}</div>
+              </div>
+              <div>
+                <div class="text-gray-500 text-xs mb-1">Sprache</div>
+                <div class="text-gray-900">{{ getSprachLabel(selectedUser()!.sprache || 'de') }}</div>
+              </div>
+              <div>
+                <div class="text-gray-500 text-xs mb-1">Zeitzone</div>
+                <div class="text-gray-900">{{ selectedUser()!.zeitzone || 'Europe/Berlin' }}</div>
               </div>
               <div>
                 <div class="text-gray-500 text-xs mb-1">Erstellt am</div>
-                <div class="text-gray-900">{{ user.erstelltAm }}</div>
+                <div class="text-gray-900">{{ selectedUser()!.erstelltAm }}</div>
               </div>
+              <div>
+                <div class="text-gray-500 text-xs mb-1">IAM ID</div>
+                <div class="text-gray-900 font-mono text-xs">{{ selectedUser()!.iamId }}</div>
+              </div>
+            </div>
+          </div>
+        }
+
+        <!-- Loeschen-Bestaetigung -->
+        @if (deleteConfirmUser()) {
+          <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+            <div class="bg-white rounded-lg shadow-modal p-6 max-w-md w-full mx-4">
+              <h3 class="text-lg font-semibold text-gray-900 mb-2">Benutzer loeschen?</h3>
+              <p class="text-sm text-gray-600 mb-4">
+                Soll der Benutzer <strong>{{ deleteConfirmUser()!.vorname }} {{ deleteConfirmUser()!.nachname }}</strong> unwiderruflich geloescht werden?
+              </p>
+              <div class="flex justify-end gap-3">
+                <button (click)="deleteConfirmUser.set(null)" class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">Abbrechen</button>
+                <button (click)="doDelete()" class="px-4 py-2 text-sm text-white bg-error hover:bg-error/90 rounded-lg transition-colors">Loeschen</button>
+              </div>
+            </div>
+          </div>
+        }
+
+        <!-- Erstellen / Bearbeiten Formular -->
+        @if (formMode()) {
+          <div class="mt-4 bg-white rounded-lg border border-gray-200 shadow-card p-6">
+            <div class="flex items-center justify-between mb-6">
+              <h3 class="text-lg font-condensed font-semibold text-gray-900">
+                {{ formMode() === 'create' ? 'Neuen Benutzer anlegen' : 'Benutzer bearbeiten' }}
+              </h3>
+              <button (click)="cancelForm()" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+            </div>
+
+            <!-- Persoenliche Daten -->
+            <fieldset class="mb-6">
+              <legend class="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-primary"></span>
+                Persoenliche Daten
+              </legend>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Anrede</label>
+                  <select [(ngModel)]="formData.anrede" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                    <option value="">Keine Angabe</option>
+                    <option value="Herr">Herr</option>
+                    <option value="Frau">Frau</option>
+                    <option value="Divers">Divers</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Vorname *</label>
+                  <input type="text" [(ngModel)]="formData.vorname" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Nachname *</label>
+                  <input type="text" [(ngModel)]="formData.nachname" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">E-Mail *</label>
+                  <input type="email" [(ngModel)]="formData.email" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Telefon</label>
+                  <input type="tel" [(ngModel)]="formData.telefon" placeholder="+49 123 4567890" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Abteilung</label>
+                  <input type="text" [(ngModel)]="formData.abteilung" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Position / Funktion</label>
+                  <input type="text" [(ngModel)]="formData.positionTitel" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                </div>
+              </div>
+            </fieldset>
+
+            <!-- Mandant & Konto -->
+            <fieldset class="mb-6">
+              <legend class="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-accent-violet"></span>
+                Mandant & Konto
+              </legend>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Mandant *</label>
+                  <select [(ngModel)]="formData.mandantId" (ngModelChange)="onMandantChange($event)" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                    <option value="">Bitte waehlen</option>
+                    @for (t of availableTenants; track t.id) {
+                      <option [value]="t.id">{{ t.name }}</option>
+                    }
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Kontostatus</label>
+                  <select [(ngModel)]="formData.status" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                    <option value="aktiv">Aktiv</option>
+                    <option value="inaktiv">Inaktiv</option>
+                    <option value="gesperrt">Gesperrt</option>
+                  </select>
+                </div>
+                @if (formMode() === 'edit') {
+                  <div>
+                    <label class="block text-xs text-gray-500 mb-1">Fehlgeschlagene Logins</label>
+                    <input type="number" [ngModel]="formData.fehlgeschlageneLogins" readonly class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 text-gray-500" />
+                  </div>
+                  <div>
+                    <label class="block text-xs text-gray-500 mb-1">Letzter Login</label>
+                    <input type="text" [ngModel]="formData.letzterLogin" readonly class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 text-gray-500" />
+                  </div>
+                  <div>
+                    <label class="block text-xs text-gray-500 mb-1">Letzte Login-IP</label>
+                    <input type="text" [ngModel]="formData.letzteLoginIp" readonly class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 text-gray-500" />
+                  </div>
+                }
+              </div>
+            </fieldset>
+
+            <!-- Einstellungen -->
+            <fieldset class="mb-6">
+              <legend class="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-accent-turquoise"></span>
+                Einstellungen
+              </legend>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Sprache</label>
+                  <select [(ngModel)]="formData.sprache" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                    @for (s of sprachen; track s.code) {
+                      <option [value]="s.code">{{ s.label }}</option>
+                    }
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Zeitzone</label>
+                  <select [(ngModel)]="formData.zeitzone" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                    @for (tz of zeitzonen; track tz) {
+                      <option [value]="tz">{{ tz }}</option>
+                    }
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Design</label>
+                  <select [(ngModel)]="formData.darkMode" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                    <option [ngValue]="false">Hell</option>
+                    <option [ngValue]="true">Dunkel</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Standard-Dashboard</label>
+                  <input type="text" [(ngModel)]="formData.standardDashboard" placeholder="z.B. Uebersicht" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                </div>
+              </div>
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" [(ngModel)]="formData.emailBenachrichtigungen" class="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary" />
+                  <span class="text-sm text-gray-700">E-Mail-Benachrichtigungen</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" [(ngModel)]="formData.pushBenachrichtigungen" class="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary" />
+                  <span class="text-sm text-gray-700">Push-Benachrichtigungen</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" [(ngModel)]="formData.smsBenachrichtigungen" class="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary" />
+                  <span class="text-sm text-gray-700">SMS-Benachrichtigungen</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" [(ngModel)]="formData.newsletterEinwilligung" class="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary" />
+                  <span class="text-sm text-gray-700">Newsletter-Einwilligung</span>
+                </label>
+              </div>
+            </fieldset>
+
+            <!-- Delegationsrechte & Stellvertretung -->
+            <fieldset class="mb-6">
+              <legend class="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-accent-orange"></span>
+                Delegationsrechte & Stellvertretung
+              </legend>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" [(ngModel)]="formData.delegationsrechte" class="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary" />
+                  <span class="text-sm text-gray-700">Delegationsrechte aktiviert</span>
+                </label>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Stellvertreter</label>
+                  <select multiple [(ngModel)]="formData.stellvertreterIds" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary h-20">
+                    @for (u of users(); track u.id) {
+                      @if (u.id !== formData.id) {
+                        <option [value]="u.id">{{ u.vorname }} {{ u.nachname }}</option>
+                      }
+                    }
+                  </select>
+                  <p class="text-[10px] text-gray-400 mt-1">Strg/Cmd gehalten fuer Mehrfachauswahl</p>
+                </div>
+              </div>
+            </fieldset>
+
+            <!-- Meta-Info (nur bei Bearbeiten) -->
+            @if (formMode() === 'edit') {
+              <fieldset class="mb-6">
+                <legend class="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-gray-400"></span>
+                  Meta-Info (nur lesen)
+                </legend>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div>
+                    <label class="block text-xs text-gray-500 mb-1">Erstellt am</label>
+                    <div class="text-sm text-gray-700 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">{{ formData.erstelltAm || '-' }}</div>
+                  </div>
+                  <div>
+                    <label class="block text-xs text-gray-500 mb-1">Letzte Aenderung</label>
+                    <div class="text-sm text-gray-700 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">{{ formData.letzteAenderungAm || '-' }}</div>
+                  </div>
+                  <div>
+                    <label class="block text-xs text-gray-500 mb-1">Erstellt von</label>
+                    <div class="text-sm text-gray-700 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">{{ formData.erstelltVon || '-' }}</div>
+                  </div>
+                  <div>
+                    <label class="block text-xs text-gray-500 mb-1">Zuletzt geaendert von</label>
+                    <div class="text-sm text-gray-700 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">{{ formData.zuletztGeaendertVon || '-' }}</div>
+                  </div>
+                </div>
+              </fieldset>
+            }
+
+            <!-- Adressen -->
+            <fieldset class="mb-6">
+              <legend class="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-accent-pink"></span>
+                Adressen
+              </legend>
+
+              @if (formData.adressen && formData.adressen.length > 0) {
+                <div class="space-y-3 mb-4">
+                  @for (adr of formData.adressen; track adr.id; let i = $index) {
+                    <div class="border border-gray-200 rounded-lg p-4 relative" [class.border-primary]="adr.istHauptadresse">
+                      @if (adr.istHauptadresse) {
+                        <span class="absolute top-2 right-12 text-[10px] px-2 py-0.5 bg-primary/10 text-primary rounded-full font-medium">Hauptadresse</span>
+                      }
+                      <button (click)="removeAdresse(i)" class="absolute top-2 right-2 text-gray-400 hover:text-error text-lg">&times;</button>
+                      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                        <div>
+                          <label class="block text-xs text-gray-500 mb-1">Typ</label>
+                          <select [(ngModel)]="adr.typ" class="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20">
+                            <option value="Hauptadresse">Hauptadresse</option>
+                            <option value="Zustelladresse">Zustelladresse</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label class="block text-xs text-gray-500 mb-1">Bezeichnung</label>
+                          <input type="text" [(ngModel)]="adr.bezeichnung" placeholder="z.B. Buero" class="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                        </div>
+                        <div>
+                          <label class="block text-xs text-gray-500 mb-1">Strasse</label>
+                          <input type="text" [(ngModel)]="adr.strasse" class="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                        </div>
+                        <div>
+                          <label class="block text-xs text-gray-500 mb-1">Hausnummer</label>
+                          <input type="text" [(ngModel)]="adr.hausnummer" class="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                        </div>
+                        <div>
+                          <label class="block text-xs text-gray-500 mb-1">PLZ</label>
+                          <input type="text" [(ngModel)]="adr.plz" class="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                        </div>
+                        <div>
+                          <label class="block text-xs text-gray-500 mb-1">Ort</label>
+                          <input type="text" [(ngModel)]="adr.ort" class="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                        </div>
+                        <div>
+                          <label class="block text-xs text-gray-500 mb-1">Land</label>
+                          <input type="text" [(ngModel)]="adr.land" value="Deutschland" class="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                        </div>
+                        <div>
+                          <label class="block text-xs text-gray-500 mb-1">Zusatz</label>
+                          <input type="text" [(ngModel)]="adr.zusatz" class="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                        </div>
+                      </div>
+                      <label class="flex items-center gap-2 mt-3 cursor-pointer">
+                        <input type="checkbox" [(ngModel)]="adr.istHauptadresse" (ngModelChange)="onHauptadresseChange(i)" class="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary" />
+                        <span class="text-xs text-gray-600">Als Hauptadresse markieren</span>
+                      </label>
+                    </div>
+                  }
+                </div>
+              }
+
+              <button (click)="addAdresse()" class="px-3 py-1.5 text-sm text-primary hover:bg-primary/10 rounded-lg border border-dashed border-primary/40 transition-colors flex items-center gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+                </svg>
+                Adresse hinzufuegen
+              </button>
+            </fieldset>
+
+            <!-- Validierungsfehler -->
+            @if (formError()) {
+              <div class="mb-4 p-3 bg-error/10 border border-error/20 rounded-lg text-sm text-error">{{ formError() }}</div>
+            }
+
+            <!-- Aktionen -->
+            <div class="flex justify-end gap-3 pt-4 border-t border-gray-200">
+              <button (click)="cancelForm()" class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">Abbrechen</button>
+              <button (click)="saveUser()" [disabled]="saving()" class="px-6 py-2 text-sm font-medium text-white bg-primary hover:bg-primary-dark rounded-lg transition-colors disabled:opacity-50">
+                @if (saving()) {
+                  <span class="flex items-center gap-2">
+                    <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Speichere...
+                  </span>
+                } @else {
+                  {{ formMode() === 'create' ? 'Anlegen' : 'Speichern' }}
+                }
+              </button>
             </div>
           </div>
         }
@@ -258,7 +628,6 @@ interface AuditEntry {
 
       <!-- Tab 3: Berechtigungen -->
       @if (activeTab() === 'berechtigungen') {
-        <!-- Filter -->
         <div class="mb-4">
           <select
             [ngModel]="permAppFilter()"
@@ -272,7 +641,6 @@ interface AuditEntry {
           </select>
         </div>
 
-        <!-- Grouped Permissions -->
         @for (group of groupedPermissions(); track group.appName) {
           <div class="mb-6">
             <h3 class="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
@@ -333,7 +701,9 @@ interface AuditEntry {
     </div>
   `,
 })
-export class UsersComponent {
+export class UsersComponent implements OnInit {
+  private readonly userService = inject(UserService);
+
   readonly activeTab = signal<'benutzer' | 'rollen' | 'berechtigungen' | 'audit'>('benutzer');
   readonly searchTerm = signal('');
   readonly statusFilter = signal('');
@@ -341,39 +711,115 @@ export class UsersComponent {
   readonly selectedUser = signal<PortalUser | null>(null);
   readonly expandedRollen = signal<Set<string>>(new Set());
   readonly permAppFilter = signal('');
+  readonly formMode = signal<'create' | 'edit' | null>(null);
+  readonly loading = signal(false);
+  readonly saving = signal(false);
+  readonly errorMessage = signal('');
+  readonly successMessage = signal('');
+  readonly formError = signal('');
+  readonly deleteConfirmUser = signal<PortalUser | null>(null);
+  readonly users = signal<PortalUser[]>([]);
+
+  formData: Partial<PortalUser> & { adressen: UserAdresse[] } = this.emptyFormData();
 
   readonly tabs = [
-    { key: 'benutzer' as const, label: 'Benutzer', count: 12 },
+    { key: 'benutzer' as const, label: 'Benutzer', count: 0 },
     { key: 'rollen' as const, label: 'Rollen', count: 7 },
     { key: 'berechtigungen' as const, label: 'Berechtigungen', count: 31 },
     { key: 'audit' as const, label: 'Audit-Trail', count: 15 },
   ];
 
-  readonly tenants = ['AOK Bayern', 'TK Hamburg', 'Barmer Berlin'];
-
-  readonly userStats = [
-    { label: 'Gesamt', value: 12, color: '#006EC7' },
-    { label: 'Aktiv', value: 9, color: '#28A745' },
-    { label: 'Inaktiv', value: 1, color: '#887D75' },
-    { label: 'Gesperrt', value: 1, color: '#CC3333' },
-    { label: 'Mandanten', value: 3, color: '#461EBE' },
-    { label: 'Rollen', value: 7, color: '#28DCAA' },
+  readonly availableTenants: Tenant[] = [
+    { id: 't1', name: 'AOK Bayern', shortName: 'AOK', aktiv: true },
+    { id: 't2', name: 'TK Hamburg', shortName: 'TK', aktiv: true },
+    { id: 't3', name: 'Barmer Berlin', shortName: 'BAR', aktiv: true },
   ];
 
-  readonly users: PortalUser[] = [
-    { id: 'u1', vorname: 'Anna', nachname: 'Schneider', email: 'anna.schneider@aok.de', iamId: 'iam-001', tenant: { id: 't1', name: 'AOK Bayern', shortName: 'AOK' }, mandant: 'AOK Bayern', mandantId: 't1', status: 'aktiv', rollenIds: ['r1', 'r2'], letzterLogin: '2026-03-12 09:15', erstelltAm: '2025-01-10', iamSync: true, initialen: 'AS' },
-    { id: 'u2', vorname: 'Markus', nachname: 'Weber', email: 'markus.weber@aok.de', iamId: 'iam-002', tenant: { id: 't1', name: 'AOK Bayern', shortName: 'AOK' }, mandant: 'AOK Bayern', mandantId: 't1', status: 'aktiv', rollenIds: ['r2'], letzterLogin: '2026-03-12 08:42', erstelltAm: '2025-02-15', iamSync: true, initialen: 'MW' },
-    { id: 'u3', vorname: 'Laura', nachname: 'Mueller', email: 'laura.mueller@tk.de', iamId: 'iam-003', tenant: { id: 't2', name: 'TK Hamburg', shortName: 'TK' }, mandant: 'TK Hamburg', mandantId: 't2', status: 'aktiv', rollenIds: ['r1', 'r3'], letzterLogin: '2026-03-11 17:30', erstelltAm: '2025-03-01', iamSync: true, initialen: 'LM' },
-    { id: 'u4', vorname: 'Thomas', nachname: 'Fischer', email: 'thomas.fischer@tk.de', iamId: 'iam-004', tenant: { id: 't2', name: 'TK Hamburg', shortName: 'TK' }, mandant: 'TK Hamburg', mandantId: 't2', status: 'aktiv', rollenIds: ['r3', 'r4'], letzterLogin: '2026-03-12 10:05', erstelltAm: '2025-03-20', iamSync: true, initialen: 'TF' },
-    { id: 'u5', vorname: 'Sandra', nachname: 'Becker', email: 'sandra.becker@barmer.de', iamId: 'iam-005', tenant: { id: 't3', name: 'Barmer Berlin', shortName: 'BAR' }, mandant: 'Barmer Berlin', mandantId: 't3', status: 'aktiv', rollenIds: ['r2', 'r5'], letzterLogin: '2026-03-10 14:22', erstelltAm: '2025-04-05', iamSync: true, initialen: 'SB' },
-    { id: 'u6', vorname: 'Jan', nachname: 'Hoffmann', email: 'jan.hoffmann@aok.de', iamId: 'iam-006', tenant: { id: 't1', name: 'AOK Bayern', shortName: 'AOK' }, mandant: 'AOK Bayern', mandantId: 't1', status: 'aktiv', rollenIds: ['r4'], letzterLogin: '2026-03-12 07:55', erstelltAm: '2025-05-12', iamSync: true, initialen: 'JH' },
-    { id: 'u7', vorname: 'Petra', nachname: 'Klein', email: 'petra.klein@barmer.de', iamId: 'iam-007', tenant: { id: 't3', name: 'Barmer Berlin', shortName: 'BAR' }, mandant: 'Barmer Berlin', mandantId: 't3', status: 'aktiv', rollenIds: ['r5', 'r6'], letzterLogin: '2026-03-11 16:10', erstelltAm: '2025-06-01', iamSync: false, initialen: 'PK' },
-    { id: 'u8', vorname: 'Michael', nachname: 'Braun', email: 'michael.braun@aok.de', iamId: 'iam-008', tenant: { id: 't1', name: 'AOK Bayern', shortName: 'AOK' }, mandant: 'AOK Bayern', mandantId: 't1', status: 'aktiv', rollenIds: ['r2', 'r7'], letzterLogin: '2026-03-12 11:30', erstelltAm: '2025-06-15', iamSync: true, initialen: 'MB' },
-    { id: 'u9', vorname: 'Claudia', nachname: 'Wolf', email: 'claudia.wolf@tk.de', iamId: 'iam-009', tenant: { id: 't2', name: 'TK Hamburg', shortName: 'TK' }, mandant: 'TK Hamburg', mandantId: 't2', status: 'aktiv', rollenIds: ['r3'], letzterLogin: '2026-03-09 09:45', erstelltAm: '2025-07-20', iamSync: true, initialen: 'CW' },
-    { id: 'u10', vorname: 'Stefan', nachname: 'Schulz', email: 'stefan.schulz@aok.de', iamId: 'iam-010', tenant: { id: 't1', name: 'AOK Bayern', shortName: 'AOK' }, mandant: 'AOK Bayern', mandantId: 't1', status: 'inaktiv', rollenIds: ['r4'], letzterLogin: '2026-01-15 13:00', erstelltAm: '2025-08-01', iamSync: false, initialen: 'SS' },
-    { id: 'u11', vorname: 'Nicole', nachname: 'Richter', email: 'nicole.richter@barmer.de', iamId: 'iam-011', tenant: { id: 't3', name: 'Barmer Berlin', shortName: 'BAR' }, mandant: 'Barmer Berlin', mandantId: 't3', status: 'gesperrt', rollenIds: ['r6'], letzterLogin: '2026-02-20 10:15', erstelltAm: '2025-09-10', iamSync: false, initialen: 'NR' },
-    { id: 'u12', vorname: 'Daniel', nachname: 'Hartmann', email: 'daniel.hartmann@tk.de', iamId: 'iam-012', tenant: { id: 't2', name: 'TK Hamburg', shortName: 'TK' }, mandant: 'TK Hamburg', mandantId: 't2', status: 'aktiv', rollenIds: ['r1', 'r7'], letzterLogin: '2026-03-12 08:00', erstelltAm: '2025-10-01', iamSync: true, initialen: 'DH' },
+  readonly sprachen = [
+    { code: 'de', label: 'Deutsch' },
+    { code: 'en', label: 'English' },
+    { code: 'fr', label: 'Francais' },
+    { code: 'it', label: 'Italiano' },
+    { code: 'es', label: 'Espanol' },
+    { code: 'nl', label: 'Nederlands' },
+    { code: 'pl', label: 'Polski' },
+    { code: 'tr', label: 'Tuerkce' },
+    { code: 'pt', label: 'Portugues' },
+    { code: 'cs', label: 'Cesky' },
   ];
+
+  readonly zeitzonen = [
+    'Europe/Berlin', 'Europe/Vienna', 'Europe/Zurich', 'Europe/London',
+    'Europe/Paris', 'Europe/Rome', 'Europe/Madrid', 'Europe/Amsterdam',
+    'Europe/Warsaw', 'Europe/Prague', 'Europe/Istanbul',
+    'America/New_York', 'America/Chicago', 'America/Los_Angeles',
+    'Asia/Tokyo', 'Asia/Shanghai',
+  ];
+
+  readonly computedStats = computed(() => {
+    const all = this.users();
+    const aktiv = all.filter(u => u.status === 'aktiv').length;
+    const inaktiv = all.filter(u => u.status === 'inaktiv').length;
+    const gesperrt = all.filter(u => u.status === 'gesperrt').length;
+    const mandanten = new Set(all.map(u => u.mandantId)).size;
+    return [
+      { label: 'Gesamt', value: all.length, color: '#006EC7' },
+      { label: 'Aktiv', value: aktiv, color: '#28A745' },
+      { label: 'Inaktiv', value: inaktiv, color: '#887D75' },
+      { label: 'Gesperrt', value: gesperrt, color: '#CC3333' },
+      { label: 'Mandanten', value: mandanten, color: '#461EBE' },
+      { label: 'Rollen', value: this.rollen.length, color: '#28DCAA' },
+    ];
+  });
+
+  readonly tenantNames = computed(() => {
+    const names = new Set(this.users().map(u => u.mandant));
+    return Array.from(names);
+  });
+
+  readonly filteredUsers = computed(() => {
+    let result = this.users();
+    const search = this.searchTerm().toLowerCase();
+    if (search) {
+      result = result.filter(u =>
+        `${u.vorname} ${u.nachname}`.toLowerCase().includes(search) ||
+        u.email.toLowerCase().includes(search)
+      );
+    }
+    const status = this.statusFilter();
+    if (status) {
+      result = result.filter(u => u.status === status);
+    }
+    const tenant = this.tenantFilter();
+    if (tenant) {
+      result = result.filter(u => u.mandant === tenant);
+    }
+    return result;
+  });
+
+  readonly permAppNames = computed(() => {
+    const names = new Set(this.berechtigungen.map(b => b.appName));
+    return Array.from(names);
+  });
+
+  readonly groupedPermissions = computed(() => {
+    let perms = this.berechtigungen;
+    const appFilter = this.permAppFilter();
+    if (appFilter) {
+      perms = perms.filter(p => p.appName === appFilter);
+    }
+    const byApp = new Map<string, Map<string, Berechtigung[]>>();
+    for (const p of perms) {
+      if (!byApp.has(p.appName)) byApp.set(p.appName, new Map());
+      const appMap = byApp.get(p.appName)!;
+      if (!appMap.has(p.gruppe)) appMap.set(p.gruppe, []);
+      appMap.get(p.gruppe)!.push(p);
+    }
+    return Array.from(byApp.entries()).map(([appName, groups]) => ({
+      appName,
+      groups: Array.from(groups.entries()).map(([gruppe, permissions]) => ({ gruppe, permissions })),
+    }));
+  });
 
   readonly rollen: PortalRolle[] = [
     { id: 'r1', name: 'Administrator', beschreibung: 'Vollzugriff auf alle Systembereiche und Konfigurationen', hierarchie: 1, berechtigungIds: ['p1','p2','p3','p4','p5','p6','p7','p8','p9','p10'], scope: 'global', benutzerAnzahl: 3, systemRolle: true, farbe: '#CC3333' },
@@ -437,52 +883,170 @@ export class UsersComponent {
     { id: 'a15', timestamp: '2026-03-01 14:00:00', action: 'geaendert', beschreibung: 'Status auf inaktiv gesetzt', benutzer: 'Stefan Schulz', ausgefuehrtVon: 'Anna Schneider' },
   ];
 
-  readonly filteredUsers = computed(() => {
-    let result = this.users;
-    const search = this.searchTerm().toLowerCase();
-    if (search) {
-      result = result.filter(u =>
-        `${u.vorname} ${u.nachname}`.toLowerCase().includes(search) ||
-        u.email.toLowerCase().includes(search)
-      );
-    }
-    const status = this.statusFilter();
-    if (status) {
-      result = result.filter(u => u.status === status);
-    }
-    const tenant = this.tenantFilter();
-    if (tenant) {
-      result = result.filter(u => u.mandant === tenant);
-    }
-    return result;
-  });
+  ngOnInit(): void {
+    this.loadUsers();
+  }
 
-  readonly permAppNames = computed(() => {
-    const names = new Set(this.berechtigungen.map(b => b.appName));
-    return Array.from(names);
-  });
-
-  readonly groupedPermissions = computed(() => {
-    let perms = this.berechtigungen;
-    const appFilter = this.permAppFilter();
-    if (appFilter) {
-      perms = perms.filter(p => p.appName === appFilter);
-    }
-    const byApp = new Map<string, Map<string, Berechtigung[]>>();
-    for (const p of perms) {
-      if (!byApp.has(p.appName)) byApp.set(p.appName, new Map());
-      const appMap = byApp.get(p.appName)!;
-      if (!appMap.has(p.gruppe)) appMap.set(p.gruppe, []);
-      appMap.get(p.gruppe)!.push(p);
-    }
-    return Array.from(byApp.entries()).map(([appName, groups]) => ({
-      appName,
-      groups: Array.from(groups.entries()).map(([gruppe, permissions]) => ({ gruppe, permissions })),
-    }));
-  });
+  loadUsers(): void {
+    this.loading.set(true);
+    this.userService.getAll().subscribe({
+      next: (data) => {
+        this.users.set(data);
+        this.loading.set(false);
+      },
+      error: () => {
+        this.errorMessage.set('Benutzer konnten nicht geladen werden. Bitte spaeter erneut versuchen.');
+        this.loading.set(false);
+      },
+    });
+  }
 
   selectUser(user: PortalUser): void {
+    if (this.formMode()) return;
     this.selectedUser.set(this.selectedUser()?.id === user.id ? null : user);
+  }
+
+  openCreateForm(): void {
+    this.selectedUser.set(null);
+    this.formData = this.emptyFormData();
+    this.formError.set('');
+    this.formMode.set('create');
+  }
+
+  openEditForm(user: PortalUser): void {
+    this.formData = {
+      ...user,
+      adressen: user.adressen ? [...user.adressen.map(a => ({ ...a }))] : [],
+      stellvertreterIds: user.stellvertreterIds ? [...user.stellvertreterIds] : [],
+    };
+    this.formError.set('');
+    this.formMode.set('edit');
+  }
+
+  cancelForm(): void {
+    this.formMode.set(null);
+    this.formError.set('');
+  }
+
+  confirmDelete(user: PortalUser): void {
+    this.deleteConfirmUser.set(user);
+  }
+
+  doDelete(): void {
+    const user = this.deleteConfirmUser();
+    if (!user) return;
+    this.userService.delete(user.id).subscribe({
+      next: () => {
+        this.deleteConfirmUser.set(null);
+        this.selectedUser.set(null);
+        this.successMessage.set(`Benutzer ${user.vorname} ${user.nachname} wurde geloescht.`);
+        this.loadUsers();
+      },
+      error: () => {
+        this.deleteConfirmUser.set(null);
+        this.errorMessage.set('Benutzer konnte nicht geloescht werden.');
+      },
+    });
+  }
+
+  saveUser(): void {
+    this.formError.set('');
+
+    if (!this.formData.vorname?.trim()) {
+      this.formError.set('Vorname ist ein Pflichtfeld.');
+      return;
+    }
+    if (!this.formData.nachname?.trim()) {
+      this.formError.set('Nachname ist ein Pflichtfeld.');
+      return;
+    }
+    if (!this.formData.email?.trim()) {
+      this.formError.set('E-Mail ist ein Pflichtfeld.');
+      return;
+    }
+    if (!this.formData.mandantId) {
+      this.formError.set('Mandant muss ausgewaehlt werden.');
+      return;
+    }
+
+    const hauptadressen = (this.formData.adressen || []).filter(a => a.istHauptadresse);
+    if (hauptadressen.length > 1) {
+      this.formError.set('Es darf nur eine Hauptadresse geben.');
+      return;
+    }
+
+    this.saving.set(true);
+    const payload: Partial<PortalUser> = { ...this.formData };
+    payload.initialen = (this.formData.vorname?.charAt(0) || '') + (this.formData.nachname?.charAt(0) || '');
+
+    if (this.formMode() === 'create') {
+      this.userService.create(payload).subscribe({
+        next: () => {
+          this.saving.set(false);
+          this.formMode.set(null);
+          this.successMessage.set('Benutzer wurde erfolgreich angelegt.');
+          this.loadUsers();
+        },
+        error: (err) => {
+          this.saving.set(false);
+          this.formError.set(err.error?.message || 'Benutzer konnte nicht angelegt werden.');
+        },
+      });
+    } else {
+      this.userService.update(this.formData.id!, payload).subscribe({
+        next: () => {
+          this.saving.set(false);
+          this.formMode.set(null);
+          this.selectedUser.set(null);
+          this.successMessage.set('Benutzer wurde erfolgreich gespeichert.');
+          this.loadUsers();
+        },
+        error: (err) => {
+          this.saving.set(false);
+          this.formError.set(err.error?.message || 'Benutzer konnte nicht gespeichert werden.');
+        },
+      });
+    }
+  }
+
+  onMandantChange(mandantId: string): void {
+    const tenant = this.availableTenants.find(t => t.id === mandantId);
+    if (tenant) {
+      this.formData.mandant = tenant.name;
+      this.formData.tenant = tenant;
+    }
+  }
+
+  addAdresse(): void {
+    const newId = 'adr-new-' + Date.now();
+    this.formData.adressen.push({
+      id: newId,
+      typ: 'Zustelladresse',
+      bezeichnung: '',
+      strasse: '',
+      hausnummer: '',
+      plz: '',
+      ort: '',
+      land: 'Deutschland',
+      zusatz: '',
+      istHauptadresse: false,
+    });
+  }
+
+  removeAdresse(index: number): void {
+    this.formData.adressen.splice(index, 1);
+  }
+
+  onHauptadresseChange(changedIndex: number): void {
+    if (this.formData.adressen[changedIndex].istHauptadresse) {
+      this.formData.adressen.forEach((a, i) => {
+        if (i !== changedIndex) a.istHauptadresse = false;
+      });
+    }
+  }
+
+  getSprachLabel(code: string): string {
+    return this.sprachen.find(s => s.code === code)?.label ?? code;
   }
 
   toggleRolle(id: string): void {
@@ -508,7 +1072,7 @@ export class UsersComponent {
   }
 
   getUsersByRolle(rolleId: string): PortalUser[] {
-    return this.users.filter(u => u.rollenIds.includes(rolleId));
+    return this.users().filter(u => u.rollenIds.includes(rolleId));
   }
 
   statusClass(status: string): string {
@@ -540,5 +1104,34 @@ export class UsersComponent {
       case 'entsperrt': return 'bg-success/10 text-success';
       default: return 'bg-gray-100 text-gray-500';
     }
+  }
+
+  private emptyFormData(): Partial<PortalUser> & { adressen: UserAdresse[] } {
+    return {
+      anrede: '',
+      vorname: '',
+      nachname: '',
+      email: '',
+      telefon: '',
+      abteilung: '',
+      positionTitel: '',
+      mandant: '',
+      mandantId: '',
+      status: 'aktiv',
+      sprache: 'de',
+      zeitzone: 'Europe/Berlin',
+      darkMode: false,
+      standardDashboard: '',
+      emailBenachrichtigungen: true,
+      pushBenachrichtigungen: false,
+      smsBenachrichtigungen: false,
+      newsletterEinwilligung: false,
+      delegationsrechte: false,
+      stellvertreterIds: [],
+      adressen: [],
+      rollenIds: [],
+      iamId: '',
+      iamSync: false,
+    };
   }
 }
