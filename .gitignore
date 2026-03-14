@@ -18,5 +18,9 @@ frontend/.angular/
 .DS_Store
 Thumbs.db
 
+# Secrets / Umgebungsvariablen
+.env
+portal-init.yml
+
 # Docker
 portal-data/

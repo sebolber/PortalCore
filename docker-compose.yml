@@ -5,15 +5,16 @@ services:
     image: postgres:16-alpine
     container_name: portal-db
     environment:
-      POSTGRES_DB: portal
-      POSTGRES_USER: portal
-      POSTGRES_PASSWORD: portal
-    ports:
-      - "5432:5432"
+      POSTGRES_DB: ${DB_NAME:-portal}
+      POSTGRES_USER: ${DB_USERNAME:-portal}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-portal}
+    # Datenbank nicht nach aussen exponieren — nur im internen Netzwerk erreichbar
+    expose:
+      - "5432"
     volumes:
       - portal-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U portal"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-portal}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -23,7 +24,13 @@ services:
     container_name: portal-backend
     environment:
       DB_HOST: postgres
-      CORS_ALLOWED_ORIGINS: http://localhost:4200,http://82.165.15.107:4200
+      DB_PORT: "5432"
+      DB_NAME: ${DB_NAME:-portal}
+      DB_USERNAME: ${DB_USERNAME:-portal}
+      DB_PASSWORD: ${DB_PASSWORD:-portal}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET Umgebungsvariable muss gesetzt sein}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:4200}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
     ports:
       - "8080:8080"
     volumes:

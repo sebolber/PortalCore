@@ -3,6 +3,7 @@ package de.portalcore.config;
 import de.portalcore.service.AuthService;
 import de.portalcore.service.JwtService;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -48,23 +49,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         try {
             if (!jwtService.isTokenValid(token)) {
-                filterChain.doFilter(request, response);
+                rejectUnauthorized(response, "Token ungueltig oder abgelaufen");
                 return;
             }
 
             Claims claims = jwtService.parseToken(token);
             String sessionId = claims.getId();
 
-            // Session-Validierung
+            // Session-Validierung: ungueltige Session ablehnen
             if (sessionId != null && !authService.isSessionActive(sessionId)) {
-                filterChain.doFilter(request, response);
+                rejectUnauthorized(response, "Session ungueltig oder abgelaufen");
                 return;
             }
 
             String userId = claims.getSubject();
             String tenantId = claims.get("tenantId", String.class);
 
-            // Authentication setzen
             UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
                     userId,
                     null,
@@ -73,11 +73,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             auth.setDetails(new AuthDetails(userId, tenantId, sessionId, claims.get("email", String.class)));
             SecurityContextHolder.getContext().setAuthentication(auth);
 
+        } catch (JwtException e) {
+            log.warn("JWT-Validierung fehlgeschlagen: {}, remoteAddr={}", e.getClass().getSimpleName(), request.getRemoteAddr());
+            rejectUnauthorized(response, "Token ungueltig");
+            return;
         } catch (Exception e) {
             log.warn("JWT-Authentifizierung fehlgeschlagen: {}", e.getMessage());
+            rejectUnauthorized(response, "Authentifizierung fehlgeschlagen");
+            return;
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private void rejectUnauthorized(HttpServletResponse response, String logReason) throws IOException {
+        log.debug("Anfrage abgelehnt: {}", logReason);
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setContentType("application/json");
+        response.getWriter().write("{\"error\":\"Nicht authentifiziert\",\"status\":401}");
     }
 
     public record AuthDetails(String userId, String tenantId, String sessionId, String email) {}

@@ -1,5 +1,6 @@
 package de.portalcore.config;
 
+import de.portalcore.service.SetupService;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,15 +20,18 @@ import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWrite
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtFilter;
+    private final SetupService setupService;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtFilter) {
+    public SecurityConfig(JwtAuthenticationFilter jwtFilter, SetupService setupService) {
         this.jwtFilter = jwtFilter;
+        this.setupService = setupService;
     }
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(csrf -> csrf.disable())
+            // CSRF deaktiviert: stateless JWT-Auth ueber Authorization-Header (kein Cookie)
+            .csrf(AbstractHttpConfigurer::disable)
             .cors(cors -> {})
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .headers(headers -> headers
@@ -47,11 +51,14 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // Auth-Endpunkte: oeffentlich
                 .requestMatchers("/auth/login", "/auth/verify").permitAll()
-                // Setup-Endpunkte: oeffentlich (Absicherung erfolgt im Controller)
-                .requestMatchers("/setup/**").permitAll()
+                // Setup-Endpunkte: nur vor der Initialisierung erreichbar
+                .requestMatchers("/setup/**").access((authentication, context) ->
+                        new org.springframework.security.authorization.AuthorizationDecision(
+                                !setupService.istInitialisiert()))
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                // Actuator / Health
-                .requestMatchers("/actuator/**").permitAll()
+                // Actuator: nur Health-Endpunkt oeffentlich
+                .requestMatchers("/actuator/health").permitAll()
+                .requestMatchers("/actuator/**").denyAll()
                 // Fehlerseite muss erreichbar sein
                 .requestMatchers("/error").permitAll()
                 // Alle anderen Endpunkte: authentifiziert

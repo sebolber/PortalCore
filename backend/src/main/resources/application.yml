@@ -3,9 +3,9 @@ spring:
     name: health-portal
 
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:5432/portal
-    username: portal
-    password: portal
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:portal}
+    username: ${DB_USERNAME:portal}
+    password: ${DB_PASSWORD:portal}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -48,7 +48,7 @@ server:
 # JWT und OTP Konfiguration
 portal:
   jwt:
-    secret: ${JWT_SECRET:H34lthP0rt4lS3cur3K3y2026F0rJWT!MustB3AtL34st32Chars}
+    secret: ${JWT_SECRET}
     expiration-hours: ${JWT_EXPIRATION_HOURS:8}
   otp:
     length: 6
@@ -63,5 +63,5 @@ portal:
 
 logging:
   level:
-    de.portalcore: DEBUG
+    de.portalcore: ${LOG_LEVEL:INFO}
     org.springframework.security: WARN

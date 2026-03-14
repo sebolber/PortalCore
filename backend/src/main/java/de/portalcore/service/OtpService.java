@@ -10,6 +10,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -99,7 +100,7 @@ public class OtpService {
         if (isSendMailEnabled()) {
             sendOtpEmail(email, code, expMinutes);
         } else {
-            log.info("OTP fuer {}: {} (E-Mail-Versand deaktiviert)", email, code);
+            log.debug("OTP fuer {} generiert (E-Mail-Versand deaktiviert)", email);
         }
 
         return otpCode.getId();
@@ -125,7 +126,7 @@ public class OtpService {
 
         otp.setVersuche(otp.getVersuche() + 1);
 
-        if (otp.getCode().equals(code)) {
+        if (MessageDigest.isEqual(otp.getCode().getBytes(), code.getBytes())) {
             otp.setVerwendet(true);
             otpCodeRepository.save(otp);
             return true;
@@ -155,7 +156,7 @@ public class OtpService {
                     : fallbackMailSender;
 
             if (sender == null) {
-                log.warn("Kein Mail-Sender verfuegbar. OTP fuer {} (Fallback): {}", to, code);
+                log.warn("Kein Mail-Sender verfuegbar fuer {}. OTP konnte nicht gesendet werden.", to);
                 return;
             }
 

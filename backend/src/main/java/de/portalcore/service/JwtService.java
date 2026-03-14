@@ -24,9 +24,9 @@ public class JwtService {
     private SecretKey getSigningKey() {
         byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
         if (keyBytes.length < 32) {
-            byte[] padded = new byte[32];
-            System.arraycopy(keyBytes, 0, padded, 0, Math.min(keyBytes.length, 32));
-            return Keys.hmacShaKeyFor(padded);
+            throw new IllegalStateException(
+                    "JWT-Secret muss mindestens 32 Bytes lang sein (aktuell: " + keyBytes.length + "). " +
+                    "Bitte JWT_SECRET Umgebungsvariable setzen.");
         }
         return Keys.hmacShaKeyFor(keyBytes);
     }
