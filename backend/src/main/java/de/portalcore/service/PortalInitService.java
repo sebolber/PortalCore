@@ -115,7 +115,7 @@ public class PortalInitService implements ApplicationRunner {
 
         String vorname = (String) superUserConfig.getOrDefault("vorname", "Admin");
         String nachname = (String) superUserConfig.getOrDefault("nachname", "Portal");
-        String initialen = vorname.substring(0, 1).toUpperCase() + nachname.substring(0, 1).toUpperCase();
+        String initialen = calculateInitialen(vorname, nachname);
 
         String userId = "u-init-" + UUID.randomUUID().toString().substring(0, 8);
         PortalUser user = PortalUser.builder()
@@ -145,30 +145,42 @@ public class PortalInitService implements ApplicationRunner {
         log.info("Super-User '{}' ({} {}) erfolgreich angelegt.", email, vorname, nachname);
     }
 
+    private String calculateInitialen(String vorname, String nachname) {
+        String v = (vorname != null && !vorname.isEmpty()) ? vorname.substring(0, 1).toUpperCase() : "";
+        String n = (nachname != null && !nachname.isEmpty()) ? nachname.substring(0, 1).toUpperCase() : "";
+        return v + n;
+    }
+
     @SuppressWarnings("unchecked")
     private void initParameters(Map<String, Object> config) {
         Map<String, Object> params = (Map<String, Object>) config.get("parameters");
         if (params == null) return;
 
-        int updated = 0;
+        int verarbeitet = 0;
+        int aktualisiert = 0;
         for (Map.Entry<String, Object> entry : params.entrySet()) {
             String key = entry.getKey();
             String value = String.valueOf(entry.getValue());
+            verarbeitet++;
 
-            parameterRepository.findGlobalByKey(key).ifPresent(param -> {
-                // Nur aktualisieren wenn der Wert leer ist (Erstinstallation)
-                if (param.getValue() == null || param.getValue().isBlank()) {
-                    param.setValue(value);
-                    param.setLastModified(LocalDateTime.now());
-                    param.setLastModifiedBy("portal-init");
-                    parameterRepository.save(param);
-                    log.debug("Parameter '{}' auf '{}' gesetzt.", key,
-                            param.isSensitive() ? "***" : value);
-                }
-            });
-            updated++;
+            var paramOpt = parameterRepository.findGlobalByKey(key);
+            if (paramOpt.isEmpty()) {
+                log.warn("Parameter '{}' aus portal-init.yml existiert nicht in der Datenbank.", key);
+                continue;
+            }
+
+            var param = paramOpt.get();
+            if (param.getValue() == null || param.getValue().isBlank()) {
+                param.setValue(value);
+                param.setLastModified(LocalDateTime.now());
+                param.setLastModifiedBy("portal-init");
+                parameterRepository.save(param);
+                aktualisiert++;
+                log.debug("Parameter '{}' auf '{}' gesetzt.", key,
+                        param.isSensitive() ? "***" : value);
+            }
         }
 
-        log.info("{} Parameter aus portal-init.yml verarbeitet.", updated);
+        log.info("{} Parameter verarbeitet, davon {} aktualisiert.", verarbeitet, aktualisiert);
     }
 }

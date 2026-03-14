@@ -1,7 +1,16 @@
 package de.portalcore.service;
 
-import de.portalcore.entity.*;
-import de.portalcore.repository.*;
+import de.portalcore.entity.AppUseCase;
+import de.portalcore.entity.GruppenBerechtigung;
+import de.portalcore.entity.InstalledApp;
+import de.portalcore.entity.PortalApp;
+import de.portalcore.entity.Tenant;
+import de.portalcore.repository.AppUseCaseRepository;
+import de.portalcore.repository.GruppeRepository;
+import de.portalcore.repository.GruppenBerechtigungRepository;
+import de.portalcore.repository.InstalledAppRepository;
+import de.portalcore.repository.PortalAppRepository;
+import de.portalcore.repository.TenantRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -145,12 +154,4 @@ public class InstalledAppService {
         return installedAppRepository.existsByTenantIdAndAppId(tenantId, appId);
     }
 
-    public List<InstalledApp> listInstalledApps(String tenantId) {
-        return getInstalledApps(tenantId);
-    }
-
-    @Transactional
-    public InstalledApp installApp(String tenantId, String appId) {
-        return installApp(tenantId, appId, "system");
-    }
 }

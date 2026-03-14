@@ -28,25 +28,25 @@ public class BatchJobController {
 
     @PutMapping("/{id}/start")
     public ResponseEntity<BatchJob> startJob(@PathVariable String id) {
-        BatchJob job = batchJobService.startJob(id);
+        BatchJob job = batchJobService.start(id);
         return ResponseEntity.ok(job);
     }
 
     @PutMapping("/{id}/pause")
     public ResponseEntity<BatchJob> pauseJob(@PathVariable String id) {
-        BatchJob job = batchJobService.pauseJob(id);
+        BatchJob job = batchJobService.pause(id);
         return ResponseEntity.ok(job);
     }
 
     @PutMapping("/{id}/stop")
     public ResponseEntity<BatchJob> stopJob(@PathVariable String id) {
-        BatchJob job = batchJobService.stopJob(id);
+        BatchJob job = batchJobService.stop(id);
         return ResponseEntity.ok(job);
     }
 
     @PutMapping("/{id}/restart")
     public ResponseEntity<BatchJob> restartJob(@PathVariable String id) {
-        BatchJob job = batchJobService.restartJob(id);
+        BatchJob job = batchJobService.restart(id);
         return ResponseEntity.ok(job);
     }
 

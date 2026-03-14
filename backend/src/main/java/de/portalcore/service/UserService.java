@@ -46,6 +46,7 @@ public class UserService {
 
     @Transactional
     public PortalUser create(PortalUser user) {
+        validateRequiredFields(user);
         if (user.getId() == null || user.getId().isBlank()) {
             user.setId("u-" + UUID.randomUUID().toString().substring(0, 8));
         }
@@ -154,25 +155,6 @@ public class UserService {
                 .collect(Collectors.toList());
     }
 
-    public PortalUser getUserById(String id) {
-        return findById(id);
-    }
-
-    @Transactional
-    public PortalUser createUser(PortalUser user) {
-        return create(user);
-    }
-
-    @Transactional
-    public PortalUser updateUser(String id, PortalUser user) {
-        return update(id, user);
-    }
-
-    @Transactional
-    public void deleteUser(String id) {
-        delete(id);
-    }
-
     // ---- Adressen ----
 
     public List<UserAdresse> getAdressen(String userId) {
@@ -228,6 +210,21 @@ public class UserService {
     @Transactional
     public void deleteAdresse(String adresseId) {
         adresseRepository.deleteById(adresseId);
+    }
+
+    private void validateRequiredFields(PortalUser user) {
+        if (user.getEmail() == null || user.getEmail().isBlank()) {
+            throw new IllegalArgumentException("E-Mail-Adresse ist erforderlich.");
+        }
+        if (user.getVorname() == null || user.getVorname().isBlank()) {
+            throw new IllegalArgumentException("Vorname ist erforderlich.");
+        }
+        if (user.getNachname() == null || user.getNachname().isBlank()) {
+            throw new IllegalArgumentException("Nachname ist erforderlich.");
+        }
+        if (portalUserRepository.findByEmail(user.getEmail()).isPresent()) {
+            throw new IllegalStateException("Ein Benutzer mit dieser E-Mail-Adresse existiert bereits.");
+        }
     }
 
     private void resolveTenant(PortalUser user) {

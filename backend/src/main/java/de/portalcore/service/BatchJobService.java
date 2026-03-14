@@ -122,26 +122,6 @@ public class BatchJobService {
     }
 
     @Transactional
-    public BatchJob startJob(String id) {
-        return start(id);
-    }
-
-    @Transactional
-    public BatchJob pauseJob(String id) {
-        return pause(id);
-    }
-
-    @Transactional
-    public BatchJob stopJob(String id) {
-        return stop(id);
-    }
-
-    @Transactional
-    public BatchJob restartJob(String id) {
-        return restart(id);
-    }
-
-    @Transactional
     public void removeFromQueue(String id) {
         BatchJob job = findById(id);
         if (job.getStatus() == BatchStatus.WARTEND) {

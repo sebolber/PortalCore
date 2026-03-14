@@ -35,13 +35,13 @@ public class AppController {
 
     @GetMapping("/{id}")
     public ResponseEntity<PortalApp> getAppById(@PathVariable String id) {
-        PortalApp app = appService.getAppById(id);
+        PortalApp app = appService.findById(id);
         return ResponseEntity.ok(app);
     }
 
     @GetMapping("/featured")
     public ResponseEntity<List<PortalApp>> getFeaturedApps() {
-        List<PortalApp> apps = appService.getFeaturedApps();
+        List<PortalApp> apps = appService.findFeatured();
         return ResponseEntity.ok(apps);
     }
 

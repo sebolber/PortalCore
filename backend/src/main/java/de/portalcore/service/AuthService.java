@@ -1,19 +1,33 @@
 package de.portalcore.service;
 
-import de.portalcore.entity.*;
+import de.portalcore.entity.AuthSession;
+import de.portalcore.entity.GruppenBerechtigung;
+import de.portalcore.entity.PortalUser;
+import de.portalcore.entity.UserTenant;
 import de.portalcore.enums.UserStatus;
-import de.portalcore.repository.*;
+import de.portalcore.repository.AuthSessionRepository;
+import de.portalcore.repository.GruppenBerechtigungRepository;
+import de.portalcore.repository.PortalUserRepository;
+import de.portalcore.repository.UserTenantRepository;
 import jakarta.persistence.EntityNotFoundException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
 @Transactional
 public class AuthService {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
     private final PortalUserRepository userRepository;
     private final UserTenantRepository userTenantRepository;
@@ -66,7 +80,7 @@ public class AuthService {
                                           String ipAdresse, String userAgent) {
         if (!otpService.verifyOtp(email, code)) {
             auditService.log(null, null, "LOGIN_FEHLGESCHLAGEN",
-                    "Ungueltiger OTP-Code fuer " + email, ipAdresse, userAgent);
+                    String.format("Ungueltiger OTP-Code fuer %s", email), ipAdresse, userAgent);
             throw new IllegalArgumentException("Ungueltiger oder abgelaufener Code.");
         }
 
@@ -77,32 +91,38 @@ public class AuthService {
             throw new IllegalStateException("Ihr Konto ist gesperrt.");
         }
 
-        // Tenant bestimmen
-        String effectiveTenantId = tenantId;
-        if (effectiveTenantId == null || effectiveTenantId.isEmpty()) {
-            // Standard-Mandant des Benutzers
-            Optional<UserTenant> defaultTenant = userTenantRepository.findByUserIdAndIstStandardTrue(user.getId());
-            if (defaultTenant.isPresent()) {
-                effectiveTenantId = defaultTenant.get().getTenantId();
-            } else {
-                effectiveTenantId = user.getTenant().getId();
-            }
-        } else {
-            // Pruefen ob Benutzer dem Mandanten zugeordnet ist
-            if (!userTenantRepository.existsByUserIdAndTenantId(user.getId(), effectiveTenantId)) {
-                throw new IllegalArgumentException("Sie sind diesem Mandanten nicht zugeordnet.");
-            }
+        String effectiveTenantId = resolveEffectiveTenantId(user, tenantId);
+        String sessionId = UUID.randomUUID().toString();
+        String token = jwtService.generateToken(user.getId(), user.getEmail(), effectiveTenantId, sessionId);
+
+        createSession(sessionId, user.getId(), effectiveTenantId, ipAdresse, userAgent);
+        updateLoginTimestamp(user);
+
+        auditService.log(user.getId(), effectiveTenantId, "LOGIN_ERFOLGREICH",
+                String.format("Benutzer %s angemeldet", user.getEmail()), ipAdresse, userAgent);
+
+        return buildLoginResponse(token, user, effectiveTenantId);
+    }
+
+    private String resolveEffectiveTenantId(PortalUser user, String requestedTenantId) {
+        if (requestedTenantId == null || requestedTenantId.isEmpty()) {
+            return userTenantRepository.findByUserIdAndIstStandardTrue(user.getId())
+                    .map(UserTenant::getTenantId)
+                    .orElse(user.getTenant().getId());
         }
 
-        // Session erstellen
-        String sessionId = UUID.randomUUID().toString();
-        String token = jwtService.generateToken(user.getId(), user.getEmail(),
-                effectiveTenantId, sessionId);
+        if (!userTenantRepository.existsByUserIdAndTenantId(user.getId(), requestedTenantId)) {
+            throw new IllegalArgumentException("Sie sind diesem Mandanten nicht zugeordnet.");
+        }
+        return requestedTenantId;
+    }
 
+    private void createSession(String sessionId, String userId, String tenantId,
+                                String ipAdresse, String userAgent) {
         AuthSession session = AuthSession.builder()
                 .id(sessionId)
-                .userId(user.getId())
-                .tenantId(effectiveTenantId)
+                .userId(userId)
+                .tenantId(tenantId)
                 .erstelltAm(LocalDateTime.now())
                 .gueltigBis(LocalDateTime.now().plusHours(jwtService.getExpirationHours()))
                 .ipAdresse(ipAdresse)
@@ -110,17 +130,39 @@ public class AuthService {
                 .aktiv(true)
                 .build();
         sessionRepository.save(session);
+    }
 
-        // Login-Zeitstempel aktualisieren
+    private void updateLoginTimestamp(PortalUser user) {
         user.setLetzterLogin(LocalDateTime.now());
         userRepository.save(user);
+    }
 
-        auditService.log(user.getId(), effectiveTenantId, "LOGIN_ERFOLGREICH",
-                "Benutzer " + user.getEmail() + " angemeldet", ipAdresse, userAgent);
+    private Map<String, Object> buildLoginResponse(String token, PortalUser user, String tenantId) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("token", token);
+        result.put("user", buildUserMap(user));
+        result.put("tenantId", tenantId);
+        result.put("tenants", buildTenantList(user.getId()));
+        result.put("berechtigungen", buildBerechtigungList(user.getId()));
+        return result;
+    }
 
-        // Berechtigungen sammeln
-        List<GruppenBerechtigung> berechtigungen = berechtigungRepository.findByUserId(user.getId());
-        List<Map<String, Object>> permList = berechtigungen.stream()
+    private Map<String, Object> buildUserMap(PortalUser user) {
+        Map<String, Object> userMap = new LinkedHashMap<>();
+        userMap.put("id", user.getId());
+        userMap.put("vorname", user.getVorname());
+        userMap.put("nachname", user.getNachname());
+        userMap.put("email", user.getEmail());
+        userMap.put("initialen", user.getInitialen());
+        userMap.put("superAdmin", user.isSuperAdmin());
+        return userMap;
+    }
+
+    /**
+     * Baut die Berechtigungsliste fuer einen Benutzer. Wird sowohl beim Login als auch bei /auth/me verwendet.
+     */
+    public List<Map<String, Object>> buildBerechtigungList(String userId) {
+        return berechtigungRepository.findByUserId(userId).stream()
                 .map(gb -> {
                     Map<String, Object> m = new LinkedHashMap<>();
                     m.put("useCase", gb.getUseCase());
@@ -132,31 +174,19 @@ public class AuthService {
                     return m;
                 })
                 .collect(Collectors.toList());
+    }
 
-        // Verfuegbare Mandanten
-        List<UserTenant> userTenants = userTenantRepository.findByUserId(user.getId());
-        List<Map<String, String>> tenants = userTenants.stream()
+    /**
+     * Baut die Liste aktiver Mandanten fuer einen Benutzer.
+     */
+    public List<Map<String, String>> buildTenantList(String userId) {
+        return userTenantRepository.findByUserId(userId).stream()
                 .filter(UserTenant::isAktiv)
                 .map(ut -> Map.of(
                         "id", ut.getTenantId(),
                         "name", ut.getTenant() != null ? ut.getTenant().getName() : ut.getTenantId()
                 ))
                 .collect(Collectors.toList());
-
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("token", token);
-        Map<String, Object> userMap = new LinkedHashMap<>();
-        userMap.put("id", user.getId());
-        userMap.put("vorname", user.getVorname());
-        userMap.put("nachname", user.getNachname());
-        userMap.put("email", user.getEmail());
-        userMap.put("initialen", user.getInitialen());
-        userMap.put("superAdmin", user.isSuperAdmin());
-        result.put("user", userMap);
-        result.put("tenantId", effectiveTenantId);
-        result.put("tenants", tenants);
-        result.put("berechtigungen", permList);
-        return result;
     }
 
     /**

@@ -1,7 +1,15 @@
 package de.portalcore.service;
 
-import de.portalcore.entity.*;
-import de.portalcore.repository.*;
+import de.portalcore.entity.DashboardWidget;
+import de.portalcore.entity.PortalSeite;
+import de.portalcore.entity.PortalUser;
+import de.portalcore.entity.Tenant;
+import de.portalcore.entity.WidgetDefinition;
+import de.portalcore.repository.DashboardWidgetRepository;
+import de.portalcore.repository.PortalSeiteRepository;
+import de.portalcore.repository.PortalUserRepository;
+import de.portalcore.repository.TenantRepository;
+import de.portalcore.repository.WidgetDefinitionRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

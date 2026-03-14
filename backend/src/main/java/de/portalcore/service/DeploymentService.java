@@ -290,22 +290,25 @@ public class DeploymentService {
     private void stopContainerIfExists(String containerName) {
         try {
             execCommand("docker", "stop", containerName);
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.debug("Container '{}' konnte nicht gestoppt werden: {}", containerName, e.getMessage());
+        }
         try {
             execCommand("docker", "rm", "-f", containerName);
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.debug("Container '{}' konnte nicht entfernt werden: {}", containerName, e.getMessage());
+        }
     }
 
     private int findAvailablePort(int startPort) {
-        // Simple approach: try ports starting from startPort
         for (int port = startPort; port < startPort + 100; port++) {
-            try {
-                var socket = new java.net.ServerSocket(port);
-                socket.close();
+            try (var socket = new java.net.ServerSocket(port)) {
                 return port;
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                log.debug("Port {} nicht verfuegbar: {}", port, e.getMessage());
+            }
         }
-        return startPort;
+        throw new IllegalStateException("Kein freier Port im Bereich " + startPort + "-" + (startPort + 99) + " gefunden");
     }
 
     private String execCommand(String... command) {
@@ -328,7 +331,6 @@ public class DeploymentService {
         }
     }
 
-    @Transactional
     private void updateDeployStatus(String installedAppId, String status, String log) {
         installedAppRepository.findById(installedAppId).ifPresent(installed -> {
             installed.setDeployStatus(status);

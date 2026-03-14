@@ -1,6 +1,8 @@
 package de.portalcore.service;
 
-import io.jsonwebtoken.*;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -13,7 +15,7 @@ import java.util.Map;
 @Service
 public class JwtService {
 
-    @Value("${portal.jwt.secret:d3f4u1tS3cr3tK3yF0rH34lthP0rt4lTh4tSh0uldB3Ch4ng3d!2026}")
+    @Value("${portal.jwt.secret}")
     private String secret;
 
     @Value("${portal.jwt.expiration-hours:8}")

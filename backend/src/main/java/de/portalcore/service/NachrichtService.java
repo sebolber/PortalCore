@@ -1,8 +1,18 @@
 package de.portalcore.service;
 
-import de.portalcore.entity.*;
-import de.portalcore.enums.*;
-import de.portalcore.repository.*;
+import de.portalcore.entity.NachrichtAnhang;
+import de.portalcore.entity.NachrichtEmpfaenger;
+import de.portalcore.entity.NachrichtItem;
+import de.portalcore.entity.PortalUser;
+import de.portalcore.entity.Tenant;
+import de.portalcore.enums.NachrichtPrioritaet;
+import de.portalcore.enums.NachrichtStatus;
+import de.portalcore.enums.NachrichtTyp;
+import de.portalcore.repository.NachrichtAnhangRepository;
+import de.portalcore.repository.NachrichtEmpfaengerRepository;
+import de.portalcore.repository.NachrichtItemRepository;
+import de.portalcore.repository.PortalUserRepository;
+import de.portalcore.repository.TenantRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -221,11 +231,8 @@ public class NachrichtService {
                                                    List<String> empfaengerIds, NachrichtTyp typ,
                                                    String referenzTyp, String referenzId,
                                                    LocalDateTime frist) {
-        // Use "SYSTEM" as creator - find first super admin or use a system user
-        PortalUser systemUser = userRepo.findAll().stream()
-                .filter(PortalUser::isSuperAdmin)
-                .findFirst()
-                .orElseThrow(() -> new EntityNotFoundException("No system user found"));
+        PortalUser systemUser = userRepo.findFirstBySuperAdminTrue()
+                .orElseThrow(() -> new EntityNotFoundException("Kein System-Benutzer (SuperAdmin) gefunden"));
 
         return erstellen(systemUser.getId(), tenantId, typ, betreff, inhalt,
                 NachrichtPrioritaet.NORMAL, frist, null, empfaengerIds, true,

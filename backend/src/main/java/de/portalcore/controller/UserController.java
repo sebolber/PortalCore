@@ -32,22 +32,22 @@ public class UserController {
 
     @GetMapping("/{id}")
     public ResponseEntity<PortalUser> getUserById(@PathVariable String id) {
-        return ResponseEntity.ok(userService.getUserById(id));
+        return ResponseEntity.ok(userService.findById(id));
     }
 
     @PostMapping
     public ResponseEntity<PortalUser> createUser(@RequestBody PortalUser user) {
-        return ResponseEntity.ok(userService.createUser(user));
+        return ResponseEntity.ok(userService.create(user));
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<PortalUser> updateUser(@PathVariable String id, @RequestBody PortalUser user) {
-        return ResponseEntity.ok(userService.updateUser(id, user));
+        return ResponseEntity.ok(userService.update(id, user));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteUser(@PathVariable String id) {
-        userService.deleteUser(id);
+        userService.delete(id);
         return ResponseEntity.noContent().build();
     }
 

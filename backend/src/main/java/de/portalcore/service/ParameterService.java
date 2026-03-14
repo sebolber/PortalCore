@@ -13,7 +13,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
+import java.util.UUID;
 
 @Service
 @Transactional(readOnly = true)
@@ -213,20 +215,6 @@ public class ParameterService {
         return portalParameterRepository.findByTenantIdOrGlobal(tenantId);
     }
 
-    /**
-     * @deprecated Verwende listParameters(appId, tenantId, isSuperAdmin) stattdessen
-     */
-    public List<PortalParameter> listParameters(String appId) {
-        if (appId != null && !appId.isBlank()) {
-            return getByApp(appId);
-        }
-        return findAll();
-    }
-
-    @Transactional
-    public PortalParameter updateParameter(String id, PortalParameter parameter) {
-        return update(id, parameter);
-    }
 
     /**
      * Prueft ob der Benutzer Zugriff auf den Parameter hat.

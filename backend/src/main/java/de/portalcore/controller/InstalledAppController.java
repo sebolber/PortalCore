@@ -29,7 +29,7 @@ public class InstalledAppController {
 
     @GetMapping
     public ResponseEntity<List<InstalledApp>> listInstalledApps(@PathVariable String tenantId) {
-        List<InstalledApp> apps = installedAppService.listInstalledApps(tenantId);
+        List<InstalledApp> apps = installedAppService.getInstalledApps(tenantId);
         return ResponseEntity.ok(apps);
     }
 
@@ -40,6 +40,9 @@ public class InstalledAppController {
         requireAppstoreAdmin();
         String userId = getCurrentUserId();
         String appId = body.get("appId");
+        if (appId == null || appId.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "appId ist erforderlich.");
+        }
         InstalledApp installedApp = installedAppService.installApp(tenantId, appId, userId);
         return ResponseEntity.ok(installedApp);
     }

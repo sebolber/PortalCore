@@ -118,14 +118,6 @@ public class AppService {
                 .collect(Collectors.toList());
     }
 
-    public PortalApp getAppById(String id) {
-        return findById(id);
-    }
-
-    public List<PortalApp> getFeaturedApps() {
-        return findFeatured();
-    }
-
     public Map<MarketSegment, Long> getAppCountPerSegment() {
         Map<MarketSegment, Long> counts = new EnumMap<>(MarketSegment.class);
         List<PortalApp> all = findAll();

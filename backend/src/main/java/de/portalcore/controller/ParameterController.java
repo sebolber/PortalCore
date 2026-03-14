@@ -69,7 +69,7 @@ public class ParameterController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("error", "Dieser Parameter darf nur von Administratoren geaendert werden."));
         }
-        PortalParameter updated = parameterService.updateParameter(id, parameter);
+        PortalParameter updated = parameterService.update(id, parameter);
         return ResponseEntity.ok(updated);
     }
 
