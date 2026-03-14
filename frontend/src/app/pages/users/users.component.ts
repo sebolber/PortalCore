@@ -948,9 +948,9 @@ export class UsersComponent implements OnInit {
         this.successMessage.set(`Benutzer ${user.vorname} ${user.nachname} wurde geloescht.`);
         this.loadUsers();
       },
-      error: () => {
+      error: (err) => {
         this.deleteConfirmUser.set(null);
-        this.errorMessage.set('Benutzer konnte nicht geloescht werden.');
+        this.errorMessage.set(err.error?.message || err.error?.error || 'Benutzer konnte nicht geloescht werden.');
       },
     });
   }
