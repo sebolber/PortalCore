@@ -72,14 +72,14 @@ public class EmailConfigService {
         sender.setUsername(getParam("portal.email.smtp.username"));
         sender.setPassword(getParam("portal.email.smtp.password"));
 
+        boolean isSslEnabled = getBoolParam("portal.email.smtp.ssl", false);
+        boolean isStarttlsEnabled = getBoolParam("portal.email.smtp.starttls", false);
+
         Properties props = sender.getJavaMailProperties();
         props.put("mail.transport.protocol", "smtp");
         props.put("mail.smtp.auth", String.valueOf(getBoolParam("portal.email.smtp.auth", false)));
-        props.put("mail.smtp.starttls.enable", String.valueOf(getBoolParam("portal.email.smtp.starttls", false)));
-
-        if (getBoolParam("portal.email.smtp.ssl", false)) {
-            props.put("mail.smtp.ssl.enable", "true");
-        }
+        props.put("mail.smtp.ssl.enable", String.valueOf(isSslEnabled));
+        props.put("mail.smtp.starttls.enable", String.valueOf(isStarttlsEnabled && !isSslEnabled));
 
         props.put("mail.smtp.connectiontimeout", "5000");
         props.put("mail.smtp.timeout", "5000");
