@@ -72,14 +72,24 @@ public class EmailConfigService {
         sender.setUsername(getParam("portal.email.smtp.username"));
         sender.setPassword(getParam("portal.email.smtp.password"));
 
+        int port = sender.getPort();
         boolean isSslEnabled = getBoolParam("portal.email.smtp.ssl", false);
         boolean isStarttlsEnabled = getBoolParam("portal.email.smtp.starttls", false);
+
+        // Port 587 erfordert immer STARTTLS, Port 465 erfordert direktes SSL
+        if (port == 587) {
+            isSslEnabled = false;
+            isStarttlsEnabled = true;
+        } else if (port == 465) {
+            isSslEnabled = true;
+            isStarttlsEnabled = false;
+        }
 
         Properties props = sender.getJavaMailProperties();
         props.put("mail.transport.protocol", "smtp");
         props.put("mail.smtp.auth", String.valueOf(getBoolParam("portal.email.smtp.auth", false)));
         props.put("mail.smtp.ssl.enable", String.valueOf(isSslEnabled));
-        props.put("mail.smtp.starttls.enable", String.valueOf(isStarttlsEnabled && !isSslEnabled));
+        props.put("mail.smtp.starttls.enable", String.valueOf(isStarttlsEnabled));
 
         props.put("mail.smtp.connectiontimeout", "5000");
         props.put("mail.smtp.timeout", "5000");
