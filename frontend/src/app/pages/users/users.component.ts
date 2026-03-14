@@ -1,9 +1,11 @@
 import { Component, computed, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
 import { PortalUser, PortalRolle, Berechtigung, UserAdresse } from '../../models/user.model';
 import { UserService } from '../../services/user.service';
 import { Tenant } from '../../models/tenant.model';
+import { API_URL } from '../../services/api.service';
 
 interface AuditEntry {
   id: string;
@@ -323,7 +325,7 @@ interface AuditEntry {
                   <label class="block text-xs text-gray-500 mb-1">Mandant *</label>
                   <select [(ngModel)]="formData.mandantId" (ngModelChange)="onMandantChange($event)" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                     <option value="">Bitte waehlen</option>
-                    @for (t of availableTenants; track t.id) {
+                    @for (t of availableTenants(); track t.id) {
                       <option [value]="t.id">{{ t.name }}</option>
                     }
                   </select>
@@ -703,6 +705,7 @@ interface AuditEntry {
 })
 export class UsersComponent implements OnInit {
   private readonly userService = inject(UserService);
+  private readonly http = inject(HttpClient);
 
   readonly activeTab = signal<'benutzer' | 'rollen' | 'berechtigungen' | 'audit'>('benutzer');
   readonly searchTerm = signal('');
@@ -729,11 +732,7 @@ export class UsersComponent implements OnInit {
     { key: 'audit' as const, label: 'Audit-Trail', count: 15 },
   ];
 
-  readonly availableTenants: Tenant[] = [
-    { id: 't1', name: 'AOK Bayern', shortName: 'AOK', aktiv: true },
-    { id: 't2', name: 'TK Hamburg', shortName: 'TK', aktiv: true },
-    { id: 't3', name: 'Barmer Berlin', shortName: 'BAR', aktiv: true },
-  ];
+  readonly availableTenants = signal<Tenant[]>([]);
 
   readonly sprachen = [
     { code: 'de', label: 'Deutsch' },
@@ -885,6 +884,13 @@ export class UsersComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadUsers();
+    this.loadTenants();
+  }
+
+  loadTenants(): void {
+    this.http.get<Tenant[]>(`${API_URL}/tenants`).subscribe({
+      next: (data) => this.availableTenants.set(data),
+    });
   }
 
   loadUsers(): void {
@@ -1010,7 +1016,7 @@ export class UsersComponent implements OnInit {
   }
 
   onMandantChange(mandantId: string): void {
-    const tenant = this.availableTenants.find(t => t.id === mandantId);
+    const tenant = this.availableTenants().find(t => t.id === mandantId);
     if (tenant) {
       this.formData.mandant = tenant.name;
       this.formData.tenant = tenant;
