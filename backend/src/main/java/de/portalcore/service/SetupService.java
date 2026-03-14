@@ -259,16 +259,15 @@ public class SetupService {
         boolean isSsl = "SSL".equals(request.verschluesselung());
         boolean isTls = "TLS".equals(request.verschluesselung());
 
-        // Passwort wird NICHT in portal_parameters gespeichert (nur in smtp_konfiguration verschluesselt)
-        Map<String, String> params = Map.of(
-                "portal.email.smtp.host", request.host(),
-                "portal.email.smtp.port", String.valueOf(request.port()),
-                "portal.email.smtp.username", request.benutzername() != null ? request.benutzername() : "",
-                "portal.email.smtp.auth", String.valueOf(request.authentifizierungAktiv()),
-                "portal.email.smtp.starttls", String.valueOf(isTls),
-                "portal.email.smtp.ssl", String.valueOf(isSsl),
-                "portal.email.from", request.absenderEmail()
-        );
+        Map<String, String> params = new java.util.HashMap<>();
+        params.put("portal.email.smtp.host", request.host());
+        params.put("portal.email.smtp.port", String.valueOf(request.port()));
+        params.put("portal.email.smtp.username", request.benutzername() != null ? request.benutzername() : "");
+        params.put("portal.email.smtp.password", request.passwort() != null ? request.passwort() : "");
+        params.put("portal.email.smtp.auth", String.valueOf(request.authentifizierungAktiv()));
+        params.put("portal.email.smtp.starttls", String.valueOf(isTls));
+        params.put("portal.email.smtp.ssl", String.valueOf(isSsl));
+        params.put("portal.email.from", request.absenderEmail());
 
         for (Map.Entry<String, String> entry : params.entrySet()) {
             parameterRepo.findGlobalByKey(entry.getKey()).ifPresent(param -> {
