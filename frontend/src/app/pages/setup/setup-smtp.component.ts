@@ -108,11 +108,11 @@ export class SetupSmtpComponent {
   readonly saving = signal(false);
 
   smtp: SmtpKonfiguration = {
-    host: '',
+    host: 'smtp.ionos.de',
     port: 587,
     benutzername: '',
     passwort: '',
-    verschluesselung: 'TLS',
+    verschluesselung: 'SSL',
     absenderName: 'Health Portal',
     absenderEmail: '',
     authentifizierungAktiv: true
