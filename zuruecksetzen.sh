@@ -6,6 +6,7 @@ git pull origin "$(git branch --show-current)"
 
 echo ""
 echo "=== Docker Container neu bauen und starten ==="
+docker compose down -v
 docker compose up --build -d
 
 echo ""
