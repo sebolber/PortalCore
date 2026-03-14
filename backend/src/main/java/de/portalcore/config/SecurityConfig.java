@@ -1,5 +1,6 @@
 package de.portalcore.config;
 
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -35,6 +36,13 @@ public class SecurityConfig {
                 .xssProtection(xss -> {})
                 .referrerPolicy(rp -> rp.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
                 .permissionsPolicy(pp -> pp.policy("camera=(), microphone=(), geolocation=()"))
+            )
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint((request, response, authException) -> {
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType("application/json");
+                    response.getWriter().write("{\"error\":\"Nicht authentifiziert\",\"status\":401}");
+                })
             )
             .authorizeHttpRequests(auth -> auth
                 // Auth-Endpunkte: oeffentlich
