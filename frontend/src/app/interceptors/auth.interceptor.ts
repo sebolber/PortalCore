@@ -10,7 +10,11 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
 
   const token = authService.getToken();
 
-  if (token && !req.url.includes('/auth/login') && !req.url.includes('/auth/verify')) {
+  const isPublicEndpoint = req.url.includes('/auth/login')
+    || req.url.includes('/auth/verify')
+    || req.url.includes('/setup/status');
+
+  if (token && !isPublicEndpoint) {
     req = req.clone({
       setHeaders: {
         Authorization: `Bearer ${token}`
@@ -20,7 +24,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
 
   return next(req).pipe(
     catchError((error: HttpErrorResponse) => {
-      if (error.status === 401 && !req.url.includes('/auth/')) {
+      if (error.status === 401 && !req.url.includes('/auth/') && !req.url.includes('/setup/status')) {
         authService.logout();
       }
       return throwError(() => error);

@@ -20,9 +20,9 @@ export const setupGuard: CanActivateFn = () => {
       return true;
     }),
     catchError(() => {
-      // Fail-closed: Bei Fehler Zugriff verweigern und auf Login umleiten
-      router.navigate(['/login']);
-      return of(false);
+      // Bei API-Fehler Setup-Seite trotzdem anzeigen — POST-Endpoints sind serverseitig geschuetzt.
+      // Fail-closed (Redirect zu /login) wuerde auf frischen Systemen den Setup-Wizard blockieren.
+      return of(true);
     })
   );
 };

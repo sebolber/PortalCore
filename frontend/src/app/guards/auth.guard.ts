@@ -25,7 +25,8 @@ export const authGuard: CanActivateFn = () => {
       if (authService.isAuthenticated()) {
         return of(true);
       }
-      router.navigate(['/login']);
+      // Bei API-Fehler ohne Authentifizierung: Setup koennte noch ausstehen
+      router.navigate(['/setup']);
       return of(false);
     })
   );
@@ -50,7 +51,9 @@ export const loginGuard: CanActivateFn = () => {
     }),
     catchError(() => {
       if (!authService.isAuthenticated()) {
-        return of(true);
+        // Bei API-Fehler ohne Authentifizierung: Setup koennte noch ausstehen
+        router.navigate(['/setup']);
+        return of(false);
       }
       router.navigate(['/']);
       return of(false);
