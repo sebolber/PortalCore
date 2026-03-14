@@ -111,6 +111,12 @@ public class NachrichtController {
         return ResponseEntity.noContent().build();
     }
 
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> loeschen(@PathVariable String id) {
+        nachrichtService.loeschen(id, getAuth().userId());
+        return ResponseEntity.noContent().build();
+    }
+
     @PutMapping("/alle-gelesen")
     public ResponseEntity<Map<String, Integer>> alleAlsGelesen() {
         int count = nachrichtService.alleAlsGelesenMarkieren(getAuth().userId());

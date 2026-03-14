@@ -53,6 +53,10 @@ export class NachrichtService {
     return this.http.put<void>(`${this.basePath}/${id}/erledigt`, {});
   }
 
+  loeschen(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.basePath}/${id}`);
+  }
+
   alleAlsGelesenMarkieren(): Observable<{ markiert: number }> {
     return this.http.put<{ markiert: number }>(`${this.basePath}/alle-gelesen`, {});
   }

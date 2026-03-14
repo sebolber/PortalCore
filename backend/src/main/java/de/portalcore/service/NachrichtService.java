@@ -169,6 +169,24 @@ public class NachrichtService {
         return empfaengerRepo.markAlleAlsGelesen(userId);
     }
 
+    // ===== Loeschen =====
+
+    @Transactional
+    public void loeschen(String nachrichtId, String userId) {
+        NachrichtItem nachricht = findById(nachrichtId);
+
+        boolean isErsteller = nachricht.getErsteller().getId().equals(userId);
+        if (isErsteller) {
+            nachrichtRepo.delete(nachricht);
+            return;
+        }
+
+        NachrichtEmpfaenger empfaenger = empfaengerRepo.findByNachrichtIdAndEmpfaengerId(nachrichtId, userId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Loeschen nicht moeglich: Kein Zugriff auf Nachricht " + nachrichtId));
+        empfaengerRepo.delete(empfaenger);
+    }
+
     // ===== Anhänge =====
 
     @Transactional
