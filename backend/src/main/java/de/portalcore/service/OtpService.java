@@ -177,7 +177,6 @@ public class OtpService {
             log.info("OTP-Email an {} gesendet", to);
         } catch (Exception e) {
             log.error("Fehler beim Senden der OTP-Email an {}: {}", to, e.getMessage());
-            log.info("OTP fuer {} (Fallback): {}", to, code);
         }
     }
 }

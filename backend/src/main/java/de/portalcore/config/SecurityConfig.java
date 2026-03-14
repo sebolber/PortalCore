@@ -1,5 +1,6 @@
 package de.portalcore.config;
 
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -26,7 +27,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(AbstractHttpConfigurer::disable)
+            .csrf(csrf -> csrf.disable())
             .cors(cors -> {})
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .headers(headers -> headers
@@ -36,15 +37,25 @@ public class SecurityConfig {
                 .referrerPolicy(rp -> rp.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
                 .permissionsPolicy(pp -> pp.policy("camera=(), microphone=(), geolocation=()"))
             )
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint((request, response, authException) -> {
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType("application/json");
+                    response.getWriter().write("{\"error\":\"Nicht authentifiziert\",\"status\":401}");
+                })
+            )
             .authorizeHttpRequests(auth -> auth
                 // Auth-Endpunkte: oeffentlich
                 .requestMatchers("/auth/login", "/auth/verify").permitAll()
+                // Setup-Endpunkte: oeffentlich (Absicherung erfolgt im Controller)
+                .requestMatchers("/setup/**").permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 // Actuator / Health
                 .requestMatchers("/actuator/**").permitAll()
+                // Fehlerseite muss erreichbar sein
+                .requestMatchers("/error").permitAll()
                 // Alle anderen Endpunkte: authentifiziert
-                .requestMatchers("/**").authenticated()
-                .anyRequest().permitAll()
+                .anyRequest().authenticated()
             )
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 

@@ -394,6 +394,13 @@ type TypFilter = 'alle' | 'NACHRICHT' | 'AUFGABE';
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                   </svg>
                 </button>
+                <button (click)="doLoeschen(selectedItem()!)"
+                        class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Loeschen">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                  </svg>
+                </button>
               </div>
             </div>
 
@@ -831,6 +838,16 @@ export class NachrichtencenterComponent implements OnInit {
 
   doErledigt(item: NachrichtItem): void {
     this.nachrichtService.alsErledigtMarkieren(item.id).subscribe(() => {
+      this.items.update(items => items.filter(i => i.id !== item.id));
+      this.selectedItem.set(null);
+      this.loadUngelesenAnzahl();
+    });
+  }
+
+  doLoeschen(item: NachrichtItem): void {
+    const bestaetigt = confirm('Moechten Sie diesen Eintrag wirklich loeschen?');
+    if (!bestaetigt) return;
+    this.nachrichtService.loeschen(item.id).subscribe(() => {
       this.items.update(items => items.filter(i => i.id !== item.id));
       this.selectedItem.set(null);
       this.loadUngelesenAnzahl();

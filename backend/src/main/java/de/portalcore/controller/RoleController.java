@@ -19,13 +19,13 @@ public class RoleController {
 
     @GetMapping
     public ResponseEntity<List<PortalRolle>> listRoles() {
-        List<PortalRolle> roles = roleService.listRoles();
+        List<PortalRolle> roles = roleService.findAll();
         return ResponseEntity.ok(roles);
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<PortalRolle> getRoleWithPermissions(@PathVariable String id) {
-        PortalRolle role = roleService.getRoleWithPermissions(id);
+        PortalRolle role = roleService.findById(id);
         return ResponseEntity.ok(role);
     }
 }

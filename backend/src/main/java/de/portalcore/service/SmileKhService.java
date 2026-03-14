@@ -49,15 +49,4 @@ public class SmileKhService {
         return offeneRechnungRepository.findByKrankenhaus(krankenhaus);
     }
 
-    public List<EingereichterFall> listFaelle() {
-        return getEingereichteFaelle();
-    }
-
-    public Map<AmpelStatus, Long> getFaelleStatsByAmpel() {
-        return getAmpelStats();
-    }
-
-    public List<OffeneRechnung> listRechnungen() {
-        return getOffeneRechnungen();
-    }
 }

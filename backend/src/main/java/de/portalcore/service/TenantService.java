@@ -73,26 +73,4 @@ public class TenantService {
                 .orElseThrow(() -> new EntityNotFoundException("Mandant nicht gefunden: " + shortName));
     }
 
-    public List<Tenant> listTenants() {
-        return findAll();
-    }
-
-    public Tenant getTenantById(String id) {
-        return findById(id);
-    }
-
-    @Transactional
-    public Tenant create(Tenant tenant) {
-        return create(tenant, "system");
-    }
-
-    @Transactional
-    public Tenant update(String id, Tenant updatedTenant) {
-        return update(id, updatedTenant, "system");
-    }
-
-    @Transactional
-    public void delete(String id) {
-        delete(id, "system");
-    }
 }

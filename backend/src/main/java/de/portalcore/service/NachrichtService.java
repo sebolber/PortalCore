@@ -1,8 +1,18 @@
 package de.portalcore.service;
 
-import de.portalcore.entity.*;
-import de.portalcore.enums.*;
-import de.portalcore.repository.*;
+import de.portalcore.entity.NachrichtAnhang;
+import de.portalcore.entity.NachrichtEmpfaenger;
+import de.portalcore.entity.NachrichtItem;
+import de.portalcore.entity.PortalUser;
+import de.portalcore.entity.Tenant;
+import de.portalcore.enums.NachrichtPrioritaet;
+import de.portalcore.enums.NachrichtStatus;
+import de.portalcore.enums.NachrichtTyp;
+import de.portalcore.repository.NachrichtAnhangRepository;
+import de.portalcore.repository.NachrichtEmpfaengerRepository;
+import de.portalcore.repository.NachrichtItemRepository;
+import de.portalcore.repository.PortalUserRepository;
+import de.portalcore.repository.TenantRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -97,21 +107,7 @@ public class NachrichtService {
                 .build();
 
         nachricht = nachrichtRepo.save(nachricht);
-
-        for (String empfId : empfaengerIds) {
-            PortalUser empf = userRepo.findById(empfId)
-                    .orElseThrow(() -> new EntityNotFoundException("User not found: " + empfId));
-            NachrichtEmpfaenger ne = NachrichtEmpfaenger.builder()
-                    .id(UUID.randomUUID().toString())
-                    .nachricht(nachricht)
-                    .empfaenger(empf)
-                    .gelesen(false)
-                    .archiviert(false)
-                    .erledigt(false)
-                    .build();
-            empfaengerRepo.save(ne);
-        }
-
+        createEmpfaenger(nachricht, empfaengerIds);
         return nachricht;
     }
 
@@ -169,6 +165,24 @@ public class NachrichtService {
         return empfaengerRepo.markAlleAlsGelesen(userId);
     }
 
+    // ===== Loeschen =====
+
+    @Transactional
+    public void loeschen(String nachrichtId, String userId) {
+        NachrichtItem nachricht = findById(nachrichtId);
+
+        boolean isErsteller = nachricht.getErsteller().getId().equals(userId);
+        if (isErsteller) {
+            nachrichtRepo.delete(nachricht);
+            return;
+        }
+
+        NachrichtEmpfaenger empfaenger = empfaengerRepo.findByNachrichtIdAndEmpfaengerId(nachrichtId, userId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Loeschen nicht moeglich: Kein Zugriff auf Nachricht " + nachrichtId));
+        empfaengerRepo.delete(empfaenger);
+    }
+
     // ===== Anhänge =====
 
     @Transactional
@@ -203,11 +217,8 @@ public class NachrichtService {
                                                    List<String> empfaengerIds, NachrichtTyp typ,
                                                    String referenzTyp, String referenzId,
                                                    LocalDateTime frist) {
-        // Use "SYSTEM" as creator - find first super admin or use a system user
-        PortalUser systemUser = userRepo.findAll().stream()
-                .filter(PortalUser::isSuperAdmin)
-                .findFirst()
-                .orElseThrow(() -> new EntityNotFoundException("No system user found"));
+        PortalUser systemUser = userRepo.findFirstBySuperAdminTrue()
+                .orElseThrow(() -> new EntityNotFoundException("Kein System-Benutzer (SuperAdmin) gefunden"));
 
         return erstellen(systemUser.getId(), tenantId, typ, betreff, inhalt,
                 NachrichtPrioritaet.NORMAL, frist, null, empfaengerIds, true,
@@ -248,21 +259,7 @@ public class NachrichtService {
                 .build();
 
         unteraufgabe = nachrichtRepo.save(unteraufgabe);
-
-        for (String empfId : empfaengerIds) {
-            PortalUser empf = userRepo.findById(empfId)
-                    .orElseThrow(() -> new EntityNotFoundException("User not found: " + empfId));
-            NachrichtEmpfaenger ne = NachrichtEmpfaenger.builder()
-                    .id(UUID.randomUUID().toString())
-                    .nachricht(unteraufgabe)
-                    .empfaenger(empf)
-                    .gelesen(false)
-                    .archiviert(false)
-                    .erledigt(false)
-                    .build();
-            empfaengerRepo.save(ne);
-        }
-
+        createEmpfaenger(unteraufgabe, empfaengerIds);
         return unteraufgabe;
     }
 
@@ -276,6 +273,22 @@ public class NachrichtService {
 
     public long countErledigteUnteraufgaben(String parentId) {
         return nachrichtRepo.countErledigteUnteraufgaben(parentId);
+    }
+
+    private void createEmpfaenger(NachrichtItem nachricht, List<String> empfaengerIds) {
+        for (String empfId : empfaengerIds) {
+            PortalUser empf = userRepo.findById(empfId)
+                    .orElseThrow(() -> new EntityNotFoundException("User not found: " + empfId));
+            NachrichtEmpfaenger ne = NachrichtEmpfaenger.builder()
+                    .id(UUID.randomUUID().toString())
+                    .nachricht(nachricht)
+                    .empfaenger(empf)
+                    .gelesen(false)
+                    .archiviert(false)
+                    .erledigt(false)
+                    .build();
+            empfaengerRepo.save(ne);
+        }
     }
 
     // ===== Empfänger-Status für UI =====

@@ -22,19 +22,19 @@ public class SmileKhController {
 
     @GetMapping("/faelle")
     public ResponseEntity<List<EingereichterFall>> listFaelle() {
-        List<EingereichterFall> faelle = smileKhService.listFaelle();
+        List<EingereichterFall> faelle = smileKhService.getEingereichteFaelle();
         return ResponseEntity.ok(faelle);
     }
 
     @GetMapping("/faelle/stats")
     public ResponseEntity<Map<AmpelStatus, Long>> getFaelleStats() {
-        Map<AmpelStatus, Long> stats = smileKhService.getFaelleStatsByAmpel();
+        Map<AmpelStatus, Long> stats = smileKhService.getAmpelStats();
         return ResponseEntity.ok(stats);
     }
 
     @GetMapping("/rechnungen")
     public ResponseEntity<List<OffeneRechnung>> listRechnungen() {
-        List<OffeneRechnung> rechnungen = smileKhService.listRechnungen();
+        List<OffeneRechnung> rechnungen = smileKhService.getOffeneRechnungen();
         return ResponseEntity.ok(rechnungen);
     }
 }

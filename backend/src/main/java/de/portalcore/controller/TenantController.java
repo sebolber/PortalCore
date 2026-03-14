@@ -27,12 +27,12 @@ public class TenantController {
 
     @GetMapping
     public ResponseEntity<List<Tenant>> listTenants() {
-        return ResponseEntity.ok(tenantService.listTenants());
+        return ResponseEntity.ok(tenantService.findAll());
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<Tenant> getTenantById(@PathVariable String id) {
-        return ResponseEntity.ok(tenantService.getTenantById(id));
+        return ResponseEntity.ok(tenantService.findById(id));
     }
 
     @PostMapping

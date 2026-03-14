@@ -37,6 +37,9 @@ public class PortalUser {
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Tenant tenant;
 
+    @Transient
+    private String mandantId;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private UserStatus status;
@@ -65,6 +68,11 @@ public class PortalUser {
     @Builder.Default
     @JsonIgnoreProperties("user")
     private List<UserAdresse> adressen = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Builder.Default
+    @JsonIgnoreProperties("user")
+    private List<DashboardWidget> dashboardWidgets = new ArrayList<>();
 
     @Column(name = "letzter_login")
     private LocalDateTime letzterLogin;

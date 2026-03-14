@@ -32,6 +32,12 @@ import { Tenant } from '../../models/tenant.model';
                class="w-full sm:w-80 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#006EC7] focus:border-transparent outline-none" />
       </div>
 
+      <!-- Fehlermeldung -->
+      <div *ngIf="deleteError()" class="mb-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg flex items-center justify-between">
+        <span>{{ deleteError() }}</span>
+        <button (click)="deleteError.set('')" class="text-red-400 hover:text-red-600 ml-4">&times;</button>
+      </div>
+
       <!-- Mandanten-Karten -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div *ngFor="let t of filteredTenants()"
@@ -226,9 +232,17 @@ export class MandantenComponent implements OnInit {
     }
   }
 
+  deleteError = signal<string>('');
+
   deleteTenant(t: Tenant): void {
     if (confirm('Mandant "' + t.name + '" wirklich loeschen?')) {
-      this.http.delete(`${API_URL}/tenants/${t.id}`).subscribe({ next: () => this.loadTenants() });
+      this.deleteError.set('');
+      this.http.delete(`${API_URL}/tenants/${t.id}`).subscribe({
+        next: () => this.loadTenants(),
+        error: (err) => {
+          this.deleteError.set(err.error?.message || 'Mandant konnte nicht geloescht werden.');
+        }
+      });
     }
   }
 }

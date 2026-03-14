@@ -18,4 +18,6 @@ public interface PortalUserRepository extends JpaRepository<PortalUser, String> 
     List<PortalUser> findByStatus(UserStatus status);
 
     Optional<PortalUser> findByIamId(String iamId);
+
+    Optional<PortalUser> findFirstBySuperAdminTrue();
 }

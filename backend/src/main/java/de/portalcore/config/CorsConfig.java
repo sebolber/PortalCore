@@ -1,5 +1,7 @@
 package de.portalcore.config;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -12,6 +14,8 @@ import java.util.List;
 
 @Configuration
 public class CorsConfig {
+
+    private static final Logger log = LoggerFactory.getLogger(CorsConfig.class);
 
     @Value("${portal.cors.allowed-origins:http://localhost:4200}")
     private String allowedOrigins;
@@ -28,9 +32,10 @@ public class CorsConfig {
             }
         }
         configuration.setAllowedOrigins(origins);
+        log.info("CORS erlaubte Origins: {}", origins);
 
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With"));
+        configuration.setAllowedHeaders(List.of("*"));
         configuration.setExposedHeaders(List.of("Authorization"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);

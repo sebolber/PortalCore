@@ -1,10 +1,10 @@
 package de.portalcore.service;
 
 import de.portalcore.entity.PortalUser;
-import de.portalcore.entity.UserAdresse;
+import de.portalcore.entity.Tenant;
 import de.portalcore.enums.UserStatus;
 import de.portalcore.repository.PortalUserRepository;
-import de.portalcore.repository.UserAdresseRepository;
+import de.portalcore.repository.TenantRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,14 +19,14 @@ import java.util.stream.Collectors;
 public class UserService {
 
     private final PortalUserRepository portalUserRepository;
-    private final UserAdresseRepository adresseRepository;
+    private final TenantRepository tenantRepository;
     private final AuditService auditService;
 
     public UserService(PortalUserRepository portalUserRepository,
-                       UserAdresseRepository adresseRepository,
+                       TenantRepository tenantRepository,
                        AuditService auditService) {
         this.portalUserRepository = portalUserRepository;
-        this.adresseRepository = adresseRepository;
+        this.tenantRepository = tenantRepository;
         this.auditService = auditService;
     }
 
@@ -41,6 +41,7 @@ public class UserService {
 
     @Transactional
     public PortalUser create(PortalUser user) {
+        validateRequiredFields(user);
         if (user.getId() == null || user.getId().isBlank()) {
             user.setId("u-" + UUID.randomUUID().toString().substring(0, 8));
         }
@@ -49,6 +50,10 @@ public class UserService {
                 (user.getVorname() != null && !user.getVorname().isEmpty() ? user.getVorname().substring(0, 1) : "") +
                 (user.getNachname() != null && !user.getNachname().isEmpty() ? user.getNachname().substring(0, 1) : "")
             );
+        }
+        resolveTenant(user);
+        if (user.getStatus() == null) {
+            user.setStatus(UserStatus.AKTIV);
         }
         user.setErstelltAm(LocalDateTime.now());
         user.setLetzteAenderungAm(LocalDateTime.now());
@@ -62,12 +67,26 @@ public class UserService {
         existing.setNachname(updatedUser.getNachname());
         existing.setEmail(updatedUser.getEmail());
         existing.setIamId(updatedUser.getIamId());
-        existing.setTenant(updatedUser.getTenant());
-        existing.setStatus(updatedUser.getStatus());
-        existing.setRollen(updatedUser.getRollen());
-        existing.setLetzterLogin(updatedUser.getLetzterLogin());
+        resolveTenant(updatedUser);
+        if (updatedUser.getTenant() != null) {
+            existing.setTenant(updatedUser.getTenant());
+        }
+        existing.setStatus(updatedUser.getStatus() != null ? updatedUser.getStatus() : existing.getStatus());
+        if (updatedUser.getRollen() != null) {
+            existing.setRollen(updatedUser.getRollen());
+        }
+        if (updatedUser.getLetzterLogin() != null) {
+            existing.setLetzterLogin(updatedUser.getLetzterLogin());
+        }
         existing.setIamSync(updatedUser.isIamSync());
-        existing.setInitialen(updatedUser.getInitialen());
+        if (updatedUser.getInitialen() != null && !updatedUser.getInitialen().isBlank()) {
+            existing.setInitialen(updatedUser.getInitialen());
+        } else if (existing.getInitialen() == null || existing.getInitialen().isBlank()) {
+            existing.setInitialen(
+                (updatedUser.getVorname() != null && !updatedUser.getVorname().isEmpty() ? updatedUser.getVorname().substring(0, 1) : "") +
+                (updatedUser.getNachname() != null && !updatedUser.getNachname().isEmpty() ? updatedUser.getNachname().substring(0, 1) : "")
+            );
+        }
         // Erweiterte Personendaten
         existing.setAnrede(updatedUser.getAnrede());
         existing.setTitel(updatedUser.getTitel());
@@ -131,79 +150,30 @@ public class UserService {
                 .collect(Collectors.toList());
     }
 
-    public PortalUser getUserById(String id) {
-        return findById(id);
-    }
-
-    @Transactional
-    public PortalUser createUser(PortalUser user) {
-        return create(user);
-    }
-
-    @Transactional
-    public PortalUser updateUser(String id, PortalUser user) {
-        return update(id, user);
-    }
-
-    @Transactional
-    public void deleteUser(String id) {
-        delete(id);
-    }
-
-    // ---- Adressen ----
-
-    public List<UserAdresse> getAdressen(String userId) {
-        return adresseRepository.findByUserId(userId);
-    }
-
-    @Transactional
-    public UserAdresse addAdresse(String userId, UserAdresse adresse) {
-        PortalUser user = findById(userId);
-        adresse.setUser(user);
-        if (adresse.getId() == null) {
-            adresse.setId("adr-" + UUID.randomUUID().toString().substring(0, 8));
+    private void validateRequiredFields(PortalUser user) {
+        if (user.getEmail() == null || user.getEmail().isBlank()) {
+            throw new IllegalArgumentException("E-Mail-Adresse ist erforderlich.");
         }
-
-        // Wenn neue Hauptadresse, alte zuruecksetzen
-        if (adresse.isIstHauptadresse()) {
-            adresseRepository.findByUserIdAndIstHauptadresseTrue(userId)
-                    .ifPresent(existing -> {
-                        existing.setIstHauptadresse(false);
-                        adresseRepository.save(existing);
-                    });
+        if (user.getVorname() == null || user.getVorname().isBlank()) {
+            throw new IllegalArgumentException("Vorname ist erforderlich.");
         }
-
-        return adresseRepository.save(adresse);
+        if (user.getNachname() == null || user.getNachname().isBlank()) {
+            throw new IllegalArgumentException("Nachname ist erforderlich.");
+        }
+        if (portalUserRepository.findByEmail(user.getEmail()).isPresent()) {
+            throw new IllegalStateException("Ein Benutzer mit dieser E-Mail-Adresse existiert bereits.");
+        }
     }
 
-    @Transactional
-    public UserAdresse updateAdresse(String adresseId, UserAdresse updated) {
-        UserAdresse existing = adresseRepository.findById(adresseId)
-                .orElseThrow(() -> new EntityNotFoundException("Adresse nicht gefunden: " + adresseId));
-
-        // Wenn als Hauptadresse gesetzt, alte zuruecksetzen
-        if (updated.isIstHauptadresse() && !existing.isIstHauptadresse()) {
-            adresseRepository.findByUserIdAndIstHauptadresseTrue(existing.getUser().getId())
-                    .ifPresent(old -> {
-                        old.setIstHauptadresse(false);
-                        adresseRepository.save(old);
-                    });
+    private void resolveTenant(PortalUser user) {
+        if (user.getTenant() != null) {
+            return;
         }
-
-        existing.setTyp(updated.getTyp());
-        existing.setBezeichnung(updated.getBezeichnung());
-        existing.setStrasse(updated.getStrasse());
-        existing.setHausnummer(updated.getHausnummer());
-        existing.setPlz(updated.getPlz());
-        existing.setOrt(updated.getOrt());
-        existing.setLand(updated.getLand());
-        existing.setZusatz(updated.getZusatz());
-        existing.setIstHauptadresse(updated.isIstHauptadresse());
-        return adresseRepository.save(existing);
-    }
-
-    @Transactional
-    public void deleteAdresse(String adresseId) {
-        adresseRepository.deleteById(adresseId);
+        String mandantId = user.getMandantId();
+        if (mandantId != null && !mandantId.isBlank()) {
+            Tenant tenant = tenantRepository.findById(mandantId)
+                    .orElseThrow(() -> new EntityNotFoundException("Mandant nicht gefunden: " + mandantId));
+            user.setTenant(tenant);
+        }
     }
 }
