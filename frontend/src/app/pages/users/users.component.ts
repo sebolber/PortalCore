@@ -132,6 +132,7 @@ import { ROLLEN, BERECHTIGUNGEN, AUDIT_TRAIL } from './users-stammdaten';
                   <th class="text-left px-4 py-3 font-medium text-gray-600">Abteilung</th>
                   <th class="text-left px-4 py-3 font-medium text-gray-600">Letzter Login</th>
                   <th class="text-left px-4 py-3 font-medium text-gray-600">IAM</th>
+                  <th class="px-4 py-3 w-10"></th>
                 </tr>
               </thead>
               <tbody>
@@ -165,11 +166,22 @@ import { ROLLEN, BERECHTIGUNGEN, AUDIT_TRAIL } from './users-stammdaten';
                         [title]="user.iamSync ? 'Synchronisiert' : 'Nicht synchronisiert'">
                       </span>
                     </td>
+                    <td class="px-4 py-3 text-right">
+                      <button
+                        (click)="openEditForm(user); $event.stopPropagation()"
+                        class="text-gray-400 hover:text-primary transition-colors p-1"
+                        title="Bearbeiten"
+                      >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                        </svg>
+                      </button>
+                    </td>
                   </tr>
                 }
                 @if (filteredUsers().length === 0) {
                   <tr>
-                    <td colspan="7" class="px-4 py-8 text-center text-gray-400 text-sm">Keine Benutzer gefunden</td>
+                    <td colspan="8" class="px-4 py-8 text-center text-gray-400 text-sm">Keine Benutzer gefunden</td>
                   </tr>
                 }
               </tbody>
@@ -534,7 +546,12 @@ import { ROLLEN, BERECHTIGUNGEN, AUDIT_TRAIL } from './users-stammdaten';
 
             <!-- Aktionen -->
             <div class="flex justify-end gap-3 pt-4 border-t border-gray-200">
-              <button (click)="cancelForm()" class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">Abbrechen</button>
+              <button (click)="cancelForm()" class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+                </svg>
+                Zurueck
+              </button>
               <button (click)="saveUser()" [disabled]="saving()" class="px-6 py-2 text-sm font-medium text-white bg-primary hover:bg-primary-dark rounded-lg transition-colors disabled:opacity-50">
                 @if (saving()) {
                   <span class="flex items-center gap-2">
