@@ -1,7 +1,7 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
-import { SetupService } from '../../services/setup.service';
+import { SetupService, SmtpKonfiguration, SetupMandant } from '../../services/setup.service';
 import { SetupSmtpComponent } from './setup-smtp.component';
 import { SetupMandantComponent } from './setup-mandant.component';
 import { SetupSuperuserComponent } from './setup-superuser.component';
@@ -54,13 +54,23 @@ type SetupSchritt = 'smtp' | 'mandant' | 'superuser' | 'fertig';
         <div class="bg-white rounded-2xl shadow-lg border border-gray-200 p-8">
           @switch (aktuellerSchritt()) {
             @case ('smtp') {
-              <app-setup-smtp (completed)="onSmtpAbgeschlossen()"></app-setup-smtp>
+              <app-setup-smtp
+                [initialData]="gespeicherteSmtpDaten()"
+                (completed)="onSmtpAbgeschlossen($event)">
+              </app-setup-smtp>
             }
             @case ('mandant') {
-              <app-setup-mandant (completed)="onMandantAbgeschlossen()"></app-setup-mandant>
+              <app-setup-mandant
+                [initialData]="gespeicherteMandantDaten()"
+                (completed)="onMandantAbgeschlossen($event)"
+                (zurueck)="onZurueckZuSmtp()">
+              </app-setup-mandant>
             }
             @case ('superuser') {
-              <app-setup-superuser (completed)="onSuperuserAbgeschlossen()"></app-setup-superuser>
+              <app-setup-superuser
+                (completed)="onSuperuserAbgeschlossen()"
+                (zurueck)="onZurueckZuMandant()">
+              </app-setup-superuser>
             }
             @case ('fertig') {
               <div class="text-center py-8">
@@ -85,6 +95,8 @@ type SetupSchritt = 'smtp' | 'mandant' | 'superuser' | 'fertig';
 })
 export class SetupComponent implements OnInit {
   readonly aktuellerSchritt = signal<SetupSchritt>('smtp');
+  readonly gespeicherteSmtpDaten = signal<SmtpKonfiguration | null>(null);
+  readonly gespeicherteMandantDaten = signal<SetupMandant | null>(null);
 
   readonly schritte = [
     { key: 'smtp' as const, label: 'SMTP' },
@@ -120,12 +132,14 @@ export class SetupComponent implements OnInit {
     });
   }
 
-  onSmtpAbgeschlossen(): void {
+  onSmtpAbgeschlossen(daten: SmtpKonfiguration): void {
+    this.gespeicherteSmtpDaten.set(daten);
     this.abgeschlosseneSchritte.add('smtp');
     this.aktuellerSchritt.set('mandant');
   }
 
-  onMandantAbgeschlossen(): void {
+  onMandantAbgeschlossen(daten: SetupMandant): void {
+    this.gespeicherteMandantDaten.set(daten);
     this.abgeschlosseneSchritte.add('mandant');
     this.aktuellerSchritt.set('superuser');
   }
@@ -133,6 +147,14 @@ export class SetupComponent implements OnInit {
   onSuperuserAbgeschlossen(): void {
     this.abgeschlosseneSchritte.add('superuser');
     this.aktuellerSchritt.set('fertig');
+  }
+
+  onZurueckZuSmtp(): void {
+    this.aktuellerSchritt.set('smtp');
+  }
+
+  onZurueckZuMandant(): void {
+    this.aktuellerSchritt.set('mandant');
   }
 
   zumLogin(): void {

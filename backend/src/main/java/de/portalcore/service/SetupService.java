@@ -114,22 +114,35 @@ public class SetupService {
         validateNichtInitialisiert();
         validateSmtpVorhanden();
 
-        Tenant tenant = Tenant.builder()
-                .id("t-" + UUID.randomUUID().toString().substring(0, 8))
-                .name(request.name())
-                .shortName(request.kuerzel())
-                .strasse(request.strasse())
-                .hausnummer(request.hausnummer())
-                .plz(request.plz())
-                .ort(request.ort())
-                .telefon(request.telefon())
-                .email(request.email())
-                .aktiv(true)
-                .build();
+        Tenant tenant = tenantRepo.findAll().stream().findFirst().orElse(null);
+        if (tenant != null) {
+            tenant.setName(request.name());
+            tenant.setShortName(request.kuerzel());
+            tenant.setStrasse(request.strasse());
+            tenant.setHausnummer(request.hausnummer());
+            tenant.setPlz(request.plz());
+            tenant.setOrt(request.ort());
+            tenant.setTelefon(request.telefon());
+            tenant.setEmail(request.email());
+            log.info("Default-Mandant aktualisiert: id={}, name={}", tenant.getId(), tenant.getName());
+        } else {
+            tenant = Tenant.builder()
+                    .id("t-" + UUID.randomUUID().toString().substring(0, 8))
+                    .name(request.name())
+                    .shortName(request.kuerzel())
+                    .strasse(request.strasse())
+                    .hausnummer(request.hausnummer())
+                    .plz(request.plz())
+                    .ort(request.ort())
+                    .telefon(request.telefon())
+                    .email(request.email())
+                    .aktiv(true)
+                    .build();
+            log.info("Default-Mandant angelegt: id={}, name={}", tenant.getId(), tenant.getName());
+        }
 
         tenant = tenantRepo.save(tenant);
         markiereSetupSchritt(s -> s.setSetupMandantAbgeschlossen(true));
-        log.info("Default-Mandant angelegt: id={}, name={}", tenant.getId(), tenant.getName());
         return tenant;
     }
 

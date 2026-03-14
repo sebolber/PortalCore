@@ -1,7 +1,9 @@
-import { Component, EventEmitter, Output, signal } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { SetupService, SmtpKonfiguration } from '../../services/setup.service';
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 @Component({
   selector: 'app-setup-smtp',
@@ -66,8 +68,12 @@ import { SetupService, SmtpKonfiguration } from '../../services/setup.service';
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Absender-E-Mail *</label>
-          <input type="email" [(ngModel)]="smtp.absenderEmail" placeholder="noreply&#64;beispiel.de"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#006EC7] focus:border-transparent outline-none" />
+          <input type="email" [(ngModel)]="smtp.absenderEmail" (blur)="validateEmail()"
+            placeholder="noreply&#64;beispiel.de"
+            [class]="emailFehler() ? 'w-full px-3 py-2 border border-red-400 rounded-lg focus:ring-2 focus:ring-red-400 focus:border-transparent outline-none' : 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#006EC7] focus:border-transparent outline-none'" />
+          @if (emailFehler()) {
+            <p class="text-xs text-red-600 mt-1">{{ emailFehler() }}</p>
+          }
         </div>
       </div>
 
@@ -99,10 +105,12 @@ import { SetupService, SmtpKonfiguration } from '../../services/setup.service';
     </div>
   `
 })
-export class SetupSmtpComponent {
-  @Output() completed = new EventEmitter<void>();
+export class SetupSmtpComponent implements OnInit {
+  @Input() initialData: SmtpKonfiguration | null = null;
+  @Output() completed = new EventEmitter<SmtpKonfiguration>();
 
   readonly error = signal('');
+  readonly emailFehler = signal('');
   readonly testSuccess = signal('');
   readonly testing = signal(false);
   readonly saving = signal(false);
@@ -119,6 +127,21 @@ export class SetupSmtpComponent {
   };
 
   constructor(private setupService: SetupService) {}
+
+  ngOnInit(): void {
+    if (this.initialData) {
+      this.smtp = { ...this.initialData };
+    }
+  }
+
+  validateEmail(): void {
+    const email = this.smtp.absenderEmail?.trim();
+    if (email && !EMAIL_PATTERN.test(email)) {
+      this.emailFehler.set('Bitte geben Sie eine gueltige E-Mail-Adresse ein (z.B. noreply@beispiel.de).');
+    } else {
+      this.emailFehler.set('');
+    }
+  }
 
   testVerbindung(): void {
     if (!this.validateForm()) return;
@@ -146,7 +169,7 @@ export class SetupSmtpComponent {
     this.setupService.speichereSmtp(this.smtp).subscribe({
       next: () => {
         this.saving.set(false);
-        this.completed.emit();
+        this.completed.emit({ ...this.smtp });
       },
       error: (err) => {
         this.saving.set(false);
@@ -168,6 +191,12 @@ export class SetupSmtpComponent {
       this.error.set('Absender-E-Mail ist erforderlich.');
       return false;
     }
+    if (!EMAIL_PATTERN.test(this.smtp.absenderEmail.trim())) {
+      this.emailFehler.set('Bitte geben Sie eine gueltige E-Mail-Adresse ein (z.B. noreply@beispiel.de).');
+      this.error.set('Absender-E-Mail ist ungueltig.');
+      return false;
+    }
+    this.emailFehler.set('');
     return true;
   }
 }

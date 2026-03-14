@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { SetupService, SetupSuperuser } from '../../services/setup.service';
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 @Component({
   selector: 'app-setup-superuser',
   standalone: true,
@@ -27,8 +29,12 @@ import { SetupService, SetupSuperuser } from '../../services/setup.service';
         </div>
         <div class="md:col-span-2">
           <label class="block text-sm font-medium text-gray-700 mb-1">E-Mail-Adresse * (dient als Login)</label>
-          <input type="email" [(ngModel)]="superuser.email" placeholder="admin&#64;beispiel.de"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#006EC7] focus:border-transparent outline-none" />
+          <input type="email" [(ngModel)]="superuser.email" (blur)="validateEmail()"
+            placeholder="admin&#64;beispiel.de"
+            [class]="emailFehler() ? 'w-full px-3 py-2 border border-red-400 rounded-lg focus:ring-2 focus:ring-red-400 focus:border-transparent outline-none' : 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#006EC7] focus:border-transparent outline-none'" />
+          @if (emailFehler()) {
+            <p class="text-xs text-red-600 mt-1">{{ emailFehler() }}</p>
+          }
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Passwort * (min. 8 Zeichen)</label>
@@ -64,7 +70,11 @@ import { SetupService, SetupSuperuser } from '../../services/setup.service';
         <div class="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">{{ error() }}</div>
       }
 
-      <div class="flex justify-end pt-4">
+      <div class="flex justify-between pt-4">
+        <button (click)="zurueck.emit()"
+          class="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+          Zurueck
+        </button>
         <button (click)="speichern()" [disabled]="saving()"
           class="px-6 py-2 text-sm font-medium text-white bg-[#006EC7] rounded-lg hover:bg-[#005ba3] disabled:opacity-50 transition-colors">
           @if (saving()) {
@@ -79,8 +89,10 @@ import { SetupService, SetupSuperuser } from '../../services/setup.service';
 })
 export class SetupSuperuserComponent {
   @Output() completed = new EventEmitter<void>();
+  @Output() zurueck = new EventEmitter<void>();
 
   readonly error = signal('');
+  readonly emailFehler = signal('');
   readonly saving = signal(false);
 
   superuser: SetupSuperuser = {
@@ -108,6 +120,15 @@ export class SetupSuperuserComponent {
   ];
 
   constructor(private setupService: SetupService) {}
+
+  validateEmail(): void {
+    const email = this.superuser.email?.trim();
+    if (email && !EMAIL_PATTERN.test(email)) {
+      this.emailFehler.set('Bitte geben Sie eine gueltige E-Mail-Adresse ein (z.B. admin@beispiel.de).');
+    } else {
+      this.emailFehler.set('');
+    }
+  }
 
   speichern(): void {
     if (!this.validateForm()) return;
@@ -139,6 +160,12 @@ export class SetupSuperuserComponent {
       this.error.set('E-Mail ist erforderlich.');
       return false;
     }
+    if (!EMAIL_PATTERN.test(this.superuser.email.trim())) {
+      this.emailFehler.set('Bitte geben Sie eine gueltige E-Mail-Adresse ein (z.B. admin@beispiel.de).');
+      this.error.set('E-Mail-Adresse ist ungueltig.');
+      return false;
+    }
+    this.emailFehler.set('');
     if (!this.superuser.passwort || this.superuser.passwort.length < 8) {
       this.error.set('Passwort muss mindestens 8 Zeichen lang sein.');
       return false;
