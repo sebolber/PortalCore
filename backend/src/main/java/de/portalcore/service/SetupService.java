@@ -10,11 +10,15 @@ import de.portalcore.entity.SystemInitialisierung;
 import de.portalcore.entity.Tenant;
 import de.portalcore.entity.PortalUser;
 import de.portalcore.enums.UserStatus;
+import de.portalcore.entity.Gruppe;
+import de.portalcore.entity.UserTenant;
+import de.portalcore.repository.GruppeRepository;
 import de.portalcore.repository.PortalParameterRepository;
 import de.portalcore.repository.SmtpKonfigurationRepository;
 import de.portalcore.repository.SystemInitialisierungRepository;
 import de.portalcore.repository.PortalUserRepository;
 import de.portalcore.repository.TenantRepository;
+import de.portalcore.repository.UserTenantRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -31,11 +35,15 @@ public class SetupService {
 
     private static final Logger log = LoggerFactory.getLogger(SetupService.class);
 
+    private static final String ADMIN_GRUPPE_ID = "g-admin";
+
     private final SystemInitialisierungRepository systemRepo;
     private final SmtpKonfigurationRepository smtpRepo;
     private final TenantRepository tenantRepo;
     private final PortalUserRepository userRepo;
     private final PortalParameterRepository parameterRepo;
+    private final GruppeRepository gruppeRepo;
+    private final UserTenantRepository userTenantRepo;
     private final SmtpValidierungService smtpValidierung;
     private final PasswordEncoder passwordEncoder;
 
@@ -44,6 +52,8 @@ public class SetupService {
                         TenantRepository tenantRepo,
                         PortalUserRepository userRepo,
                         PortalParameterRepository parameterRepo,
+                        GruppeRepository gruppeRepo,
+                        UserTenantRepository userTenantRepo,
                         SmtpValidierungService smtpValidierung,
                         PasswordEncoder passwordEncoder) {
         this.systemRepo = systemRepo;
@@ -51,6 +61,8 @@ public class SetupService {
         this.tenantRepo = tenantRepo;
         this.userRepo = userRepo;
         this.parameterRepo = parameterRepo;
+        this.gruppeRepo = gruppeRepo;
+        this.userTenantRepo = userTenantRepo;
         this.smtpValidierung = smtpValidierung;
         this.passwordEncoder = passwordEncoder;
     }
@@ -148,9 +160,13 @@ public class SetupService {
                 .build();
 
         userRepo.save(superuser);
+
+        ordneAdminGruppeZu(superuser);
+        erstelleUserTenant(superuser, defaultTenant);
+
         markiereSetupSchritt(s -> s.setSetupSuperuserAbgeschlossen(true));
         markiereAlsInitialisiert(request.email());
-        log.info("Superuser angelegt und System als initialisiert markiert");
+        log.info("Superuser angelegt, Gruppe Administration zugeordnet, System als initialisiert markiert");
     }
 
     private SystemInitialisierung findSystemRecord() {
@@ -200,6 +216,25 @@ public class SetupService {
         if (userRepo.findByEmail(email.toLowerCase().trim()).isPresent()) {
             throw new IllegalArgumentException("Ein Benutzer mit dieser E-Mail-Adresse existiert bereits.");
         }
+    }
+
+    private void ordneAdminGruppeZu(PortalUser superuser) {
+        Gruppe adminGruppe = gruppeRepo.findById(ADMIN_GRUPPE_ID)
+                .orElseThrow(() -> new IllegalStateException("Systemgruppe 'Administration' (g-admin) fehlt in der Datenbank."));
+        superuser.getGruppen().add(adminGruppe);
+        userRepo.save(superuser);
+        log.info("Superuser '{}' der Gruppe '{}' zugeordnet.", superuser.getEmail(), adminGruppe.getName());
+    }
+
+    private void erstelleUserTenant(PortalUser superuser, Tenant tenant) {
+        UserTenant userTenant = UserTenant.builder()
+                .userId(superuser.getId())
+                .tenantId(tenant.getId())
+                .istStandard(true)
+                .aktiv(true)
+                .zugeordnetVon("setup-wizard")
+                .build();
+        userTenantRepo.save(userTenant);
     }
 
     private Tenant findDefaultTenant() {

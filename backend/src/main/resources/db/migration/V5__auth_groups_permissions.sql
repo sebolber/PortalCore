@@ -172,7 +172,7 @@ CREATE INDEX idx_audit_log_tenant ON audit_log(tenant_id);
 CREATE INDEX idx_audit_log_zeit ON audit_log(zeitstempel);
 
 -- =====================================================
--- 11. VORKONFIGURIERTE GRUPPEN
+-- 11. VORKONFIGURIERTE GRUPPEN (Systemgruppen)
 -- =====================================================
 
 -- Administration (alle Rechte)
@@ -182,6 +182,10 @@ VALUES ('g-admin', 'Administration', 'Vollzugriff auf alle Funktionen des Portal
 -- Lesender Zugriff (nur lesen)
 INSERT INTO gruppen (id, name, beschreibung, system_gruppe, farbe, erstellt_von)
 VALUES ('g-leser', 'Lesender Zugriff', 'Nur-Lese-Zugriff auf alle sichtbaren Bereiche. Kein Schreiben oder Loeschen moeglich.', true, '#887D75', 'system');
+
+-- Sachbearbeiter
+INSERT INTO gruppen (id, name, beschreibung, system_gruppe, farbe, erstellt_von)
+VALUES ('g-sachbearbeiter', 'Sachbearbeiter', 'Bearbeitung von Faellen, Aufgaben und fachlichen Anwendungsfaellen.', true, '#28A745', 'system');
 
 -- Use Cases fuer Administration (alle Rechte)
 INSERT INTO gruppen_berechtigungen (id, gruppe_id, use_case, use_case_label, anzeigen, lesen, schreiben, loeschen, app_id) VALUES
@@ -211,53 +215,10 @@ INSERT INTO gruppen_berechtigungen (id, gruppe_id, use_case, use_case_label, anz
 ('gb-l-06', 'g-leser', 'batch',            'Batch-Jobs',                 true, true, false, false, 'portal'),
 ('gb-l-07', 'g-leser', 'einstellungen',    'Einstellungen',              true, true, false, false, 'portal');
 
--- Bestehende Benutzer den neuen Gruppen zuordnen
--- Admins (u-1, u-5) -> Administration
-INSERT INTO user_gruppen (user_id, gruppe_id, zugeordnet_von) VALUES
-('u-1', 'g-admin', 'system'),
-('u-5', 'g-admin', 'system');
-
--- Leser (u-7, u-12) -> Lesender Zugriff
-INSERT INTO user_gruppen (user_id, gruppe_id, zugeordnet_von) VALUES
-('u-7', 'g-leser', 'system'),
-('u-12', 'g-leser', 'system');
-
--- Manager und Sachbearbeiter bekommen auch Gruppen
-INSERT INTO gruppen (id, name, beschreibung, system_gruppe, farbe, erstellt_von)
-VALUES ('g-sachbearbeiter', 'Sachbearbeiter', 'Bearbeitung von Faellen, Aufgaben und fachlichen Anwendungsfaellen.', true, '#28A745', 'system');
-
+-- Use Cases fuer Sachbearbeiter
 INSERT INTO gruppen_berechtigungen (id, gruppe_id, use_case, use_case_label, anzeigen, lesen, schreiben, loeschen, app_id) VALUES
 ('gb-s-01', 'g-sachbearbeiter', 'dashboard',     'Dashboard',           true, true, false, false, 'portal'),
 ('gb-s-02', 'g-sachbearbeiter', 'appstore',      'App Store',           true, true, false, false, 'portal'),
 ('gb-s-03', 'g-sachbearbeiter', 'nachrichten',   'Nachrichten',         true, true, true, false, 'portal'),
 ('gb-s-04', 'g-sachbearbeiter', 'aufgaben',      'Aufgabensteuerung',   true, true, true, false, 'portal'),
 ('gb-s-05', 'g-sachbearbeiter', 'einstellungen', 'Einstellungen',       true, true, true, false, 'portal');
-
-INSERT INTO user_gruppen (user_id, gruppe_id, zugeordnet_von) VALUES
-('u-2', 'g-sachbearbeiter', 'system'),
-('u-3', 'g-sachbearbeiter', 'system'),
-('u-4', 'g-sachbearbeiter', 'system'),
-('u-6', 'g-sachbearbeiter', 'system'),
-('u-8', 'g-sachbearbeiter', 'system'),
-('u-9', 'g-sachbearbeiter', 'system'),
-('u-10', 'g-sachbearbeiter', 'system'),
-('u-11', 'g-sachbearbeiter', 'system');
-
--- Mandanten mit Kontaktdaten anreichern
-UPDATE tenants SET
-    strasse = 'Kopenhagener Str.', hausnummer = '1', plz = '44269', ort = 'Dortmund',
-    telefon = '+49 231 4193-0', email = 'info@aok-nordwest.de',
-    webseite = 'https://www.aok.de/nordwest', ansprechpartner = 'Sabine Mueller'
-WHERE id = 't-aok-nw';
-
-UPDATE tenants SET
-    strasse = 'Carl-Wery-Str.', hausnummer = '28', plz = '81739', ort = 'Muenchen',
-    telefon = '+49 89 62730-0', email = 'info@aok-bayern.de',
-    webseite = 'https://www.aok.de/bayern', ansprechpartner = 'Lisa Hoffmann'
-WHERE id = 't-aok-by';
-
-UPDATE tenants SET
-    strasse = 'Bramfelder Str.', hausnummer = '140', plz = '22305', ort = 'Hamburg',
-    telefon = '+49 40 46065-0', email = 'info@tk.de',
-    webseite = 'https://www.tk.de', ansprechpartner = 'Peter Becker'
-WHERE id = 't-tk';

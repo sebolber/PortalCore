@@ -11,17 +11,10 @@
 # Entwicklungs-/Testumgebungen eingetragen werden. In Produktion
 # sollten diese ueber die Admin-Oberflaeche konfiguriert werden.
 
-# Super-User fuer die Erstinstallation
-# Wird nur angelegt wenn noch kein Benutzer mit dieser E-Mail existiert.
-superUser:
-  vorname: Admin
-  nachname: Portal
-  email: admin@health-portal.de
-  tenantId: t-aok-nw
-
 # Parameter-Werte fuer die Erstinstallation
 # Schluessel muessen mit den param_key-Werten in der portal_parameters-Tabelle uebereinstimmen.
 # Nur leere Parameter werden ueberschrieben.
+# Super-User und Mandant werden ueber den Setup-Wizard angelegt.
 parameters:
   # SMTP-Konfiguration
   portal.email.smtp.host: ""
