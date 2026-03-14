@@ -55,6 +55,7 @@ public class DeploymentService {
         InstalledApp installed = findInstalledApp(installedAppId);
         PortalApp app = resolvePortalApp(installed);
 
+        validateAppId(app.getId());
         String containerName = CONTAINER_PREFIX + app.getId();
         installed.setContainerName(containerName);
         installed.setDeployStatus("DEPLOYING");
@@ -204,6 +205,16 @@ public class DeploymentService {
             installed.setDeployLog(logMessage);
             installedAppRepository.save(installed);
         });
+    }
+
+    private void validateAppId(String appId) {
+        if (appId == null || !appId.matches("^[a-zA-Z0-9][a-zA-Z0-9._-]*$")) {
+            throw new IllegalArgumentException("Ungueltige App-ID: " + appId);
+        }
+        Path resolved = Path.of(WORKSPACE_DIR, appId).toAbsolutePath().normalize();
+        if (!resolved.startsWith(Path.of(WORKSPACE_DIR).toAbsolutePath().normalize())) {
+            throw new SecurityException("Directory-Traversal erkannt fuer App-ID: " + appId);
+        }
     }
 
     private void appendLog(StringBuilder sb, String message) {

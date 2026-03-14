@@ -5,10 +5,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 /**
  * Kapselt Docker-CLI-Operationen: Pull, Build, Run, Stop, Status-Abfrage.
@@ -18,6 +20,8 @@ public class DockerContainerService {
 
     private static final Logger log = LoggerFactory.getLogger(DockerContainerService.class);
     private static final int COMMAND_TIMEOUT_SECONDS = 300;
+    private static final Pattern SAFE_ENV_KEY = Pattern.compile("^[A-Za-z_][A-Za-z0-9_]*$");
+    private static final Pattern SAFE_NAME = Pattern.compile("^[a-zA-Z0-9][a-zA-Z0-9._-]*$");
 
     public void pullImage(String imageName) {
         executeCommand("docker", "pull", imageName);
@@ -37,8 +41,10 @@ public class DockerContainerService {
 
         if (envVars != null && !envVars.isBlank()) {
             for (String envPair : envVars.split(",")) {
+                String trimmed = envPair.trim();
+                validateEnvVar(trimmed);
                 cmd.add("-e");
-                cmd.add(envPair.trim());
+                cmd.add(trimmed);
             }
         }
         cmd.add(imageName);
@@ -81,11 +87,43 @@ public class DockerContainerService {
     }
 
     public void cloneRepository(String repositoryUrl, String targetDir) {
+        validateRepositoryUrl(repositoryUrl);
         executeCommand("git", "clone", "--depth", "1", repositoryUrl, targetDir);
     }
 
     public void removeDirectory(String path) {
+        validatePathWithinWorkspace(path);
         executeCommand("rm", "-rf", path);
+    }
+
+    private void validateEnvVar(String envPair) {
+        int eqIdx = envPair.indexOf('=');
+        if (eqIdx <= 0) {
+            throw new IllegalArgumentException("Ungueltige Umgebungsvariable: " + envPair);
+        }
+        String key = envPair.substring(0, eqIdx);
+        if (!SAFE_ENV_KEY.matcher(key).matches()) {
+            throw new IllegalArgumentException("Ungueltiger Variablenname: " + key);
+        }
+    }
+
+    private void validateRepositoryUrl(String url) {
+        if (url == null || url.isBlank()) {
+            throw new IllegalArgumentException("Repository-URL darf nicht leer sein");
+        }
+        boolean isAllowed = url.startsWith("https://") || url.startsWith("http://")
+                || url.startsWith("git@") || url.startsWith("ssh://");
+        if (!isAllowed) {
+            throw new IllegalArgumentException("Nicht unterstuetztes URL-Schema: " + url);
+        }
+    }
+
+    private void validatePathWithinWorkspace(String path) {
+        Path resolved = Path.of(path).toAbsolutePath().normalize();
+        Path workspace = Path.of("/tmp/portal-deployments").toAbsolutePath().normalize();
+        if (!resolved.startsWith(workspace)) {
+            throw new SecurityException("Pfad-Zugriff ausserhalb des Arbeitsverzeichnisses: " + path);
+        }
     }
 
     private String executeCommand(String... command) {

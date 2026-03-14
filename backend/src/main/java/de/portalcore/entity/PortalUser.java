@@ -1,5 +1,6 @@
 package de.portalcore.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import de.portalcore.enums.UserStatus;
 import jakarta.persistence.*;
@@ -29,6 +30,7 @@ public class PortalUser {
     @Column(nullable = false, unique = true)
     private String email;
 
+    @JsonIgnore
     @Column(name = "iam_id")
     private String iamId;
 

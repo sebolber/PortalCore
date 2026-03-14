@@ -259,11 +259,11 @@ public class SetupService {
         boolean isSsl = "SSL".equals(request.verschluesselung());
         boolean isTls = "TLS".equals(request.verschluesselung());
 
+        // Passwort wird NICHT in portal_parameters gespeichert (nur in smtp_konfiguration verschluesselt)
         Map<String, String> params = Map.of(
                 "portal.email.smtp.host", request.host(),
                 "portal.email.smtp.port", String.valueOf(request.port()),
                 "portal.email.smtp.username", request.benutzername() != null ? request.benutzername() : "",
-                "portal.email.smtp.password", request.passwort() != null ? request.passwort() : "",
                 "portal.email.smtp.auth", String.valueOf(request.authentifizierungAktiv()),
                 "portal.email.smtp.starttls", String.valueOf(isTls),
                 "portal.email.smtp.ssl", String.valueOf(isSsl),
