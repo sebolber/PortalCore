@@ -1,9 +1,11 @@
 package de.portalcore.service;
 
 import de.portalcore.entity.PortalUser;
+import de.portalcore.entity.Tenant;
 import de.portalcore.entity.UserAdresse;
 import de.portalcore.enums.UserStatus;
 import de.portalcore.repository.PortalUserRepository;
+import de.portalcore.repository.TenantRepository;
 import de.portalcore.repository.UserAdresseRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
@@ -20,13 +22,16 @@ public class UserService {
 
     private final PortalUserRepository portalUserRepository;
     private final UserAdresseRepository adresseRepository;
+    private final TenantRepository tenantRepository;
     private final AuditService auditService;
 
     public UserService(PortalUserRepository portalUserRepository,
                        UserAdresseRepository adresseRepository,
+                       TenantRepository tenantRepository,
                        AuditService auditService) {
         this.portalUserRepository = portalUserRepository;
         this.adresseRepository = adresseRepository;
+        this.tenantRepository = tenantRepository;
         this.auditService = auditService;
     }
 
@@ -50,6 +55,10 @@ public class UserService {
                 (user.getNachname() != null && !user.getNachname().isEmpty() ? user.getNachname().substring(0, 1) : "")
             );
         }
+        resolveTenant(user);
+        if (user.getStatus() == null) {
+            user.setStatus(UserStatus.AKTIV);
+        }
         user.setErstelltAm(LocalDateTime.now());
         user.setLetzteAenderungAm(LocalDateTime.now());
         return portalUserRepository.save(user);
@@ -62,12 +71,26 @@ public class UserService {
         existing.setNachname(updatedUser.getNachname());
         existing.setEmail(updatedUser.getEmail());
         existing.setIamId(updatedUser.getIamId());
-        existing.setTenant(updatedUser.getTenant());
-        existing.setStatus(updatedUser.getStatus());
-        existing.setRollen(updatedUser.getRollen());
-        existing.setLetzterLogin(updatedUser.getLetzterLogin());
+        resolveTenant(updatedUser);
+        if (updatedUser.getTenant() != null) {
+            existing.setTenant(updatedUser.getTenant());
+        }
+        existing.setStatus(updatedUser.getStatus() != null ? updatedUser.getStatus() : existing.getStatus());
+        if (updatedUser.getRollen() != null) {
+            existing.setRollen(updatedUser.getRollen());
+        }
+        if (updatedUser.getLetzterLogin() != null) {
+            existing.setLetzterLogin(updatedUser.getLetzterLogin());
+        }
         existing.setIamSync(updatedUser.isIamSync());
-        existing.setInitialen(updatedUser.getInitialen());
+        if (updatedUser.getInitialen() != null && !updatedUser.getInitialen().isBlank()) {
+            existing.setInitialen(updatedUser.getInitialen());
+        } else if (existing.getInitialen() == null || existing.getInitialen().isBlank()) {
+            existing.setInitialen(
+                (updatedUser.getVorname() != null && !updatedUser.getVorname().isEmpty() ? updatedUser.getVorname().substring(0, 1) : "") +
+                (updatedUser.getNachname() != null && !updatedUser.getNachname().isEmpty() ? updatedUser.getNachname().substring(0, 1) : "")
+            );
+        }
         // Erweiterte Personendaten
         existing.setAnrede(updatedUser.getAnrede());
         existing.setTitel(updatedUser.getTitel());
@@ -205,5 +228,17 @@ public class UserService {
     @Transactional
     public void deleteAdresse(String adresseId) {
         adresseRepository.deleteById(adresseId);
+    }
+
+    private void resolveTenant(PortalUser user) {
+        if (user.getTenant() != null) {
+            return;
+        }
+        String mandantId = user.getMandantId();
+        if (mandantId != null && !mandantId.isBlank()) {
+            Tenant tenant = tenantRepository.findById(mandantId)
+                    .orElseThrow(() -> new EntityNotFoundException("Mandant nicht gefunden: " + mandantId));
+            user.setTenant(tenant);
+        }
     }
 }

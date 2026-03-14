@@ -26,7 +26,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(AbstractHttpConfigurer::disable)
+            .csrf(csrf -> csrf.disable())
             .cors(cors -> {})
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .headers(headers -> headers
@@ -42,6 +42,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 // Actuator / Health
                 .requestMatchers("/actuator/**").permitAll()
+                // Fehlerseite muss erreichbar sein
+                .requestMatchers("/error").permitAll()
                 // Alle anderen Endpunkte: authentifiziert
                 .requestMatchers("/**").authenticated()
                 .anyRequest().permitAll()

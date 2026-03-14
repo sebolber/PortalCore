@@ -37,6 +37,9 @@ public class PortalUser {
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Tenant tenant;
 
+    @Transient
+    private String mandantId;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private UserStatus status;
